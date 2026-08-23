@@ -1,10 +1,10 @@
 [
   {
-    "id": "camera-chase-pullback",
+    "id": "art-neon-wireframe",
     "behavior": "chase-pullback",
-    "style": "graybox",
-    "hud": true,
-    "caption": "§6 chase-pullback — eases back and up, wider FOV, car centred",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/camera-chase-pullback.mp4"
+    "style": "neon",
+    "hud": false,
+    "caption": "Art gate — the same jump, neon wireframe",
+    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/art-neon-wireframe.mp4"
   }
 ]

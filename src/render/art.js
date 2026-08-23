@@ -34,27 +34,31 @@ const PALETTES = {
       wheel: { color: 0x2b2f34, rough: 0.95 },
       glass: { color: 0x3b444d, rough: 0.25, metal: 0.5 },
     },
-    grid: 0x5b636b, lines: false,
+    grid: 0x000000, gridOpacity: 0.13, lines: false,
   },
   // Rush 2049's own arcade palette, pushed: black void, glowing edges.
+  //
+  // The fills have to be nearly black. Give the faces any real brightness and
+  // they swallow the one-pixel edges completely and the whole thing reads as
+  // flat blue plastic rather than wireframe.
   neon: {
-    background: 0x05060c, fog: 0x05060c, fogNear: 120, fogFar: 780,
-    hemiSky: 0x1a2440, hemiGround: 0x05060c, hemiInt: 0.5,
-    sunColor: 0x86f2ff, sunInt: 0.9, ambient: 0x0a1020,
+    background: 0x03040a, fog: 0x03040a, fogNear: 140, fogFar: 820,
+    hemiSky: 0x0a1226, hemiGround: 0x03040a, hemiInt: 0.35,
+    sunColor: 0x86f2ff, sunInt: 0.55, ambient: 0x05070f,
     roles: {
-      deck: { color: 0x0a1020, rough: 1, emissive: 0x0a1a2e },
-      ramp: { color: 0x0d1430, emissive: 0x1b2f7a, edge: 0x49e0ff },
-      roof: { color: 0x0c1226, emissive: 0x152a5c, edge: 0x3ad6ff },
-      billboard: { color: 0x120a26, emissive: 0x3d1268, edge: 0xff3df0 },
-      pool: { color: 0x061a1c, emissive: 0x0a4a4a, edge: 0x2bffd6 },
-      secret: { color: 0x241004, emissive: 0x7a3c05, edge: 0xffa521 },
-      leg: { color: 0x080c18, emissive: 0x101a30, edge: 0x2a5f8a },
-      body: { color: 0x0c0f1c, emissive: 0x1d1030, edge: 0xff2bd0 },
-      panel: { color: 0x0c0f1c, emissive: 0x102030, edge: 0x49e0ff },
-      wheel: { color: 0x05060c, emissive: 0x1a0a2e, edge: 0xa040ff },
-      glass: { color: 0x03050a, emissive: 0x0a2030, edge: 0x49e0ff },
+      deck: { color: 0x02030a, rough: 1, emissive: 0x03060f },
+      ramp: { color: 0x040719, emissive: 0x081026, edge: 0x49e0ff },
+      roof: { color: 0x040617, emissive: 0x070e22, edge: 0x3ad6ff },
+      billboard: { color: 0x0a0418, emissive: 0x180830, edge: 0xff3df0 },
+      pool: { color: 0x02100f, emissive: 0x04201e, edge: 0x2bffd6 },
+      secret: { color: 0x140802, emissive: 0x2c1604, edge: 0xffa521 },
+      leg: { color: 0x03050e, emissive: 0x060a16, edge: 0x2a5f8a },
+      body: { color: 0x08040f, emissive: 0x14061f, edge: 0xff2bd0 },
+      panel: { color: 0x041018, emissive: 0x07202e, edge: 0x49e0ff },
+      wheel: { color: 0x03040a, emissive: 0x0d0418, edge: 0xa040ff },
+      glass: { color: 0x02040a, emissive: 0x041420, edge: 0x49e0ff },
     },
-    grid: 0x1b3a6b, lines: true,
+    grid: 0x2ea8dc, gridOpacity: 0.42, lines: true,
   },
   // Flat, saturated, unlit-looking — SSX Tricky by way of a paper model.
   lowpoly: {
@@ -74,7 +78,7 @@ const PALETTES = {
       wheel: { color: 0x2e2b2a, rough: 1, flat: true },
       glass: { color: 0x8ecae6, rough: 1, flat: true },
     },
-    grid: 0x6b8f55, lines: false,
+    grid: 0x2f4a22, gridOpacity: 0.10, lines: false,
   },
 };
 
@@ -83,6 +87,7 @@ export class ArtDirector {
     this.scene = scene;
     this.renderer = renderer;
     this.style = null;
+    this.grid = null;
     this.registry = [];        // { mesh, role }
     this.edges = [];           // wireframe overlays, neon only
     this.materials = new Map();
@@ -136,6 +141,9 @@ export class ArtDirector {
         metalness: spec.metal ?? 0.0,
         emissive: spec.emissive ?? 0x000000,
         emissiveIntensity: spec.emissive ? 1.0 : 0,
+        // Neon draws the wireframe on top; without this the near faces of a
+        // ramp hide the edges of everything behind them.
+        polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
         flatShading: !!spec.flat || this.style === 'lowpoly',
       });
       this.materials.set(key, mat);
@@ -160,6 +168,10 @@ export class ArtDirector {
     this.renderer.toneMappingExposure = style === 'neon' ? 1.25 : TUNING.RENDER.EXPOSURE;
 
     for (const { mesh, role } of this.registry) this._material(mesh, role);
+    if (this.grid) {
+      this.grid.material.color.setHex(p.grid);
+      this.grid.material.opacity = p.gridOpacity ?? 0.13;
+    }
     this._setEdges(p.lines);
   }
 
@@ -172,7 +184,10 @@ export class ArtDirector {
         if (!p || !p.edge) continue;
         const line = new THREE.LineSegments(
           new THREE.EdgesGeometry(mesh.geometry, 24),
-          new THREE.LineBasicMaterial({ color: p.edge, transparent: true, opacity: 0.95 })
+          new THREE.LineBasicMaterial({
+            color: p.edge, transparent: true, opacity: 1,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+          })
         );
         line.raycast = () => {};
         mesh.add(line);

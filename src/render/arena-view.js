@@ -31,8 +31,13 @@ export function buildArenaView(scene, art) {
   grid.material.transparent = true;
   grid.material.opacity = 0.13;
   grid.material.depthWrite = false;
+  // GridHelper bakes its centre-line colours into vertex colours, and while
+  // vertexColors is on, material.color is ignored — so the art style could not
+  // recolour the ground at all.
+  grid.material.vertexColors = false;
   group.add(grid);
   group.userData.grid = grid;
+  art.grid = grid;   // the grid is the ground in neon, so the style owns it
 
   // ── Ramps ───────────────────────────────────────────────────────────────
   for (const r of park.ramps) {

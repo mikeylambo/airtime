@@ -34,6 +34,8 @@
   #boot-msg { color: var(--hot); letter-spacing: .26em; font-size: .82rem; min-height: 1.2em; }
   #boot.ready #boot-msg { animation: blink 1.15s steps(2, start) infinite; }
   @keyframes blink { to { opacity: .25; } }
+  #boot .clips { color:#59d0ff; text-decoration:none; letter-spacing:.24em; font-size:.68rem; border:1px solid #24485c; padding:.5rem 1.1rem; border-radius:2px; }
+  #boot .clips:hover { background:#59d0ff; color:#04252f; }
   #boot .build { position: absolute; bottom: 1.2rem; left: 0; right: 0; color: #4a5b6b; font-size: .68rem; letter-spacing: .18em; }
 
   /* ── HUD (§2.1) ────────────────────────────────────────────────────────── */
@@ -118,6 +120,7 @@
     <h1>AIRTIME</h1>
     <div class="tag">RUSH 2049 STUNT FRAME — GATE A</div>
     <div id="boot-msg">LOADING PHYSICS…</div>
+    <a class="clips" href="./clips.html">GATE A CLIPS →</a>
     <div class="build">THREE.JS + RAPIER · TEASE-THRUST · BODY-AS-TRICK · DYNAMIC AIRTIME CAMERA</div>
   </div>
   <script type="module" src="/src/main.js"></script>

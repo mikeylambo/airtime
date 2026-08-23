@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIRTIME — Gate A clips</title>
+<style>
+  :root { --ink:#eaf2f8; --dim:#8fa3b4; --faint:#5d7186; --accent:#59d0ff; --hot:#ff9f1c; --bg:#0b0f14; --card:#111823; --line:#1e2a36;
+          --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono); line-height:1.65; }
+  .wrap { max-width:1120px; margin:0 auto; padding:4rem 1.5rem 6rem; }
+  header { border-bottom:1px solid var(--line); padding-bottom:2rem; margin-bottom:3rem; }
+  h1 { margin:0 0 .4rem; font-size:clamp(2.2rem,7vw,4rem); letter-spacing:.18em; font-weight:800;
+       background:linear-gradient(180deg,#fff 10%,var(--accent) 60%,#2b6f92 100%);
+       -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { color:var(--dim); letter-spacing:.22em; font-size:.74rem; text-transform:uppercase; }
+  .lede { color:var(--dim); max-width:64ch; margin-top:1.4rem; font-size:.9rem; }
+  .lede b { color:var(--ink); font-weight:600; }
+  .play { display:inline-block; margin-top:1.6rem; padding:.7rem 1.5rem; border:1px solid var(--accent);
+          color:var(--accent); text-decoration:none; letter-spacing:.2em; font-size:.72rem; border-radius:2px; }
+  .play:hover { background:var(--accent); color:#04252f; }
+  h2 { font-size:.72rem; letter-spacing:.3em; color:var(--faint); text-transform:uppercase;
+       margin:3.5rem 0 1.2rem; font-weight:500; }
+  .grid { display:grid; gap:1.8rem; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); }
+  @media (max-width:960px){ .grid { grid-template-columns:1fr; } }
+  figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+  video { width:100%; display:block; background:#000; aspect-ratio:16/9; }
+  figcaption { padding:.9rem 1.1rem 1.1rem; }
+  .t { font-size:.8rem; color:var(--ink); letter-spacing:.06em; }
+  .d { font-size:.72rem; color:var(--dim); margin-top:.35rem; }
+  .note { margin-top:3rem; padding:1.2rem 1.4rem; border-left:2px solid var(--hot);
+          background:#150f07; color:var(--dim); font-size:.8rem; }
+  .note b { color:var(--hot); }
+  table { border-collapse:collapse; width:100%; font-size:.74rem; margin-top:1rem; }
+  th,td { text-align:left; padding:.45rem .8rem; border-bottom:1px solid var(--line); }
+  th { color:var(--faint); font-weight:500; letter-spacing:.12em; text-transform:uppercase; font-size:.64rem; }
+  td.n { color:var(--accent); }
+  footer { margin-top:4rem; padding-top:2rem; border-top:1px solid var(--line); color:var(--faint); font-size:.7rem; letter-spacing:.1em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AIRTIME</h1>
+    <div class="sub">Rush 2049 stunt frame · Gate A · Three.js + Rapier</div>
+    <p class="lede">
+      Every clip below is the <b>same jump</b> — same seed, same fixed timestep, same
+      scripted inputs. Only the thing being judged changes. The car launches at
+      61&nbsp;m/s off a 30° kicker, banks about 40° on one door, rolls back on the
+      other, spends a thrust burst on <b>CORRECT</b>, and lands on the hill.
+      Just under three seconds of air.
+    </p>
+    <a class="play" href="./index.html">▸ PLAY IT</a>
+  </header>
+
+  <h2>§6 — the dynamic airtime camera</h2>
+  <div class="grid" id="cameras"></div>
+
+  <h2>Art gate — the same jump, two looks</h2>
+  <div class="grid" id="art"></div>
+
+  <h2>The jump, measured</h2>
+  <table>
+    <tr><th>launch speed</th><td class="n">61.3 m/s</td><th>launch angle</th><td class="n">28.8°</td></tr>
+    <tr><th>apex</th><td class="n">30.9 m</td><th>airtime</th><td class="n">2.87 s</td></tr>
+    <tr><th>peak bank</th><td class="n">39°</td><th>landing</th><td class="n">4.9° · on the hill</td></tr>
+    <tr><th>neutral jump (no input)</th><td class="n">CLEAN, 1.6°</td><th>solver blow-ups</th><td class="n">0</td></tr>
+  </table>
+
+  <div class="note">
+    <b>What Gate A actually asks.</b> "A 3-second jump feels better to <i>watch</i>
+    than to <i>do</i>, parts visibly steer the air, and it still lands." The second
+    and third are measured — <code>npm run gate</code> checks all six of §5.1's
+    claims about what each panel does, and that the jump lands. The first is a
+    human call, and it is the reason these clips exist.
+  </div>
+
+  <footer>Items 1–4 of §12 · scoring, boost economy, frame screens, garage, replay theater and modes are deliberately not in this build.</footer>
+</div>
+
+<script>
+const CAMERAS = [
+  ['camera-chase-pullback', 'chase-pullback', 'The default. Eases back and up on launch, widens the FOV, keeps the car centred so the gap to the landing reads.'],
+  ['camera-orbit', 'orbit', 'Arms when the predicted hang time passes 2 s. One revolution around the car, then it hands back to chase on the descent.'],
+  ['camera-target-lock', 'landing-target lock', 'A tagged target sits in the forward cone, so car and target are framed in one shot and the lens narrows as the gap closes.'],
+];
+const ART = [
+  ['art-neon-wireframe', 'neon wireframe', 'Black void, glowing edges — Rush 2049’s own arcade palette pushed.'],
+  ['art-flat-lowpoly', 'flat low-poly', 'Flat saturated colour, no fog to speak of — SSX Tricky by way of a paper model.'],
+];
+const card = ([id, title, desc]) => `
+  <figure>
+    <video src="./clips/${id}.mp4" poster="./clips/${id}.png" controls muted loop playsinline preload="metadata"></video>
+    <figcaption><div class="t">${title}</div><div class="d">${desc}</div></figcaption>
+  </figure>`;
+document.getElementById('cameras').innerHTML = CAMERAS.map(card).join('');
+document.getElementById('art').innerHTML = ART.map(card).join('');
+</script>
+</body>
+</html>
