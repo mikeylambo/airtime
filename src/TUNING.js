@@ -1,0 +1,426 @@
+/**
+ * AIRTIME — single source of truth for every tunable number.
+ *
+ * Rule (inherited from the DESCENT shell): no magic numbers anywhere else in
+ * src/. If you find yourself typing a float into a system file, it belongs
+ * here instead. Everything a playtester might want to change lives in this
+ * file and is reachable at runtime as `window.AIRTIME.TUNING`.
+ *
+ * Units: metres, kilograms, seconds, radians. World up is +Y. The car's local
+ * forward is -Z (three.js convention), local up is +Y, local right is +X.
+ *
+ * Spec cross-references (airtime-frame-spec.md) are marked as §n.
+ */
+
+export const TUNING = {
+
+  // ── Simulation ───────────────────────────────────────────────────────────
+  SIM: {
+    HZ: 120,                    // physics rate. High: raycast vehicle + jointed
+                                // panels need it, and it keeps replays crisp.
+    MAX_STEPS_PER_FRAME: 8,     // spiral-of-death guard
+    GRAVITY: -22.0,             // §0.1 pillar 1 "gravity always wins" — heavier
+                                // than real 9.81 so arcs are punchy, not floaty.
+    SEED: 0x51ac,               // deterministic RNG seed (replays, §6.1)
+    // Safety rail, not a flight model: no solver artefact may ever launch the
+    // car faster than this. If it trips, something upstream is wrong.
+    MAX_SPEED_CLAMP: 140,
+    SOLVER_ITERATIONS: 8,       // joint stability for the hinged panels
+  },
+
+  // ── Car: chassis ─────────────────────────────────────────────────────────
+  // §11 Gate A: "car = box with four hinged panels". Half-extents.
+  CAR: {
+    // Short overhangs and real ground clearance. A long nose on a low body
+    // spears the base of every ramp before the front wheels can start
+    // climbing it — the first thing the headless drive probe caught.
+    HALF: { x: 0.95, y: 0.38, z: 1.95 },   // chassis box half-extents
+    MASS: 1150,
+    // Centre of mass offset from the box centre. Low and slightly forward:
+    // low keeps it from tipping on the ground, forward makes it want to nose
+    // down in the air, which is what makes a flat landing an achievement.
+    COM: { x: 0, y: -0.26, z: -0.10 },
+    // Rotational inertia scaling, per local axis (x=pitch, y=yaw, z=roll).
+    // The single biggest knob on how the car tumbles. <1 spins more freely.
+    INERTIA_SCALE: { x: 0.86, y: 1.00, z: 0.62 },
+    LINEAR_DAMPING: 0.02,
+    ANGULAR_DAMPING: 0.18,      // baseline "air resists rotation"; panels add more
+    RESTITUTION: 0.0,           // a scraping chassis must never trampoline
+    FRICTION: 0.75,
+    CCD: true,                  // stops the car tunnelling through ramps at speed
+  },
+
+  // ── Car: wheels / raycast vehicle (Rapier DynamicRayCastVehicleController) ─
+  WHEEL: {
+    RADIUS: 0.46,
+    // Connection points relative to chassis centre.
+    HALF_TRACK: 0.92,           // ±x
+    AXLE_FRONT_Z: -1.58,        // front axle (car faces -Z)
+    AXLE_REAR_Z: 1.52,
+    CONNECT_Y: -0.10,           // suspension top attach, relative to chassis centre
+    SUSPENSION_REST: 0.55,
+    // Stiff and long-travel on purpose. Entering the hero ramp at 60 m/s
+    // demands ~12 m/s of vertical velocity change; a soft short suspension
+    // bottoms out, the chassis ploughs the ramp face, and the car explodes.
+    SUSPENSION_STIFFNESS: 190.0,
+    SUSPENSION_COMPRESSION: 1.10,
+    SUSPENSION_RELAXATION: 1.55,
+    MAX_SUSPENSION_TRAVEL: 0.50,
+    MAX_SUSPENSION_FORCE: 200000,
+    FRICTION_SLIP: 3.2,         // forward grip
+    SIDE_FRICTION: 0.62,        // §4 "heavy drift" — deliberately loose
+  },
+
+  // ── Ground handling (§4 Burnout feel layer) ──────────────────────────────
+  DRIVE: {
+    ENGINE_FORCE: 5600,         // per driven wheel
+    ENGINE_FORCE_BOOST: 10200,  // while boosting
+    REVERSE_FORCE: 2400,
+    BRAKE_FORCE: 3800,
+    HANDBRAKE_FORCE: 2600,
+    HANDBRAKE_SIDE_FRICTION: 0.16,   // drops rear grip → the drift
+    DRIVEN_WHEELS: 'rear',      // 'rear' | 'front' | 'all'
+    TOP_SPEED: 68,              // m/s soft cap (~245 km/h)
+    TOP_SPEED_BOOST: 88,
+    SPEED_CAP_FALLOFF: 8,       // m/s over which engine force fades to zero at cap
+
+    STEER_MAX: 0.58,            // radians at full lock, low speed
+    STEER_MIN: 0.16,            // radians at full lock, top speed
+    STEER_SPEED_FALLOFF: 44,    // m/s at which steering has fully tightened
+    STEER_RATE: 6.4,            // rad/s the virtual steering column can move
+    STEER_RETURN_RATE: 9.0,     // faster self-centring than turn-in
+
+    // Drift bookkeeping (feeds the boost bar, §4)
+    DRIFT_MIN_SLIP_ANGLE: 0.22, // rad between heading and velocity to count
+    DRIFT_MIN_SPEED: 12,
+  },
+
+  // ── The one bar (§5) — ground boost and air thrust share this meter ───────
+  BOOST: {
+    MAX: 1.0,
+    START: 0.70,                // Gate A: start with enough to feel the tradeoff
+    DRAIN_PER_SEC_GROUND: 0.26, // holding boost on the ground
+    THRUST_COST: 0.16,          // one air burst (§5)
+
+    // Earn (§4). Traffic near-miss lands with item 6; until then drift, speed
+    // and airtime are the earn model. Flagged PLACEHOLDER_* so item 6 can
+    // replace them without hunting through systems.
+    EARN_DRIFT_PER_SEC: 0.16,
+    EARN_AIRTIME_PER_SEC: 0.09, // §4 "airtime itself (small)"
+    PLACEHOLDER_EARN_SPEED_PER_SEC: 0.045,  // fills while near top speed
+    PLACEHOLDER_EARN_SPEED_MIN: 42,         // m/s before speed earn kicks in
+    PLACEHOLDER_EARN_NEARMISS: 0.10,        // reserved for item 6 traffic
+
+    // §4 Burnout-chain rule: drain the full bar in one unbroken hold → refill.
+    CHAIN_ENABLED: true,
+    CHAIN_START_MIN: 0.96,      // must begin the hold this full
+    CHAIN_REFILL: 1.0,
+  },
+
+  // ── Tease-thrust (§5) — the delta, part A ────────────────────────────────
+  // "The car must never fly." Every number here is bounded so that thrust
+  // buys you time and attitude, never sustained flight.
+  THRUST: {
+    BURST_TIME: 0.60,           // §5 "~0.6s"
+    COOLDOWN: 0.22,             // between bursts
+    AIR_ONLY: true,
+
+    // Mode selection by stick direction at press (§5).
+    STICK_DEADZONE: 0.34,       // below this → CORRECT
+    FORWARD_CONE: 1.05,         // rad half-angle around stick-up → EXTEND
+    BACK_CONE: 1.05,            // rad half-angle around stick-down → DIVE
+                                // everything else (sideways) → CORRECT
+
+    // EXTEND — forward push, §5 "adds ~20% airtime"
+    EXTEND_ACCEL: 15.5,         // m/s^2 while the burst runs
+    EXTEND_VELOCITY_ALIGN: 0.70,// 0 = along chassis forward, 1 = along horizontal
+                                // velocity. Blend keeps it usable mid-tumble.
+    EXTEND_MAX_UP_COMPONENT: 0.18, // cap on how much of the push may point up —
+                                   // this is the clamp that forbids flight.
+
+    // CORRECT — kills angular velocity, saves a tumble
+    CORRECT_ANGVEL_KILL: 4.2,   // exponential rate, 1/s (higher = snappier save)
+    CORRECT_LEVEL_TORQUE: 5.5,  // gentle torque toward wheels-down
+    CORRECT_LEVEL_MAX_RATE: 2.2,// rad/s cap so it assists, never auto-lands
+
+    // DIVE — downward push, commit early
+    DIVE_ACCEL: 24.0,
+    DIVE_FORWARD_BLEED: 0.30,   // fraction of dive that also kills forward speed
+  },
+
+  // ── Body-as-trick: hinged panels (§5.1) — the mechanical signature ────────
+  PANELS: {
+    AIR_ONLY: true,             // §5.1 "deployable only in air"
+    MOTOR_STIFFNESS: 620,       // position motor driving the hinge to target
+    MOTOR_DAMPING: 58,
+    MOTOR_MAX_FORCE: 4200,
+    STOW_STIFFNESS: 900,        // stiffer closing than opening: snaps shut
+    STOW_DAMPING: 74,
+    MASS: 26,                   // per panel
+    THICKNESS: 0.05,
+
+    // Tear-off (§5.1 "can be torn off by a bad landing"): spectacle only.
+    TEAROFF_ENABLED: true,
+    TEAROFF_IMPACT_SPEED: 17.0, // m/s relative impact on a deployed panel
+    TEAROFF_ONLY_WHEN_DEPLOYED: true,
+
+    // Per-slot geometry. `hinge` is the hinge point in chassis-local space;
+    // `centerOffset` runs from that hinge to the panel's centre in panel-local
+    // space. `axis` is the hinge axis (normalised on load) and `open` the
+    // motor's fully-deployed angle.
+    //
+    // The open angles are not arbitrary. tools/probe-aero.mjs measures the
+    // angular acceleration each panel actually produces in level flight, and
+    // these values are what make the measured effect match §5.1: hood pitches
+    // back, trunk pitches forward, one door rolls, both doors brake.
+    DOOR_L: {
+      size: { x: 0.06, y: 0.52, z: 1.15 },
+      hinge: { x: -0.95, y: -0.02, z: -0.55 },
+      centerOffset: { x: 0, y: 0, z: 1.15 },
+      axis: { x: -0.55, y: 1, z: 0 },        // dihedral: swings out *and* down,
+      open: -1.32, limitMin: -1.45, limitMax: 0.02,   // so one door rolls (§5.1)
+      cd: 1.28,
+      gain: 2.6,
+    },
+    DOOR_R: {
+      size: { x: 0.06, y: 0.52, z: 1.15 },
+      hinge: { x: 0.95, y: -0.02, z: -0.55 },
+      centerOffset: { x: 0, y: 0, z: 1.15 },
+      axis: { x: 0.55, y: 1, z: 0 },
+      open: 1.32, limitMin: -0.02, limitMax: 1.45,
+      cd: 1.28,
+      gain: 2.6,
+    },
+    HOOD: {
+      size: { x: 0.86, y: 0.05, z: 0.80 },
+      hinge: { x: 0, y: 0.44, z: -0.35 },    // cowl hinge, front edge lifts
+      centerOffset: { x: 0, y: 0, z: -0.80 },
+      axis: { x: 1, y: 0, z: 0 },
+      open: 1.16, limitMin: -0.02, limitMax: 1.26,   // steep scoop -> nose up
+      cd: 1.34,
+      gain: 1.0,
+    },
+    // The tail flap. It hangs *below* the car, and that is the whole trick:
+    // every deployable surface above the centre of mass pitches the nose up,
+    // whichever way you angle it, because drag above the CoM always does. Only
+    // a surface below the CoM can pitch the nose down, so §5.1's "trunk =
+    // pitch forward" is a diffuser flap dropping out of the rear underbody,
+    // not a lid lifting off the deck. Measured at -1.4 kN·m by probe-aero.
+    TRUNK: {
+      size: { x: 0.86, y: 0.05, z: 0.70 },
+      hinge: { x: 0, y: -0.30, z: 1.20 },
+      centerOffset: { x: 0, y: 0, z: 0.62 },
+      axis: { x: 1, y: 0, z: 0 },
+      open: 1.00, limitMin: -0.02, limitMax: 1.10,
+      cd: 1.34,
+      gain: 1.5,
+    },
+    SPOILER: {
+      size: { x: 0.80, y: 0.04, z: 0.30 },
+      hinge: { x: 0, y: 0.46, z: 2.02 },
+      centerOffset: { x: 0, y: 0, z: -0.30 },
+      axis: { x: 1, y: 0, z: 0 },
+      open: -1.40, limitMin: -1.50, limitMax: 0.02,  // stands up as a fin
+      cd: 1.05,
+      gain: 1.0,
+      MICRO_LIFT: 0.16,          // §5.1 "some variants add micro-lift"
+      YAW_STABILISE: 3.1,        // damps yaw+pitch when deployed
+    },
+  },
+
+  // ── Aerodynamics (what makes the panels actually steer the air) ──────────
+  // Real forces on real bodies. No scripted rotation anywhere.
+  AERO: {
+    AIR_DENSITY: 1.225,
+    // Global gain on panel plate drag — "how much do parts matter". Each panel
+    // then has its own `gain` on top, because a door out on a long lateral arm
+    // and a hood right over the nose do not need the same multiplier to feel
+    // like equals. Sized so the hood's pitch authority is a few rad/s², not
+    // the 8 rad/s² that the first guess produced.
+    PANEL_SCALE: 0.62,
+    PANEL_SKIN_DRAG: 0.11,      // tangential drag along the plate
+    CHASSIS_CD: 0.62,           // chassis treated as three plates (x/y/z faces)
+    CHASSIS_SCALE: 1.0,
+    CHASSIS_ANG_DRAG: 0.95,     // rotational air drag on the chassis, 1/s
+
+    // Centre of pressure, in chassis-local space (the box centre is the
+    // origin; the centre of mass sits at CAR.COM). Behind the centre of mass
+    // is a weathercock: drag then pulls the tail into line and the car wants
+    // to fly nose-first. Ahead of it and the car tumbles no matter what the
+    // player does — which is what the first build did, and why a neutral jump
+    // could not be landed. This one number decides whether the car is
+    // recoverable, so it is the first thing to reach for if it feels wrong.
+    CHASSIS_COP: { x: 0, y: -0.26, z: 0.62 },
+
+    // Pillar 1 enforcement. Summed aero force may never push the car up by
+    // more than this fraction of its own weight. Gravity always wins, by
+    // construction rather than by hoping the tuning holds.
+    MAX_LIFT_FRACTION_OF_WEIGHT: 0.55,
+    // A true safety clamp. At 9000 N it was binding during ordinary flight,
+    // so the hood's authority silently stopped responding to any tuning at all.
+    MAX_PANEL_FORCE: 24000,     // N, per panel
+    // Where panel drag is applied. 'panel' is the honest path: force hits the
+    // panel body and reaches the chassis through the hinge, so a door really
+    // does lever the car. 'chassis' applies it at the panel's world position
+    // instead — steadier, less alive. Kept as a knob in case the solver
+    // complains on low-end hardware.
+    // 'chassis' — measured, not assumed. Routing panel drag through the hinge
+    // means the motor's limit stop absorbs most of it and hands back a
+    // reaction torque of the opposite sign, so the hood pitched the car the
+    // wrong way and open doors *pumped* a tumble instead of damping it.
+    // Applying each panel's force at that panel's own world position gives the
+    // geometry its say and the solver nothing to fight. The panels are still
+    // real jointed bodies; they just do not have to carry the load.
+    APPLY_TO: 'chassis',        // 'panel' | 'chassis'
+  },
+
+  // ── Airtime detection (§3 / item 3) ──────────────────────────────────────
+  AIRTIME: {
+    COYOTE_TIME: 0.055,         // all wheels off this long before "airborne"
+    LAND_GRACE: 0.045,          // wheels back on this long before "landed"
+    LAUNCH_MIN_SPEED: 9.0,      // §6 "above-threshold velocity" to arm the camera
+    LAUNCH_MIN_UP_VEL: 1.6,     // must actually be going up, not driving off a kerb
+    MIN_LOGGED_AIRTIME: 0.30,   // shorter hops are not jumps, not logged
+
+    // Landing quality (§3.1). Angle between chassis up and the contact normal.
+    PERFECT_ANGLE: 0.140,       // 8°
+    CLEAN_ANGLE: 0.349,         // 20°
+    SLOPPY_ANGLE: 0.611,        // 35°
+    PERFECT_MIN_WHEELS: 4,
+    CLEAN_MIN_WHEELS: 3,
+    BOUNCE_VEL: 5.0,            // downward m/s above which a landing "bounced"
+    SETTLE_TIME: 0.45,          // window in which the landing must settle
+    CRASH_ROOF_ANGLE: 1.92,     // ~110° — past this you are on your roof
+    // A resting contact in Rapier sits at roughly zero depth, not deep
+    // penetration, so this is a "touching" threshold. It still rejects the
+    // broad-phase pairs that made every landing near a ramp read as a crash.
+    CHASSIS_CONTACT_DEPTH: 0.01,
+    CHASSIS_CRASH_TIME: 0.20,   // chassis grounded this long with no wheels = crash
+    // Two different questions need two thresholds. "Is the car resting on its
+    // roof" is answered by mere contact; "did the floorpan strike the deck" is
+    // not — a hard but legitimate landing compresses the suspension enough to
+    // graze, and treating that as a strike marked clean sticks as crashes.
+    CHASSIS_CRASH_DEPTH: -0.06,
+  },
+
+  // ── Dynamic airtime camera (§6) — the delta, part B, THE GATE ────────────
+  CAMERA: {
+    STYLE: 'cinematic',         // 'cinematic' | 'classic'  (§6 Options toggle)
+
+    FOV_BASE: 60,
+    LOOK_HEIGHT: 1.5,           // aim this far above the car's origin
+    NEAR: 0.25,
+    FAR: 2400,
+
+    // Output smoothing. Applied after behaviour crossfade so a switch can
+    // never produce a cut (§6 "never cut, always ease").
+    POS_SMOOTH: 0.085,          // smoothdamp time constant, seconds
+    LOOK_SMOOTH: 0.070,
+    FOV_SMOOTH: 0.160,
+
+    BLEND_TO_AIR: 0.34,         // crossfade in on launch
+    BLEND_TO_GROUND: 0.25,      // §6 "0.25s blend back to chase on touchdown"
+    BLEND_BEHAVIOUR: 0.40,      // orbit → chase etc. mid-air
+
+    // Chase-pullback (default, §6)
+    CHASE: {
+      GROUND_OFFSET: { x: 0, y: 3.60, z: 11.60 },  // behind car, in heading space
+      // Look-ahead is how far past the car the camera aims. Large values put
+      // the car at the bottom of the frame and fill the shot with sky.
+      GROUND_LOOK_AHEAD: 3.5,
+      AIR_OFFSET: { x: 0, y: 6.60, z: 19.50 },     // "eases back and up"
+      AIR_LOOK_AHEAD: 2.5,
+      PULLBACK_TIME: 0.55,      // how long the ease back takes
+      FOV_AIR: 76,              // "wider FOV"
+      HEADING_SMOOTH: 0.30,     // camera yaw follows velocity heading, lazily
+      MIN_GROUND_HEIGHT: 0.85,  // never clip through the deck
+    },
+
+    // Orbit (§6, on big airtime)
+    ORBIT: {
+      MIN_PREDICTED_AIRTIME: 2.0,  // §6 "> 2s"
+      RADIUS: 13.5,
+      HEIGHT: 4.4,
+      REVOLUTIONS: 1.0,            // §6 "orbits the car once"
+      START_PHASE: 0.10,           // fraction of hang time before it starts
+      END_PHASE: 0.78,             // then resumes chase on descent
+      FOV: 70,
+      DIRECTION: 1,                // +1 or -1; flipped by launch yaw sign
+    },
+
+    // Landing-target lock (§6)
+    TARGET_LOCK: {
+      FORWARD_CONE: 0.62,          // rad half-angle of the forward cone
+      MAX_RANGE: 190,
+      SIDE_OFFSET: 12.0,           // camera stands off to the side of car→target
+      HEIGHT: 7.5,
+      FRAME_BIAS: 0.34,            // 0 = frame car, 1 = frame target
+      RANGE_STANDOFF: 0.10,        // extra stand-off per metre of gap
+      RANGE_HEIGHT: 0.09,          // extra height per metre of gap
+      DOLLY_ZOOM: true,            // §6 "dolly-zooms on approach"
+      DOLLY_FOV_NEAR: 46,
+      DOLLY_FOV_FAR: 78,
+      DOLLY_RANGE: 62,             // distance over which the vertigo runs
+    },
+
+    // Speed sense (§4)
+    FOV_SPEED_KICK: 17,         // extra degrees at top speed
+    FOV_BOOST_KICK: 7,
+    SHAKE_START_SPEED: 30,      // m/s
+    SHAKE_MAX: 0.16,            // metres of positional jitter at top speed
+    SHAKE_FREQ: 24,
+
+    // Crash cam stub (§4 — full version lands with item 11)
+    CRASH_SLOWMO: 0.28,
+    CRASH_SLOWMO_TIME: 1.10,
+  },
+
+  // ── Arena: stunt park gray box (§10a) ────────────────────────────────────
+  ARENA: {
+    GROUND_SIZE: 620,
+    GROUND_FRICTION: 1.0,
+    GROUND_RESTITUTION: 0.05,
+    SPAWN: { x: 0, y: 1.08, z: 170 },   // long run-up: the hero jump needs speed
+    SPAWN_HEADING: 0,           // radians; 0 faces -Z, down the hero run-up
+    RESET_HEIGHT: -30,          // fell off the world
+    HERO_RAMP_ID: 'hero',       // the ramp the Gate A demo jump uses
+  },
+
+  // ── Render / art (§11 Art gate) ──────────────────────────────────────────
+  RENDER: {
+    STYLE: 'graybox',           // 'graybox' | 'neon' | 'lowpoly'
+    SHADOWS: true,
+    SHADOW_MAP: 2048,
+    PIXEL_RATIO_CAP: 2,
+    EXPOSURE: 1.0,
+    FOG_NEAR: 180,
+    FOG_FAR: 900,
+    WIND_STREAKS: 220,          // speed-sense particles
+    STREAK_MIN_SPEED: 26,
+  },
+
+  // ── HUD (Gate A diagnostics) ─────────────────────────────────────────────
+  HUD: {
+    AIRBORNE_FADE: 0.5,         // §2.1 "HUD fades 50% when airborne"
+    FADE_TIME: 0.30,
+    SHOW_TELEMETRY: true,
+  },
+
+  // ── Input ────────────────────────────────────────────────────────────────
+  INPUT: {
+    GAMEPAD_DEADZONE: 0.16,
+    TRIGGER_DEADZONE: 0.06,
+    KEYBOARD_STEER_RATE: 4.2,   // how fast a key press ramps a virtual axis
+    KEYBOARD_STEER_RETURN: 7.5,
+  },
+
+  // ── Telemetry (§0.1 pillar 3: "Build logs landing rate per session") ─────
+  TELEMETRY: {
+    ENABLED: true,
+    TARGET_LANDING_RATE_NEW: 0.25,   // ~1 in 4
+    TARGET_LANDING_RATE_HOUR: 0.75,  // ~3 in 4
+    LOG_TO_CONSOLE: false,
+  },
+};
+
+export default TUNING;

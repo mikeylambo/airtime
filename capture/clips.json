@@ -1,0 +1,10 @@
+[
+  {
+    "id": "camera-chase-pullback",
+    "behavior": "chase-pullback",
+    "style": "graybox",
+    "hud": true,
+    "caption": "§6 chase-pullback — eases back and up, wider FOV, car centred",
+    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/camera-chase-pullback.mp4"
+  }
+]
