@@ -53,8 +53,10 @@ const SHOTS = [
   ['garage', null],
   ['licences', null],
   ['replays', null],
+  ['board', null],
   ['options', null],
   ['run', 'run'],
+  ['city', 'city'],
   ['result', 'result'],
 ];
 
@@ -87,9 +89,18 @@ const SHOTS = [
     const ok = await page.evaluate(async (n, sp) => {
       const g = window.AIRTIME.game;
       if (sp === 'run') {
-        g.startRun(g.lastMode, g.lastArena);
+        await g.startRun(g.lastMode, window.AIRTIME.ARENAS[0]);
         g.sim.run.begin();
         for (let i = 0; i < 560; i++) g.stepFixed(1 / window.AIRTIME.TUNING.SIM.HZ);
+      } else if (sp === 'city') {
+        await g.startRun(g.lastMode, window.AIRTIME.ARENAS.find((a) => a.id === 'city'));
+        g.sim.run.begin();
+        // Drive down the avenue far enough to be inside the block grid.
+        for (let i = 0; i < 420; i++) {
+          g.sim.step(1 / window.AIRTIME.TUNING.SIM.HZ, { ...g.input.actions, throttle: 1 }, {});
+          g.sim.drainEvents();
+        }
+        return true;
       } else if (sp === 'result') {
         g.startRun(g.lastMode, g.lastArena);
         g.sim.run.begin();
@@ -99,7 +110,7 @@ const SHOTS = [
         g.inRun = false;
         g.screens.go(n);
       }
-      return g.screens.current?.name === n;
+      return sp ? true : g.screens.current?.name === n;
     }, name, special);
 
     // Let the transition finish and the world render a few frames.

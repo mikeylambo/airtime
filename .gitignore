@@ -5,3 +5,5 @@ dist/
 .vercel
 .env*
 capture/frames/
+airtime-build/
+.deploy/

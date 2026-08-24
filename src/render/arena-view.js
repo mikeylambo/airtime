@@ -5,28 +5,28 @@
 
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
-import { describePark, rampMesh } from '../arena/stunt-park.js';
+import { getArena, rampMesh } from '../arena/index.js';
 
 const ROLE_FOR_KIND = {
   platform: 'roof', roof: 'roof', billboard: 'billboard',
   pool: 'pool', poolwall: 'pool', secret: 'secret', leg: 'leg',
 };
 
-export function buildArenaView(scene, art) {
-  const park = describePark();
+export function buildArenaView(scene, art, arenaId = 'park') {
+  const park = getArena(arenaId);
   const group = new THREE.Group();
   group.name = 'arena';
   scene.add(group);
 
   // ── Deck ────────────────────────────────────────────────────────────────
-  const size = TUNING.ARENA.GROUND_SIZE;
+  const size = park.ground || TUNING.ARENA.GROUND_SIZE;
   const deck = new THREE.Mesh(new THREE.BoxGeometry(size, 4, size));
   deck.position.set(0, -2, 0);
   deck.receiveShadow = true;
   group.add(art.register(deck, 'deck'));
 
   // A grid so speed and distance read on an otherwise featureless plane.
-  const grid = new THREE.GridHelper(size, size / 20, 0x000000, 0x000000);
+  const grid = new THREE.GridHelper(size, Math.round(size / 20), 0x000000, 0x000000);
   grid.position.y = 0.02;
   grid.material.transparent = true;
   grid.material.opacity = 0.13;
@@ -71,6 +71,7 @@ export function buildArenaView(scene, art) {
   // what it is framing.
   const markers = new THREE.Group();
   for (const t of park.targets) {
+    if (t.tagged === false) continue;
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(Math.min(t.half.x, t.half.z) * 0.55, 0.35, 8, 32),
       new THREE.MeshBasicMaterial({ color: TIER_COLOR[t.tier] || 0xffffff, transparent: true, opacity: 0.5 })
@@ -83,7 +84,63 @@ export function buildArenaView(scene, art) {
   group.add(markers);
   group.userData.markers = markers;
 
-  return { park, group };
+  // ── Coins (§3.1) ────────────────────────────────────────────────────────
+  const coinGeo = new THREE.TorusGeometry(1.5, 0.32, 8, 18);
+  coinGeo.rotateY(Math.PI / 2);
+  const coins = new THREE.InstancedMesh(
+    coinGeo,
+    new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0x8a5a00, emissiveIntensity: 1, roughness: 0.4 }),
+    Math.max(1, park.coins.length)
+  );
+  coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  coins.frustumCulled = false;
+  group.add(coins);
+
+  const m4 = new THREE.Matrix4();
+  const cq = new THREE.Quaternion();
+  const cs = new THREE.Vector3(1, 1, 1);
+  const cp = new THREE.Vector3();
+  const hidden = new THREE.Vector3(0, -500, 0);
+
+  // ── Moving targets (§6.2) ───────────────────────────────────────────────
+  const moverMeshes = new Map();
+  const moverGroup = new THREE.Group();
+  group.add(moverGroup);
+
+  return {
+    park, group, coins, moverGroup,
+
+    /** Spin the uncollected coins and hide the taken ones. */
+    syncCoins(taken, t) {
+      const list = park.coins;
+      for (let i = 0; i < list.length; i++) {
+        const gone = taken.has(list[i].id);
+        cq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t * 1.6);
+        cp.copy(gone ? hidden : list[i].pos);
+        m4.compose(cp, cq, cs);
+        coins.setMatrixAt(i, m4);
+      }
+      coins.count = list.length;
+      coins.instanceMatrix.needsUpdate = true;
+    },
+
+    syncMovers(list) {
+      for (const m of list) {
+        let mesh = moverMeshes.get(m.id);
+        if (!mesh) {
+          mesh = new THREE.Mesh(new THREE.BoxGeometry(m.half.x * 2, m.half.y * 2, m.half.z * 2));
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          const role = m.kind === 'heli' ? 'secret' : m.kind === 'billboard' ? 'billboard' : 'roof';
+          moverGroup.add(art.register(mesh, role));
+          moverMeshes.set(m.id, mesh);
+        }
+        mesh.visible = m.active;
+        mesh.position.set(m.x, m.y, m.z);
+        mesh.rotation.y = m.yaw;
+      }
+    },
+  };
 }
 
 export const TIER_COLOR = {

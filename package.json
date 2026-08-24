@@ -13,7 +13,12 @@
     "capture": "node tools/capture.mjs",
     "gate": "node tools/gate-a.mjs",
     "probe:aero": "node tools/probe-aero.mjs",
-    "probe:jump": "node tools/measure-jump.mjs"
+    "probe:jump": "node tools/measure-jump.mjs",
+    "probe:run": "node tools/probe-run.mjs",
+    "probe:cars": "node tools/probe-cars.mjs",
+    "probe:traffic": "node tools/probe-traffic.mjs",
+    "probe:score": "node tools/probe-score.mjs",
+    "shots": "node tools/shots.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

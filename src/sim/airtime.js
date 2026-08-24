@@ -270,8 +270,8 @@ export class AirtimeTracker {
       height: p.height,
       impactVel: p.impactVel,
       bounces: p.bounces || 0,
-      target: moving ? `traffic_${moving.id}` : (target ? target.id : null),
-      tier: moving ? 'moving' : (target ? target.tier : 'road'),
+      target: moving ? moving.id : (target ? target.id : null),
+      tier: moving ? moving.tier : (target ? target.tier : 'road'),
       counted: p.airtime >= A.MIN_LOGGED_AIRTIME,
     };
   }

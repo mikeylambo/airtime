@@ -43,14 +43,18 @@ const HEADFUL = has('headful');
 
 // Each clip names what it is proving.
 const CLIPS = [
-  { id: 'camera-chase-pullback', behavior: 'chase-pullback', style: 'graybox', hud: true,
+  { id: 'loop', behavior: null, style: 'neon', hud: true, script: 'loop', seconds: 20,
+    caption: 'Gate B — the loop: earn boost in traffic, launch, trick, land, chain' },
+  { id: 'camera-chase-pullback', behavior: 'chase-pullback', style: 'neon', hud: true,
     caption: '§6 chase-pullback — eases back and up, wider FOV, car centred' },
-  { id: 'camera-orbit', behavior: 'orbit', style: 'graybox', hud: true,
+  { id: 'camera-orbit', behavior: 'orbit', style: 'neon', hud: true,
     caption: '§6 orbit — one revolution on big airtime, resumes chase on descent' },
-  { id: 'camera-target-lock', behavior: 'landing-target-lock', style: 'graybox', hud: true,
+  { id: 'camera-target-lock', behavior: 'landing-target-lock', style: 'neon', hud: true,
     caption: '§6 landing-target lock — car and target framed together, dolly-zoom in' },
-  { id: 'art-neon-wireframe', behavior: 'chase-pullback', style: 'neon', hud: false,
-    caption: 'Art gate — the same jump, neon wireframe' },
+  { id: 'city', behavior: null, style: 'neon', hud: true, script: 'loop', arena: 'city', seconds: 16, start: 66,
+    caption: '§10b — the city block: rooftops, billboards, overpasses, traffic' },
+  { id: 'art-graybox', behavior: 'chase-pullback', style: 'graybox', hud: false,
+    caption: 'Art gate — the same jump, lit gray box' },
   { id: 'art-flat-lowpoly', behavior: 'chase-pullback', style: 'lowpoly', hud: false,
     caption: 'Art gate — the same jump, flat low-poly' },
 ];
@@ -76,7 +80,7 @@ function serve(dir) {
 
 const pad = (n) => String(n).padStart(4, '0');
 
-async function encode(id, caption) {
+async function encode(id, caption, frameCount) {
   const mp4 = join(OUT, `${id}.mp4`);
   const args = [
     '-y', '-framerate', String(FPS), '-i', join(FRAMES, '%04d.png'),
@@ -89,7 +93,8 @@ async function encode(id, caption) {
     throw new Error(`ffmpeg failed for ${id}`);
   }
   // A poster frame from about a third in — mid-flight.
-  spawnSync(ffmpegPath, ['-y', '-i', join(FRAMES, pad(Math.round(FPS * SECONDS * 0.62))) + '.png',
+  const poster = Math.min(frameCount - 1, Math.round(frameCount * 0.62));
+  spawnSync(ffmpegPath, ['-y', '-i', join(FRAMES, pad(poster)) + '.png',
     join(OUT, `${id}.png`)], { encoding: 'utf8' });
   return mp4;
 }
@@ -129,18 +134,18 @@ async function encode(id, caption) {
   console.log(`clips: ${WIDTH}x${HEIGHT} @ ${FPS}fps, ${SECONDS}s each\n`);
 
   const made = [];
-  const total = FPS * SECONDS;
 
   for (const clip of CLIPS) {
     if (ONLY && !clip.id.includes(ONLY)) continue;
+    const total = FPS * (clip.seconds || SECONDS);
     await rm(FRAMES, { recursive: true, force: true });
     await mkdir(FRAMES, { recursive: true });
 
     await page.evaluate(async (c, fps) => {
-      document.getElementById('boot').classList.add('gone');
-      document.getElementById('keys').style.display = 'none';
+      document.getElementById('boot')?.classList.add('gone');
+      document.getElementById('screens').style.display = 'none';
       document.getElementById('hud').style.display = c.hud ? '' : 'none';
-      await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps });
+      await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null });
     }, clip, FPS);
 
     const t0 = Date.now();
@@ -154,7 +159,7 @@ async function encode(id, caption) {
     }
     const secs = ((Date.now() - t0) / 1000).toFixed(0);
     process.stdout.write(`\r  ${clip.id}  ${total}/${total} frames in ${secs}s — encoding…      `);
-    const mp4 = await encode(clip.id, clip.caption);
+    const mp4 = await encode(clip.id, clip.caption, total);
     console.log(`\r  ${clip.id}  -> ${mp4.replace(ROOT + '/', '')}                    `);
     made.push({ ...clip, mp4 });
   }

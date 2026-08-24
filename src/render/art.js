@@ -127,8 +127,25 @@ export class ArtDirector {
   /** Every mesh declares what it is; the style decides what that looks like. */
   register(mesh, role) {
     this.registry.push({ mesh, role });
-    if (this.style) this._material(mesh, role);
+    if (this.style) {
+      this._material(mesh, role);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, role);
+    }
     return mesh;
+  }
+
+  /**
+   * Drop everything under `root` from the registry.
+   *
+   * Swapping arenas removes the old meshes from the scene, but leaving them
+   * registered leaks their geometry and — worse — makes the edge pass think it
+   * has already run, so the *new* arena silently renders with no wireframe.
+   */
+  unregisterUnder(root) {
+    const dead = new Set();
+    root.traverse((o) => dead.add(o));
+    this.registry = this.registry.filter((r) => !dead.has(r.mesh));
+    this.edges = this.edges.filter((e) => !dead.has(e) && !dead.has(e.parent));
   }
 
   _key(role) { return `${this.style}:${role}`; }
@@ -180,25 +197,28 @@ export class ArtDirector {
   }
 
   /** Neon draws a glowing wireframe over each solid; the others hide them. */
+  _edgesFor(mesh, role) {
+    if (role === 'wheel' || role === 'traffic' || !mesh.geometry) return;
+    if (mesh.isInstancedMesh) return;      // one wireframe per instance is not worth it
+    if (mesh.userData.__edge) return;
+    const p = PALETTES.neon.roles[role];
+    if (!p || !p.edge) return;
+    const line = new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry, 24),
+      new THREE.LineBasicMaterial({
+        color: p.edge, transparent: true, opacity: 1,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      })
+    );
+    line.raycast = () => {};
+    mesh.add(line);
+    mesh.userData.__edge = line;
+    this.edges.push(line);
+  }
+
   _setEdges(on) {
-    if (on && this.edges.length === 0) {
-      for (const { mesh, role } of this.registry) {
-        if (role === 'wheel' || role === 'traffic' || !mesh.geometry) continue;
-        if (mesh.isInstancedMesh) continue;   // one wireframe per instance is not worth it
-        const p = PALETTES.neon.roles[role];
-        if (!p || !p.edge) continue;
-        const line = new THREE.LineSegments(
-          new THREE.EdgesGeometry(mesh.geometry, 24),
-          new THREE.LineBasicMaterial({
-            color: p.edge, transparent: true, opacity: 1,
-            blending: THREE.AdditiveBlending, depthWrite: false,
-          })
-        );
-        line.raycast = () => {};
-        mesh.add(line);
-        this.edges.push(line);
-      }
-    }
+    // Build for anything registered since last time — arenas come and go.
+    if (on) for (const { mesh, role } of this.registry) this._edgesFor(mesh, role);
     for (const e of this.edges) e.visible = !!on;
   }
 

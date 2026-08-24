@@ -18,6 +18,8 @@ import TUNING from '../TUNING.js';
 export const BEHAVIOR = {
   SHOWCASE: 'showcase',
   PREVIEW: 'preview',
+  FREE: 'free',
+  DIRECTOR: 'director',
   CHASE: 'chase-pullback',
   ORBIT: 'orbit',
   TARGET: 'landing-target-lock',
@@ -151,6 +153,7 @@ export class CameraDirector {
 
     let best = null, bestScore = Infinity;
     for (const t of this.park.targets) {
+      if (t.tagged === false) continue;
       const dx = t.aim.x - px, dz = t.aim.z - pz;
       const dist = Math.hypot(dx, dz);
       if (dist < 12 || dist > T.MAX_RANGE) continue;
@@ -219,6 +222,8 @@ export class CameraDirector {
     switch (behavior) {
       case BEHAVIOR.SHOWCASE: return this._showcase(shot, state, dt);
       case BEHAVIOR.PREVIEW: return this._preview(shot, state);
+      case BEHAVIOR.FREE: return this._free(shot);
+      case BEHAVIOR.DIRECTOR: return this._director(shot, state);
       case BEHAVIOR.ORBIT: return this._orbit(shot, state);
       case BEHAVIOR.TARGET: return this._targetLock(shot, state);
       case BEHAVIOR.CLASSIC: return this._chase(shot, state, true);
@@ -244,6 +249,39 @@ export class CameraDirector {
     shot.target.set(p.x + K.BIAS_X * 0.35, p.y + 0.5, p.z);
     shot.fov = K.FOV;
     this._liftAboveDeck(shot);
+    return shot;
+  }
+
+  /** Free cam (§2.1 replay theater). The player flies it; we just report it. */
+  _free(shot) {
+    const f = this.freeCam || { pos: { x: 0, y: 20, z: 40 }, target: { x: 0, y: 0, z: 0 }, fov: 55 };
+    shot.position.set(f.pos.x, f.pos.y, f.pos.z);
+    shot.target.set(f.target.x, f.target.y, f.target.z);
+    shot.fov = f.fov;
+    return shot;
+  }
+
+  /**
+   * Director keyframes (§2.1). Two or more saved shots, interpolated across
+   * the clip — the player's own camera move, kept with the clip.
+   */
+  _director(shot, state) {
+    const k = this.keyframes;
+    if (!k || k.length === 0) return this._chase(shot, state, false);
+    if (k.length === 1) {
+      shot.position.set(k[0].pos.x, k[0].pos.y, k[0].pos.z);
+      shot.target.set(k[0].target.x, k[0].target.y, k[0].target.z);
+      shot.fov = k[0].fov;
+      return shot;
+    }
+    const u = clamp(this.directorT ?? 0, 0, 1);
+    const span = (k.length - 1) * u;
+    const i = Math.min(k.length - 2, Math.floor(span));
+    const t = ease(span - i);
+    const a = k[i], b = k[i + 1];
+    shot.position.set(lerp(a.pos.x, b.pos.x, t), lerp(a.pos.y, b.pos.y, t), lerp(a.pos.z, b.pos.z, t));
+    shot.target.set(lerp(a.target.x, b.target.x, t), lerp(a.target.y, b.target.y, t), lerp(a.target.z, b.target.z, t));
+    shot.fov = lerp(a.fov, b.fov, t);
     return shot;
   }
 

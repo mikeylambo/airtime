@@ -370,6 +370,19 @@ export const TUNING = {
     MEDAL: { bronze: 6000, silver: 14000, gold: 26000, platinum: 42000 },
   },
 
+  // ── Recovery (§3: "Repeat until timer ends") ─────────────────────────────
+  // Rush puts you back on the road; §4 is explicit that a crash is spectacle
+  // and "never a punishment screen". Without this a single bad landing ends
+  // the run 80 seconds early with the car resting on its roof.
+  RESPAWN: {
+    DELAY: 1.35,                // after the crash cam has had its moment
+    STUCK_SPEED: 3.0,           // m/s below which a wrong-way-up car is stuck
+    STUCK_TILT: 1.15,           // radians from upright
+    STUCK_TIME: 1.6,
+    APPROACH: 62,               // metres back from the ramp we drop you at
+    SPEED: 16,                  // rolling restart, not a standing one
+  },
+
   // ── Run (§3: one run, 90-120 seconds) ────────────────────────────────────
   RUN: {
     DURATION: 90,
@@ -452,6 +465,9 @@ export const TUNING = {
       SECONDS: 5.7,
     },
 
+    // Free cam (§2.1 replay theater)
+    FREE: { SPEED: 26, BOOST: 3.2, TURN: 1.5 },
+
     // Showcase / menu camera (§2.1: the car is centre-stage behind the menu)
     SHOWCASE: { RADIUS: 12.5, HEIGHT: 3.4, SPEED: 0.17, FOV: 40, BIAS_X: 6.0 },
 
@@ -491,6 +507,19 @@ export const TUNING = {
     FOG_FAR: 900,
     WIND_STREAKS: 220,          // speed-sense particles
     STREAK_MIN_SPEED: 26,
+  },
+
+  // ── Replay (§6.1) ────────────────────────────────────────────────────────
+  REPLAY: {
+    // "Every landing over a score threshold auto-saves; nothing is lost."
+    // A typical good landing in a first run is worth 200-400, so a threshold
+    // above that saves nothing and the theater stays empty.
+    AUTOSAVE_SCORE: 240,
+    PREROLL: 3.2,               // seconds of run-up kept before the launch
+    POSTROLL: 2.0,              // and of run-out after the landing
+    MAX_CLIPS: 24,              // per profile, newest kept
+    EXPORT_FPS: 30,
+    EXPORT_BITRATE: 8_000_000,
   },
 
   // ── UI (§2.1 connective tissue) ──────────────────────────────────────────

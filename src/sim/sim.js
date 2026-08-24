@@ -17,35 +17,45 @@ import { TeaseThrust, THRUST_MODE } from './thrust.js';
 import { AirtimeTracker } from './airtime.js';
 import { Telemetry } from './telemetry.js';
 import { Traffic } from './traffic.js';
+import { Movers } from './movers.js';
 import { AeroAccumulator, applyAngularDrag } from './aero.js';
 import { TrickTracker, resolveTrick } from './tricks.js';
 import { Run, RUN_STATE } from './run.js';
 import { TIER } from '../arena/stunt-park.js';
-import { add, qRot, v3, len } from './mathx.js';
+import { add, qRot, v3, len, qAxisAngle, WORLD_UP } from './mathx.js';
+import { rampSurface } from '../arena/index.js';
 
 export class Sim {
-  static async create(setup = null) {
+  static async create(setup = null, arenaId = 'park') {
     await initRapier();
-    return new Sim(setup);
+    return new Sim(setup, arenaId);
   }
 
-  constructor(setup = null) {
+  constructor(setup = null, arenaId = 'park') {
     this.setup = setup;
+    this.arenaId = arenaId;
     this.world = createWorld();
-    const { park } = buildArena(this.world);
+    const { park } = buildArena(this.world, arenaId);
     this.park = park;
+    this.spawn = park.spawn || TUNING.ARENA.SPAWN;
 
     this.car = new Car(this.world, setup);
-    this.car.reset();
+    this.car.reset(this.spawn);
     this.panels = new Panels(this.world, this.car, setup);
     this.panels.syncToChassis();
 
     this.boost = new BoostBar(setup);
     this.thrust = new TeaseThrust(this.car, this.boost, setup);
     this.traffic = new Traffic(this.world, park);
-    this.airtimeTracker = new AirtimeTracker(
-      this.world, park, (p) => this.traffic.roofAt(p)
-    );
+    this.movers = new Movers(this.world, park);
+    // §4 traffic roofs and §6.2 moving targets are both "landed on something
+    // that is moving"; the tracker just asks and takes whichever answers.
+    this.airtimeTracker = new AirtimeTracker(this.world, park, (p) => {
+      const mv = this.movers.targetAt(p);
+      if (mv) return { id: mv.id, tier: mv.tier };
+      const car = this.traffic.roofAt(p);
+      return car ? { id: `traffic_${car.id}`, tier: 'moving' } : null;
+    });
     this.telemetry = new Telemetry();
     this.aero = new AeroAccumulator();
     this.tricks = new TrickTracker();
@@ -59,6 +69,9 @@ export class Sim {
     this.lastLaunch = null;
     this.boosting = false;
     this._runEnded = false;
+    this.recover = 0;
+    this.stuck = 0;
+    this.respawns = 0;
     this.wasDeployed = {};
     for (const s of SLOTS) this.wasDeployed[s] = false;
   }
@@ -67,7 +80,7 @@ export class Sim {
   get airtime() { return this.airtimeTracker.airtime; }
 
   reset() {
-    this.car.reset();
+    this.car.reset(this.spawn);
     this.panels.restoreAll();
     this.panels.reset();
     this.boost.reset();
@@ -84,7 +97,7 @@ export class Sim {
    * joints, so teleporting the chassis without them leaves the hinges stretched
    * across the arena and the solver rips the car apart at 300 m/s.
    */
-  placeCar(pos, heading = TUNING.ARENA.SPAWN_HEADING) {
+  placeCar(pos = this.spawn, heading = TUNING.ARENA.SPAWN_HEADING) {
     this.car.reset(pos, heading);
     this.panels.syncToChassis();
     this.airtimeTracker.reset();
@@ -92,8 +105,8 @@ export class Sim {
   }
 
   /** A fresh run: clock, score and coins all back to the start. */
-  restartRun(mode = 'stunt') {
-    this.run = new Run(mode);
+  restartRun(mode = 'stunt', duration = undefined) {
+    this.run = new Run(mode, duration);
     this.coinsTaken.clear();
     this.traffic.reset();
     this.reset();
@@ -111,6 +124,7 @@ export class Sim {
 
     if (edges.reset) { this.reset(); return; }
 
+    this.movers.update(dt);
     const t = this.traffic.update(dt, this.car, this.boost);
     this.trafficSignal = t;
     if (t.nearMiss) this.events.push({ type: 'nearMiss', n: t.nearMiss });
@@ -168,6 +182,7 @@ export class Sim {
         this.lastResult = result;
         this.telemetry.recordLanding(crash);
         this.events.push({ type: 'landed', landing: crash, result, clipped: true });
+        this.requestRespawn();
       }
     }
 
@@ -218,12 +233,15 @@ export class Sim {
       this.run.addLanding(result);
       this.lastResult = result;
       this.events.push({ type: 'landed', landing: ev.landed, result });
+      if (!result.landed) this.requestRespawn();
     }
 
     if (this.run.over && !this._runEnded) {
       this._runEnded = true;
-      this.events.push({ type: 'runOver', summary: this.run.summary() });
+      this.events.push({ type: 'runOver', summary: this.runSummary() });
     }
+
+    this._updateRecovery(dt);
 
     // Safety rail (TUNING.SIM.MAX_SPEED_CLAMP). Physics, not design: nothing
     // in the game can accelerate the car past this, so if it trips, a contact
@@ -270,6 +288,78 @@ export class Sim {
       this.tricks.collectCoin();
       this.events.push({ type: 'coin', id: c.id, pos: c.pos });
     }
+  }
+
+  /**
+   * Put the player back on the road after a crash, or after getting wedged.
+   *
+   * Respawning at the arena spawn would cost most of a 90 second round in
+   * driving back, so this drops you on the approach to the nearest ramp,
+   * already rolling and pointed at it.
+   */
+  _updateRecovery(dt) {
+    const R = TUNING.RESPAWN;
+    if (!this.run.running) { this.recover = 0; this.stuck = 0; return; }
+
+    // Wedged: upside down or on a wall, going nowhere.
+    const wrongWayUp = this.car.tiltAngle > R.STUCK_TILT;
+    const slow = this.car.speed < R.STUCK_SPEED;
+    this.stuck = (wrongWayUp && slow) ? this.stuck + dt : 0;
+    if (this.stuck > R.STUCK_TIME && this.recover <= 0) this.recover = R.DELAY;
+
+    if (this.recover > 0) {
+      this.recover -= dt;
+      if (this.recover <= 0) this.respawn();
+    }
+  }
+
+  /** Called by the crash path and by the stuck detector. */
+  requestRespawn(delay = TUNING.RESPAWN.DELAY) {
+    if (this.recover <= 0) this.recover = delay;
+  }
+
+  respawn() {
+    const R = TUNING.RESPAWN;
+    const p = this.car.position;
+
+    // Nearest ramp, and the point on its approach the car should land back on.
+    let best = null, bestD = Infinity;
+    for (const r of this.park.ramps) {
+      if (r.id === 'garage') continue;
+      const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+
+    let pos = { ...this.spawn };
+    let heading = TUNING.ARENA.SPAWN_HEADING;
+    if (best) {
+      // A ramp faces -Z in its own frame, so its approach is +Z, rotated by yaw.
+      const s = Math.sin(best.yaw), c = Math.cos(best.yaw);
+      const back = rampSurface(best).zMax + R.APPROACH;
+      pos = { x: best.pos.x + s * back, y: 1.2, z: best.pos.z + c * back };
+      heading = best.yaw;
+    }
+
+    this.placeCar(pos, heading);
+    // Rolling restart: standing still 60 m from a ramp is its own punishment.
+    const fwd = qRot(qAxisAngle(WORLD_UP, heading), { x: 0, y: 0, z: -1 });
+    this.car.body.setLinvel({ x: fwd.x * R.SPEED, y: 0, z: fwd.z * R.SPEED }, true);
+    this.panels.restoreAll();
+    this.panels.reset();
+    this.stuck = 0;
+    this.recover = 0;
+    this.respawns++;
+    this.events.push({ type: 'respawn', pos, ramp: best ? best.id : null });
+  }
+
+  /** The run summary, plus the run-level counters the licences read. */
+  runSummary() {
+    const t = this.telemetry.thrustBursts;
+    return this.run.summary({
+      thrustBursts: t.extend + t.correct + t.dive,
+      coins: this.coinsTaken.size,
+      nearMisses: this.traffic.nearMisses,
+    });
   }
 
   drainEvents() {
@@ -320,7 +410,11 @@ export class Sim {
       liveTricks: this.airtimeTracker.airborne ? this.tricks._breakdown().tricks : [],
       coinsThisJump: this.tricks.coinsThisJump,
       coinsTaken: this.coinsTaken.size,
+      recover: this.recover,
+      respawns: this.respawns,
       traffic: this.traffic.snapshot(),
+      movers: this.movers.snapshot(),
+      arena: this.arenaId,
       nearMisses: this.traffic.nearMisses,
       oncoming: !!(this.trafficSignal && this.trafficSignal.oncoming),
       driftTime: c.driftTime,

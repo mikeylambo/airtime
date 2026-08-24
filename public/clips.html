@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AIRTIME — Gate A clips</title>
+<title>AIRTIME — clips</title>
 <style>
   :root { --ink:#eaf2f8; --dim:#8fa3b4; --faint:#5d7186; --accent:#59d0ff; --hot:#ff9f1c; --bg:#0b0f14; --card:#111823; --line:#1e2a36;
           --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
@@ -80,21 +80,29 @@
 </div>
 
 <script>
+const LOOP = [
+  ['loop', 'earn, launch, trick, land, chain', 'Twenty seconds of one 90-second run: weaving the lanes for near-miss boost, launching, flicking doors in the air, landing, and building the chain. Score, timer and chain are live. The wing turns red when a hard landing tears it off.'],
+];
 const CAMERAS = [
   ['camera-chase-pullback', 'chase-pullback', 'The default. Eases back and up on launch, widens the FOV, keeps the car centred so the gap to the landing reads.'],
   ['camera-orbit', 'orbit', 'Arms when the predicted hang time passes 2 s. One revolution around the car, then it hands back to chase on the descent.'],
   ['camera-target-lock', 'landing-target lock', 'A tagged target sits in the forward cone, so car and target are framed in one shot and the lens narrows as the gap closes.'],
 ];
+const CITY = [
+  ['city', 'the city block', 'Rooftops, billboards, an overpass and a rooftop pool, with traffic in every street. Fifty landing surfaces; twelve of them tagged for the camera to lock onto.'],
+];
 const ART = [
-  ['art-neon-wireframe', 'neon wireframe', 'Black void, glowing edges — Rush 2049’s own arcade palette pushed.'],
-  ['art-flat-lowpoly', 'flat low-poly', 'Flat saturated colour, no fog to speak of — SSX Tricky by way of a paper model.'],
+  ['art-graybox', 'lit gray box', 'What §10 asks for while the physics is being judged: no colour decisions, only form and light.'],
+  ['art-flat-lowpoly', 'flat low-poly', 'Flat saturated colour — SSX Tricky by way of a paper model.'],
 ];
 const card = ([id, title, desc]) => `
   <figure>
     <video src="./clips/${id}.mp4" poster="./clips/${id}.png" controls muted loop playsinline preload="metadata"></video>
     <figcaption><div class="t">${title}</div><div class="d">${desc}</div></figcaption>
   </figure>`;
+document.getElementById('loop').innerHTML = LOOP.map(card).join('');
 document.getElementById('cameras').innerHTML = CAMERAS.map(card).join('');
+document.getElementById('city').innerHTML = CITY.map(card).join('');
 document.getElementById('art').innerHTML = ART.map(card).join('');
 </script>
 </body>

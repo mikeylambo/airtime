@@ -128,6 +128,18 @@ export class Input {
   pressed(name) { return !!this.actions[name] && !this.prev[name]; }
 
   /**
+   * Raw key edge, for screens that need keys the action map does not carry
+   * (the replay theater's camera and export shortcuts).
+   */
+  pressed2(code) {
+    this._rawPrev = this._rawPrev || new Set();
+    const down = this.keys.has(code) || this._latched.has(code);
+    const was = this._rawPrev.has(code);
+    if (down) this._rawPrev.add(code); else this._rawPrev.delete(code);
+    return down && !was;
+  }
+
+  /**
    * Menu navigation, sampled independently of the driving map.
    *
    * Every field is an edge, so a held stick steps once and then repeats on a

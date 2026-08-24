@@ -11,6 +11,7 @@ import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
 import { CARS, PART_VARIANTS, LIVERIES, SLIDERS, findCar, findVariant } from '../sim/cars.js';
 import { medalCount } from '../storage/profiles.js';
+import { wallClips } from '../storage/clips.js';
 
 const TABS = ['CAR', 'TUNE', 'PARTS', 'LIVERY'];
 const bar = (v) => {
@@ -56,6 +57,16 @@ export function buildGarage(mgr, game) {
       .map((t, i) => `<span class="tab${i === tab ? ' on' : ''}">${t}</span>`).join('');
   };
 
+  /** §8: "best clips auto-hang in the garage; the trophy case is your own footage." */
+  const renderWall = () => {
+    const clips = wallClips(game.profileIndex, 5);
+    $('#gar-wall').innerHTML = clips.length
+      ? `<div class="wall-label">GARAGE WALL</div>` + clips.map((c) =>
+          `<div class="wall-clip"><b>${(c.info.total || 0).toLocaleString()}</b>` +
+          `<em>${c.info.quality} · ${c.info.airtime}s</em></div>`).join('')
+      : `<div class="wall-label">GARAGE WALL — empty. Land something worth keeping.</div>`;
+  };
+
   const renderCard = () => {
     const p = game.profile;
     const c = findCar(p.car);
@@ -70,6 +81,7 @@ export function buildGarage(mgr, game) {
     list.setItems(items());
     renderTabs();
     renderCard();
+    renderWall();
     if (preview) game.previewJump();
   };
 
@@ -79,6 +91,7 @@ export function buildGarage(mgr, game) {
       <div id="gar-tabs" class="tabs"></div>
       <div class="list" id="gar-list"></div>
       <div class="card" id="gar-card" style="max-width:430px"></div>
+      <div id="gar-wall" class="wall"></div>
       <div class="hint"><b>←→</b> change · <b>Q/E</b> tab · <b>A</b> equip · <b>B</b> back</div>
     </div>`,
     onEnter: () => {
@@ -92,6 +105,7 @@ export function buildGarage(mgr, game) {
       });
       renderTabs();
       renderCard();
+      renderWall();
       game.previewJump();
     },
     onExit: () => game.endPreview(),

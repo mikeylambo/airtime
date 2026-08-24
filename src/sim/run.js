@@ -12,15 +12,16 @@ import { clamp } from './mathx.js';
 export const RUN_STATE = { COUNTDOWN: 'countdown', RUNNING: 'running', OVER: 'over' };
 
 export class Run {
-  constructor(mode = 'stunt') {
+  constructor(mode = 'stunt', duration = TUNING.RUN.DURATION) {
     this.mode = mode;
+    this.duration = duration;
     this.reset();
   }
 
   reset() {
     this.state = RUN_STATE.COUNTDOWN;
     this.countdown = TUNING.RUN.COUNTDOWN;
-    this.timeLeft = TUNING.RUN.DURATION;
+    this.timeLeft = this.duration ?? TUNING.RUN.DURATION;
     this.score = 0;
     this.landings = [];
     this.combo = 1;
@@ -88,10 +89,15 @@ export class Run {
     return null;
   }
 
-  summary() {
+  summary(extra = {}) {
     const landed = this.landings.filter((l) => l.landed);
     return {
       mode: this.mode,
+      duration: this.duration,
+      // Counters the licence tests ask about (§8).
+      thrustBursts: extra.thrustBursts ?? 0,
+      coins: extra.coins ?? 0,
+      nearMisses: extra.nearMisses ?? 0,
       score: this.score,
       medal: this.medal,
       jumps: this.landings.length,

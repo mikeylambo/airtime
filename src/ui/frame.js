@@ -11,6 +11,8 @@ import { Screen, makeList } from './screens.js';
 import { STYLES } from '../render/art.js';
 import { medalCount, medalRank } from '../storage/profiles.js';
 import { buildGarage } from './garage.js';
+import { buildTheater } from './theater.js';
+import { buildProgress } from './progress.js';
 
 export const MODES = [
   { id: 'stunt', label: 'STUNT', arena: 'park',
@@ -98,7 +100,7 @@ export function buildFrame(mgr, game) {
         if (it.label === 'PLAY') mgr.push('mode');
         else if (it.label === 'GARAGE') mgr.push('garage');
         else if (it.label === 'REPLAYS') mgr.push('replays');
-        else if (it.label === 'DAILY LINE') game.startRun(game.lastMode, game.lastArena, { daily: true });
+        else if (it.label === 'DAILY LINE') mgr.push('board');
         else if (it.label === 'LICENCES') mgr.push('licences');
         else if (it.label === 'OPTIONS') mgr.push('options');
       });
@@ -287,6 +289,8 @@ export function buildFrame(mgr, game) {
   });
 
   buildGarage(mgr, game);
+  buildTheater(mgr, game);
+  buildProgress(mgr, game);
 
   return mgr;
 }

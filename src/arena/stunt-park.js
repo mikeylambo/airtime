@@ -10,6 +10,10 @@
  */
 
 import { rampMesh, rampSlabs, rampSurface, rampLipHeight, rampExitAngle } from './ramp-geometry.js';
+import TUNING from '../TUNING.js';
+
+const TUNING_GROUND = TUNING.ARENA.GROUND_SIZE;
+const SPAWN = TUNING.ARENA.SPAWN;
 
 // §3.1 target tier multipliers. Carried on the target records now so the
 // scoring pass (item 5) has nothing left to author.
@@ -166,7 +170,13 @@ export function describePark() {
     { id: 'qp_catch_deck', tier: 'rooftop', aim: { x: 0, y: 13.2, z: -209 }, half: { x: 22, y: 3, z: 5 } },
   ];
 
-  return { ramps, structures, targets, coins: describeCoins(), lanes: describeLanes() };
+  // Every target in the park is hand-placed, so every one is tagged (§10).
+  for (const t of targets) t.tagged = true;
+  return {
+    id: 'park', ground: TUNING_GROUND, spawn: { ...SPAWN },
+    ramps, structures, targets,
+    coins: describeCoins(), lanes: describeLanes(), movers: [],
+  };
 }
 
 /**

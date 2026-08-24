@@ -1,21 +1,14 @@
-# AIRTIME — Gate A
+# AIRTIME
 
 **Rush 2049 stunt-mode frame · Three.js + Rapier · web-first, controller-first**
 
 Drive recklessly to earn boost, hit a ramp, flail through the air with too
 little thrust to actually fly, and stick a landing somewhere absurd.
 
-This build is **items 1–4 of §12** of `airtime-frame-spec.md`, stopping at
-**Gate A** — the delta. It is the part of the design nobody has proven yet:
-
-1. **Tease-thrust** (§5) — a car that flies badly on purpose.
-2. **Body-as-trick** (§5.1) — doors, hood, tail flap and wing that steer the air.
-3. **The dynamic airtime camera** (§6) — three behaviours chosen by launch context.
-
-Everything else in the spec — scoring, boost economy, traffic, the frame
-screens, the garage, replay theater, modes — is deliberately *not* here. Gate A
-comes first because if the camera does not make a mediocre jump feel cinematic,
-the delta fails and the whole shape of the game changes.
+This build is **items 1–12 of §12** of `airtime-frame-spec.md` — through
+**Gate A** (the delta), **Gate B** (the loop) and **Gate C** (the frame).
+Item 13 (split-screen, pass-the-pad, highlight reel, the other three modes) and
+item 14 (audio and the polish pass) are not in it.
 
 ---
 
@@ -30,9 +23,10 @@ npm run dev
 |---|---|
 | `npm run dev` | play it |
 | `npm run gate` | Gate A acceptance checks, headless |
-| `npm run capture` | render the Gate A clips to `capture/` |
+| `npm run probe:run` | a whole 90-second run, headless, with the score breakdown |
 | `npm run probe:aero` | measure what each body panel does to the car |
-| `npm run probe:jump` | measure the hero jump |
+| `npm run shots` | render a PNG of every screen in the frame |
+| `npm run capture` | render the clips in `capture/` |
 
 ## Controls
 
@@ -49,7 +43,9 @@ because §5.1 makes the panels air-only and that frees them up on the ground.
 | Y / **C** | — | wing |
 | Stick / **arrows** | steer | pick the thrust mode |
 
-`V` camera style · `B` art style · `Enter` reset
+`V` camera style · `B` art style · `Enter` reset. In the replay theater:
+`Space` play/pause, `←→` scrub, `C` camera, `K` keyframe, `WASD/RF` free cam,
+`X` export 16:9, `Z` export 9:16.
 
 ---
 
@@ -64,64 +60,82 @@ the same rigid body is simply in free flight with no suspension forces, so the
 tumble is whatever the launch actually imparted.
 
 The five body panels are real rigid bodies on revolute joints with hinge limits
-and position motors. Their aerodynamics is a flat-plate model: drag normal to
-each face, scaled by how far the part is deployed, applied at that part's own
-position. Nothing in the code says "hood pitches back" — the hood is a plate on
-a hinge and the air decides.
-
-`npm run probe:aero` measures it:
+and position motors. Their aerodynamics is a flat-plate model applied at each
+part's own position. Nothing in the code says "hood pitches back" — the hood is
+a plate on a hinge and the air decides. `npm run probe:aero` measures it:
 
 ```
 HOOD         pitch  +3.24  yaw  -0.00  roll  -0.00  drag x3.58   §5.1 hood = pitch back
 TRUNK        pitch  -3.84  yaw  -0.00  roll  -0.00  drag x4.14   §5.1 trunk = pitch forward
 DOOR_L       pitch  -0.21  yaw  +2.81  roll  -7.50  drag x3.57   §5.1 one door = roll
-DOOR_R       pitch  -0.21  yaw  -2.81  roll  +7.50  drag x3.57   §5.1 one door = roll (mirrored)
 BOTH DOORS   pitch  -0.42  yaw  +0.00  roll  -0.00  drag x6.14   §5.1 both = air brake
 SPOILER      pitch  +0.43  yaw  +0.00  roll  +0.00  drag x1.57   §5.1 spoiler = stability
 ```
 
-Pillar 1 ("gravity always wins") is enforced structurally rather than by
-tuning discipline: the summed upward aerodynamic force is clamped to a fraction
-of the car's weight every step (`AERO.MAX_LIFT_FRACTION_OF_WEIGHT`), and the
-EXTEND thrust has its upward component hard-clamped
-(`THRUST.EXTEND_MAX_UP_COMPONENT`). No combination of parts, thrust and tuning
-can hold the car up.
+Pillar 1 ("gravity always wins") is enforced structurally rather than by tuning
+discipline: summed upward aerodynamic force is clamped to a fraction of the
+car's weight every step, and the EXTEND thrust has its upward component
+hard-clamped. No combination of parts, thrust and tuning can hold the car up.
 
-### The camera (§6) — the gate
+### The camera (§6)
 
-Three behaviours, selected by launch context, plus the Classic fixed chase from
-Options:
+chase-pullback, orbit (on predicted hang time over 2 s), and landing-target
+lock with a dolly-zoom, chosen by launch context; Classic fixed chase in
+Options. "Never cut, always ease" is structural: a behaviour change freezes the
+current on-screen framing as the outgoing shot and crossfades from it, and the
+crossfaded result is smoothed again on the way out.
 
-- **chase-pullback** — eases back and up, wider FOV, car centred.
-- **orbit** — one revolution when the predicted hang time exceeds 2 s, then
-  hands back to chase on the descent.
-- **landing-target lock** — when a tagged target is in the forward cone, frames
-  car and target together and dolly-zooms as the gap closes.
+### Scoring (§3.1)
 
-"Never cut, always ease" is structural, not stylistic. A behaviour change
-freezes the current on-screen framing as the outgoing shot and crossfades from
-it; the crossfaded result is then smoothed again on the way out. There is no
-path through `src/render/camera-rig.js` that teleports the camera.
+Rotation is integrated from the car's own angular velocity and named *after the
+fact* — a player who does not know they did a 540 still gets paid for one. The
+maths reproduces the spec's worked examples exactly: a perfect 360 onto a
+rooftop is 450, a sloppy 1080 on the road is 220.
+
+### Traffic (§4)
+
+Both behaviours ship. Reactive swerves, brakes and honks; Ambient holds its
+lane. Driving the lanes and running oncoming fills the boost bar and the safe
+centre line does not — that is the whole trade:
+
+```
+mode      line               | near  oncoming  earned
+reactive  clean centre line  |    0      0.0s    0.24
+reactive  alongside lane     |    9      6.9s    1.00
+```
+
+### The frame (§2)
+
+Title, profile (3 slots), main menu, mode select, arena select, pre-run,
+in-run, result, garage, replays, theater, licences, leaderboard, options.
+Menus are DOM over a live 3D world, so there is nothing to load between nodes
+and every transition is under 300 ms.
+
+### Garage (§7)
+
+Three archetypes, four sliders, part variants and liveries resolve into the
+actual numbers the rigid body, suspension, thrust and panels are built from —
+`src/sim/cars.js`. Change a slider and the car is a different object in the
+world, and the live preview jump fires so you watch rather than read:
+
+```
+car     launch  apex   air    landing
+dart     65.7   38.8  3.52s  clean
+vector   61.4   32.1  2.94s  clean
+anvil    56.5   28.2  2.89s  sloppy
+```
+
+### Replay (§6.1)
+
+A clip is inputs and a seed, so the theater does not play footage back — it
+re-runs the jump. That is why any saved landing can be re-shot under a
+different camera, flown through with a free cam, keyframed, and exported to
+16:9 or 9:16. Every landing over the threshold saves itself.
 
 ### Tuning
 
-Every feel number in the game is in **`src/TUNING.js`** and reachable at
-runtime as `window.AIRTIME.TUNING`. No magic numbers anywhere else in `src/`.
-Fifteen groups: `SIM CAR WHEEL DRIVE BOOST THRUST PANELS AERO AIRTIME CAMERA
-ARENA RENDER HUD INPUT TELEMETRY`.
-
-### Determinism
-
-Fixed 120 Hz timestep, seeded RNG, no `Math.random` in the simulation. The
-three camera clips are the *same* jump — same seed, same input script — shot
-three ways; nothing varies except the thing being judged. This is the seam the
-state-based replay of §6.1 plugs into.
-
-### Telemetry (pillar 3)
-
-The build logs landing rate per session, as the spec asks, so the "1 in 4 for a
-new player, 3 in 4 an hour in" band can be tuned from data rather than opinion.
-It is on the HUD and in `window.AIRTIME.telemetry()`.
+Every feel number is in **`src/TUNING.js`** and reachable at runtime as
+`window.AIRTIME.TUNING`. No magic numbers anywhere else in `src/`.
 
 ---
 
@@ -130,32 +144,30 @@ It is on the HUD and in `window.AIRTIME.telemetry()`.
 ```
 src/TUNING.js            every feel number, one object
 src/sim/                 headless — no three.js below this line
-  physics.js             Rapier world, collision layers
-  car.js                 chassis + raycast vehicle + ground handling
-  panels.js              five hinged panels: joints, motors, tear-off
-  aero.js                flat-plate aerodynamics + the lift clamp
-  thrust.js              tease-thrust (§5): extend / correct / dive
-  boost.js               the one bar (§5) + burnout chain (§4)
-  airtime.js             launch detect, ballistic prediction, landing quality
-  telemetry.js           landing rate per session (pillar 3)
-  sim.js                 the whole simulation, node-runnable
-src/arena/               stunt park as data: 18 ramps, 10 tagged targets
+  physics car panels     Rapier world, raycast vehicle, hinged bodywork
+  aero thrust boost      flat-plate aerodynamics, tease-thrust, the one bar
+  airtime tricks run     launch/landing, trick naming, the round
+  traffic movers         §4 traffic, §6.2 train / helicopter / billboard
+  cars replay telemetry  garage setups, state-based replay, landing rate
+src/arena/               two arenas as data: stunt park, city block
 src/render/              three.js: scene, car, arena, camera director, art
-src/ui/hud.js            in-run HUD
-src/demo-jump.js         the deterministic Gate A jump
-tools/                   headless probes, the gate, the capture rig
+src/ui/                  screen manager and every §2 screen
+src/game/                licences, daily seed, leaderboard adapter
+tools/                   headless probes, the gate, capture and screenshot rigs
 ```
 
 `src/sim` never imports three.js, so the entire simulation runs in node. That
-is what makes `npm run gate` a real check rather than a screenshot.
+is what makes `npm run gate` and `npm run probe:run` real checks rather than
+screenshots.
 
-## Not in this build (by design)
+## Known gaps
 
-Scoring and the trick bank (item 5), boost earn from traffic and near-miss
-(item 6), the run timer and result screen (item 7), the frame screens (item 8),
-garage and car roster (item 9), arena 2 (item 10), replay theater (item 11),
-medals and licences (item 12), split-screen and the other modes (item 13).
-
-The boost bar earns from drift, speed and airtime as a placeholder so the §5
-tradeoff can be felt at all; those terms are marked `PLACEHOLDER_` in TUNING
-for item 6 to replace.
+- **The leaderboard is local.** `src/game/daily.js` has the adapter seam;
+  `submit` and `top` are the only two functions a Supabase table would replace.
+  Provisioning a cloud project is the owner's call, not the build's.
+- **Clips carry their whole prefix.** A deterministic replay has to re-simulate
+  from step zero, so a landing late in a run stores that run's whole input
+  stream — tens of KB, not the few KB an early one costs.
+- **Item 13 modes are listed but locked**: Call Your Shot, Last Car Standing,
+  Hot Potato and Party appear in mode select and do not start.
+- **No audio.** That is item 14.

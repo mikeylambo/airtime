@@ -172,3 +172,25 @@ table.brk tr.crash td { color: #7a4453; }
   .hud-dev, .hud-ticker { display: none; }
   .boost-track { width: 180px; }
 }
+
+/* ── Replay theater (§6.1) ─────────────────────────────────────────────── */
+.theater-pane { display: block; padding: 0; }
+.th-bar { position: absolute; top: 1.6rem; left: 2.2rem; right: 2.2rem; display: flex;
+          justify-content: space-between; align-items: flex-start; }
+.th-head b { font-size: 2rem; font-weight: 800; }
+.th-head span { display: block; font-size: .64rem; letter-spacing: .18em; color: var(--dim); margin-top: .2rem; }
+.th-cam { text-align: right; font-size: .7rem; letter-spacing: .16em; }
+.th-cam .k { color: var(--faint); letter-spacing: .26em; margin-right: .5rem; }
+.th-cam b { color: var(--accent); font-weight: 600; }
+.th-foot { position: absolute; left: 2.2rem; right: 2.2rem; bottom: 1.8rem; }
+.scrub { height: 3px; background: #1b2733; border-radius: 2px; overflow: hidden; margin-bottom: .8rem; }
+.scrub-fill { height: 100%; width: 0%; background: var(--accent); }
+.th-foot .hint { margin-top: .2rem; }
+
+/* ── Garage wall (§8) ──────────────────────────────────────────────────── */
+.wall { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .8rem; max-width: 520px; }
+.wall-label { width: 100%; font-size: .56rem; letter-spacing: .3em; color: var(--faint); }
+.wall-clip { padding: .42rem .7rem; background: var(--panel); border: 1px solid rgba(255,255,255,.07);
+             border-radius: 2px; text-align: center; }
+.wall-clip b { display: block; font-size: .82rem; color: var(--hot); }
+.wall-clip em { display: block; font-style: normal; font-size: .56rem; letter-spacing: .12em; color: var(--faint); margin-top: .15rem; }

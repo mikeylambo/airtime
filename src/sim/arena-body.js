@@ -5,12 +5,12 @@
 
 import TUNING from '../TUNING.js';
 import { RAPIER, GROUP_WORLD } from './physics.js';
-import { describePark, rampSlabs } from '../arena/stunt-park.js';
+import { getArena, rampSlabs } from '../arena/index.js';
 import { qAxisAngle, WORLD_UP } from './mathx.js';
 
-export function buildArena(world) {
+export function buildArena(world, arenaId = 'park') {
   const A = TUNING.ARENA;
-  const park = describePark();
+  const park = getArena(arenaId);
   const colliders = [];
 
   const finish = (desc) => {
@@ -21,8 +21,8 @@ export function buildArena(world) {
   };
 
   // Ground: a thick slab rather than a plane so nothing can tunnel under it.
-  const g = RAPIER.ColliderDesc.cuboid(A.GROUND_SIZE / 2, 2, A.GROUND_SIZE / 2)
-    .setTranslation(0, -2, 0);
+  const size = park.ground || A.GROUND_SIZE;
+  const g = RAPIER.ColliderDesc.cuboid(size / 2, 2, size / 2).setTranslation(0, -2, 0);
   finish(g);
 
   // Every ramp is a chain of convex slabs (see arena/ramp-geometry.js): a

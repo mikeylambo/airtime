@@ -1,10 +1,14 @@
 [
   {
-    "id": "art-neon-wireframe",
-    "behavior": "chase-pullback",
+    "id": "city",
+    "behavior": null,
     "style": "neon",
-    "hud": false,
-    "caption": "Art gate — the same jump, neon wireframe",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/art-neon-wireframe.mp4"
+    "hud": true,
+    "script": "loop",
+    "arena": "city",
+    "seconds": 16,
+    "start": 66,
+    "caption": "§10b — the city block: rooftops, billboards, overpasses, traffic",
+    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/city.mp4"
   }
 ]
