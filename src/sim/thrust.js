@@ -28,9 +28,10 @@ export function modeFromStick(stickX, stickY) {
 }
 
 export class TeaseThrust {
-  constructor(car, boost) {
+  constructor(car, boost, setup = null) {
     this.car = car;
     this.boost = boost;
+    this.setup = setup;
     this.active = false;
     this.mode = null;
     this.timeLeft = 0;
@@ -97,7 +98,8 @@ export class TeaseThrust {
       dir = norm(v3(dir.x, T.EXTEND_MAX_UP_COMPONENT, dir.z));
     }
 
-    body.applyImpulse(scale(dir, T.EXTEND_ACCEL * body.mass() * dt), true);
+    const accel = this.setup ? this.setup.thrustAccel : T.EXTEND_ACCEL;
+    body.applyImpulse(scale(dir, accel * body.mass() * dt), true);
   }
 
   /** CORRECT — kills angular velocity, saves a tumble. */
@@ -128,7 +130,8 @@ export class TeaseThrust {
   _dive(dt) {
     const T = TUNING.THRUST;
     const body = this.car.body;
-    body.applyImpulse(v3(0, -T.DIVE_ACCEL * body.mass() * dt, 0), true);
+    const dive = this.setup ? this.setup.thrustDive : T.DIVE_ACCEL;
+    body.applyImpulse(v3(0, -dive * body.mass() * dt, 0), true);
 
     if (T.DIVE_FORWARD_BLEED > 0) {
       const v = body.linvel();

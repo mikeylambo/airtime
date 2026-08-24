@@ -107,9 +107,10 @@ export const TUNING = {
     // replace them without hunting through systems.
     EARN_DRIFT_PER_SEC: 0.16,
     EARN_AIRTIME_PER_SEC: 0.09, // §4 "airtime itself (small)"
-    PLACEHOLDER_EARN_SPEED_PER_SEC: 0.045,  // fills while near top speed
-    PLACEHOLDER_EARN_SPEED_MIN: 42,         // m/s before speed earn kicks in
-    PLACEHOLDER_EARN_NEARMISS: 0.10,        // reserved for item 6 traffic
+    EARN_SPEED_PER_SEC: 0.030,  // fills while near top speed
+    EARN_SPEED_MIN: 42,         // m/s before speed earn kicks in
+    EARN_NEARMISS: 0.11,        // §4 — the big one, per near miss
+    EARN_ONCOMING_PER_SEC: 0.16,// §4 — driving into the oncoming lane
 
     // §4 Burnout-chain rule: drain the full bar in one unbroken hold → refill.
     CHAIN_ENABLED: true,
@@ -241,7 +242,7 @@ export const TUNING = {
     PANEL_SKIN_DRAG: 0.11,      // tangential drag along the plate
     CHASSIS_CD: 0.62,           // chassis treated as three plates (x/y/z faces)
     CHASSIS_SCALE: 1.0,
-    CHASSIS_ANG_DRAG: 0.95,     // rotational air drag on the chassis, 1/s
+    CHASSIS_ANG_DRAG: 0.50,     // rotational air drag on the chassis, 1/s
 
     // Centre of pressure, in chassis-local space (the box centre is the
     // origin; the centre of mass sits at CAR.COM). Behind the centre of mass
@@ -250,7 +251,12 @@ export const TUNING = {
     // player does — which is what the first build did, and why a neutral jump
     // could not be landed. This one number decides whether the car is
     // recoverable, so it is the first thing to reach for if it feels wrong.
-    CHASSIS_COP: { x: 0, y: -0.26, z: 0.62 },
+    // Sweeps at 0.62 landed every neutral jump and made §3's tricks
+    // impossible: the car simply trimmed back to nose-first instead of ever
+    // rotating, so no hold on any part could complete a 360. At 0.20 the
+    // weathercock is still enough to land a hands-off jump clean, and a firm
+    // hold now earns real flips, rolls and spins. See tools/rotation-sweep.mjs.
+    CHASSIS_COP: { x: 0, y: -0.26, z: 0.20 },
 
     // Pillar 1 enforcement. Summed aero force may never push the car up by
     // more than this fraction of its own weight. Gravity always wins, by
@@ -301,6 +307,77 @@ export const TUNING = {
     // not — a hard but legitimate landing compresses the suspension enough to
     // graze, and treating that as a strike marked clean sticks as crashes.
     CHASSIS_CRASH_DEPTH: -0.06,
+  },
+
+  // ── Traffic (§4) ─────────────────────────────────────────────────────────
+  // Both behaviours ship. Ambient is the accessibility / party toggle;
+  // Reactive is Burnout's texture and the funnier default.
+  TRAFFIC: {
+    MODE: 'reactive',           // 'reactive' | 'ambient'   (Options, §2.1)
+    COUNT: 44,                  // vehicles alive at once
+    SPEED: [14, 26],            // m/s range, rolled per vehicle from the seed
+    HALF: { x: 0.92, y: 0.78, z: 2.20 },
+    MASS: 1400,
+
+    // Near-miss (§4) — the main boost earn.
+    NEAR_MISS_RADIUS: 5.5,
+    NEAR_MISS_MIN_SPEED: 22,    // m/s; crawling past a bus is not a near miss
+    NEAR_MISS_REARM: 2.5,       // seconds before the same vehicle can pay again
+    ONCOMING_DOT: -0.35,        // player heading vs lane direction to count
+    ONCOMING_LANE_HALF: 5.5,    // how close to the lane centre you must be
+
+    // Reactive only.
+    // Late and small. Panicking early and swerving hard means the player can
+    // never actually get near a car, and near-miss is the whole boost economy.
+    REACT_RADIUS: 17,
+    SWERVE: 1.8,                // metres of lateral panic
+    SWERVE_RATE: 2.6,
+    BRAKE: 0.55,                // fraction of speed shed when panicking
+    HONK_RADIUS: 13,           // one honk per approach, not per frame
+
+    // §4: "a car landing on traffic is a Moving-vehicle-tier stick; traffic
+    // clipping you mid-air is a crash."
+    ROOF_TOLERANCE: 1.6,        // how far above the roof still counts as on it
+    MIDAIR_CLIP_IS_CRASH: true,
+  },
+
+  // ── Scoring (§3.1) ───────────────────────────────────────────────────────
+  // "Rush rule: height and rotation are cheap, landing is the multiplier."
+  SCORE: {
+    SPIN_BASE: 100,             // one full 360 about the car's own up axis
+    FLIP_BASE: 150,             // one full rotation about its pitch axis
+    ROLL_BASE: 150,             // one full barrel roll
+    // Each rotation past the first adds this fraction of the base, linearly.
+    // §3.1 wants a 1080 to be ~2.2x a 360, not 3x: 100 + 60 + 60 = 220.
+    EXTRA_ROTATION: 0.60,
+    // A rotation counts a little short of the full turn — 353 degrees reads to
+    // the player as a 360 and Rush always paid it.
+    ROTATION_GRACE: 0.12,       // radians
+
+    POSE_PER_SEC: 50,           // §3.1 held pose, per deployed part per second
+    POSE_MIN_TIME: 0.20,        // shorter than this is a twitch, not a pose
+
+    AIRTIME_BONUS_PER_SEC: 40,  // linear, capped (§3.1)
+    AIRTIME_BONUS_CAP: 200,
+    HEIGHT_BONUS_PER_M: 3,      // "small"
+    HEIGHT_BONUS_CAP: 120,
+
+    COIN_VALUE: 25,             // flat, added outside the bank (§3.1)
+    COIN_RADIUS: 4.5,
+
+    // Landing multipliers live with the landing tiers they multiply:
+    // LANDING_MULT in sim/airtime.js, TIER in arena/stunt-park.js.
+    MEDAL: { bronze: 6000, silver: 14000, gold: 26000, platinum: 42000 },
+  },
+
+  // ── Run (§3: one run, 90-120 seconds) ────────────────────────────────────
+  RUN: {
+    DURATION: 90,
+    COUNTDOWN: 3,
+    // A landing keeps the chain alive if the next launch comes soon enough.
+    COMBO_WINDOW: 6.0,
+    COMBO_STEP: 0.25,           // +25% per landed stick in the chain
+    COMBO_MAX: 3.0,
   },
 
   // ── Dynamic airtime camera (§6) — the delta, part B, THE GATE ────────────
@@ -363,6 +440,21 @@ export const TUNING = {
       DOLLY_RANGE: 62,             // distance over which the vertigo runs
     },
 
+    // Garage live preview (§2.1: "one fixed cinematic angle, ~4s")
+    // Measured from the garage ramp: airborne z=-16 to z=-67, apex 14.3 m at
+    // z=-34. The angle frames that arc three-quarters on.
+    PREVIEW: {
+      START: { x: -235, y: 1.08, z: 62 },
+      EYE: { x: -188, y: 17.0, z: -16 },
+      LOOK: { x: -235, y: 10.0, z: -36 },
+      FOV: 46,
+      SKIP: 2.0,                // skip most of the run-up; §2.1 wants ~4s
+      SECONDS: 5.7,
+    },
+
+    // Showcase / menu camera (§2.1: the car is centre-stage behind the menu)
+    SHOWCASE: { RADIUS: 12.5, HEIGHT: 3.4, SPEED: 0.17, FOV: 40, BIAS_X: 6.0 },
+
     // Speed sense (§4)
     FOV_SPEED_KICK: 17,         // extra degrees at top speed
     FOV_BOOST_KICK: 7,
@@ -388,7 +480,9 @@ export const TUNING = {
 
   // ── Render / art (§11 Art gate) ──────────────────────────────────────────
   RENDER: {
-    STYLE: 'graybox',           // 'graybox' | 'neon' | 'lowpoly'
+    // Default look. All three ship and cycle at runtime (Options / B key);
+    // graybox stays the honest one for judging physics and framing.
+    STYLE: 'neon',              // 'graybox' | 'neon' | 'lowpoly'
     SHADOWS: true,
     SHADOW_MAP: 2048,
     PIXEL_RATIO_CAP: 2,
@@ -397,6 +491,15 @@ export const TUNING = {
     FOG_FAR: 900,
     WIND_STREAKS: 220,          // speed-sense particles
     STREAK_MIN_SPEED: 26,
+  },
+
+  // ── UI (§2.1 connective tissue) ──────────────────────────────────────────
+  UI: {
+    TRANSITION: 0.26,           // §2.1: every transition <= 300ms, eased
+    ATTRACT_IDLE: 10,           // §2.1: title demos itself after 10s idle
+    RESULT_REEL_DELAY: 1.2,     // beat before the highlight reel auto-plays
+    TICKER_LIFE: 2.6,           // how long a named trick stays on the ticker
+    TICKER_MAX: 5,
   },
 
   // ── HUD (Gate A diagnostics) ─────────────────────────────────────────────
@@ -412,6 +515,9 @@ export const TUNING = {
     TRIGGER_DEADZONE: 0.06,
     KEYBOARD_STEER_RATE: 4.2,   // how fast a key press ramps a virtual axis
     KEYBOARD_STEER_RETURN: 7.5,
+    MENU_DEADZONE: 0.55,        // a stick has to be pushed, not nudged, in menus
+    MENU_REPEAT_DELAY: 0.42,
+    MENU_REPEAT_RATE: 0.12,
   },
 
   // ── Telemetry (§0.1 pillar 3: "Build logs landing rate per session") ─────

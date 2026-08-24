@@ -145,9 +145,9 @@ export class AeroAccumulator {
 }
 
 /** Rotational air drag on the chassis — the reason a tumble decays. */
-export function applyAngularDrag(body, dt) {
+export function applyAngularDrag(body, dt, override = null) {
   const A = TUNING.AERO;
   const av = body.angvel();
-  const k = Math.exp(-A.CHASSIS_ANG_DRAG * dt);
+  const k = Math.exp(-(override ?? A.CHASSIS_ANG_DRAG) * dt);
   body.setAngvel({ x: av.x * k, y: av.y * k, z: av.z * k }, true);
 }

@@ -32,6 +32,7 @@ const PALETTES = {
       // glance, because Gate A is the claim that you can *see* them steer.
       panel: { color: 0xffb066, rough: 0.45, metal: 0.1 },
       wheel: { color: 0x2b2f34, rough: 0.95 },
+      traffic: { color: 0x7d8894, rough: 0.8 },
       glass: { color: 0x3b444d, rough: 0.25, metal: 0.5 },
     },
     grid: 0x000000, gridOpacity: 0.13, lines: false,
@@ -53,9 +54,11 @@ const PALETTES = {
       pool: { color: 0x02100f, emissive: 0x04201e, edge: 0x2bffd6 },
       secret: { color: 0x140802, emissive: 0x2c1604, edge: 0xffa521 },
       leg: { color: 0x03050e, emissive: 0x060a16, edge: 0x2a5f8a },
-      body: { color: 0x08040f, emissive: 0x14061f, edge: 0xff2bd0 },
-      panel: { color: 0x041018, emissive: 0x07202e, edge: 0x49e0ff },
+      // The car is the hero object; it gets to be brighter than the world.
+      body: { color: 0x140823, emissive: 0x2e0d47, edge: 0xff2bd0 },
+      panel: { color: 0x07222f, emissive: 0x0d4a63, edge: 0x49e0ff },
       wheel: { color: 0x03040a, emissive: 0x0d0418, edge: 0xa040ff },
+      traffic: { color: 0x0a0416, emissive: 0x18062c, edge: 0xffd166 },
       glass: { color: 0x02040a, emissive: 0x041420, edge: 0x49e0ff },
     },
     grid: 0x2ea8dc, gridOpacity: 0.42, lines: true,
@@ -76,6 +79,7 @@ const PALETTES = {
       body: { color: 0xf25c54, rough: 1, flat: true },
       panel: { color: 0x2d3142, rough: 1, flat: true },
       wheel: { color: 0x2e2b2a, rough: 1, flat: true },
+      traffic: { color: 0x4a6fa5, rough: 1, flat: true },
       glass: { color: 0x8ecae6, rough: 1, flat: true },
     },
     grid: 0x2f4a22, gridOpacity: 0.10, lines: false,
@@ -136,7 +140,7 @@ export class ArtDirector {
     let mat = this.materials.get(key);
     if (!mat) {
       mat = new THREE.MeshStandardMaterial({
-        color: spec.color,
+        color: (this.tints && this.tints[role] != null && this.style !== 'neon') ? this.tints[role] : spec.color,
         roughness: spec.rough ?? 0.9,
         metalness: spec.metal ?? 0.0,
         emissive: spec.emissive ?? 0x000000,
@@ -179,7 +183,8 @@ export class ArtDirector {
   _setEdges(on) {
     if (on && this.edges.length === 0) {
       for (const { mesh, role } of this.registry) {
-        if (role === 'wheel' || !mesh.geometry) continue;
+        if (role === 'wheel' || role === 'traffic' || !mesh.geometry) continue;
+        if (mesh.isInstancedMesh) continue;   // one wireframe per instance is not worth it
         const p = PALETTES.neon.roles[role];
         if (!p || !p.edge) continue;
         const line = new THREE.LineSegments(
@@ -195,6 +200,14 @@ export class ArtDirector {
       }
     }
     for (const e of this.edges) e.visible = !!on;
+  }
+
+  /** Livery paint: recolour one role without rebuilding materials (§7). */
+  tint(role, hex) {
+    this.tints = this.tints || {};
+    this.tints[role] = hex;
+    const mat = this.materials.get(this._key(role));
+    if (mat && this.style !== 'neon') mat.color.setHex(hex);
   }
 
   next() {

@@ -26,6 +26,35 @@ import TUNING from '../TUNING.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
+const NAMED_KEYS = new Set([
+  'Enter', 'Escape', 'Backspace', 'Tab',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+]);
+
+/**
+ * KeyboardEvent.code, or the closest thing we can reconstruct from .key.
+ *
+ * Not every source of key events fills in `code` — synthetic events, some
+ * remote-input and accessibility paths, and older engines leave it empty. Keying
+ * the whole game off `code` alone means those inputs silently do nothing, which
+ * looks exactly like the game being broken.
+ */
+function keyCodeOf(e) {
+  if (e.code) return e.code;
+  const k = e.key;
+  if (!k) return '';
+  if (k === ' ' || k === 'Spacebar') return 'Space';
+  if (NAMED_KEYS.has(k)) return k;
+  if (k.length === 1) {
+    const c = k.toUpperCase();
+    if (c >= 'A' && c <= 'Z') return `Key${c}`;
+    if (c >= '0' && c <= '9') return `Digit${c}`;
+  }
+  if (k === 'Shift') return 'ShiftLeft';
+  if (k === 'Control') return 'ControlLeft';
+  return k;
+}
+
 function deadzone(v, dz) {
   const a = Math.abs(v);
   if (a <= dz) return 0;
@@ -62,14 +91,23 @@ export class Input {
 
     this.keys = new Set();
     this._vSteer = 0;            // keyboard virtual analog steering
+    this._menuHeld = {};
+    this._menuRepeat = {};
+    this._latched = new Set();
 
     this._onKeyDown = (e) => {
       if (e.repeat) return;
-      this.keys.add(e.code);
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      const code = keyCodeOf(e);
+      if (!code) return;
+      this.keys.add(code);
+      // Latch the press so a tap that begins and ends inside one animation
+      // frame is still seen. Without this, quick keyboard input is silently
+      // dropped — menus feel broken and it is invisible in code review.
+      this._latched.add(code);
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) e.preventDefault();
     };
-    this._onKeyUp = (e) => this.keys.delete(e.code);
-    this._onBlur = () => this.keys.clear();
+    this._onKeyUp = (e) => this.keys.delete(keyCodeOf(e));
+    this._onBlur = () => { this.keys.clear(); this._latched.clear(); };
 
     target.addEventListener('keydown', this._onKeyDown);
     target.addEventListener('keyup', this._onKeyUp);
@@ -88,6 +126,67 @@ export class Input {
 
   /** Edge detect: true only on the frame the action went from false to true. */
   pressed(name) { return !!this.actions[name] && !this.prev[name]; }
+
+  /**
+   * Menu navigation, sampled independently of the driving map.
+   *
+   * Every field is an edge, so a held stick steps once and then repeats on a
+   * timer rather than flying down a list. Menus are the one place where a
+   * gamepad's analog stick has to behave like a d-pad.
+   * @returns {{up,down,left,right,confirm,back,start,any}}
+   */
+  sampleMenu(dt) {
+    const T = TUNING.INPUT;
+    const pad = this._pad();
+    const k = (c) => this.keys.has(c) || this._latched.has(c);
+
+    let x = 0, y = 0;
+    let confirm = k('Enter') || k('Space') || k('KeyZ');
+    let back = k('Escape') || k('Backspace') || k('KeyX');
+    let start = k('Enter');
+
+    if (k('ArrowUp') || k('KeyW')) y += 1;
+    if (k('ArrowDown') || k('KeyS')) y -= 1;
+    if (k('ArrowLeft') || k('KeyA')) x -= 1;
+    if (k('ArrowRight') || k('KeyD')) x += 1;
+
+    if (pad) {
+      const btn = (i) => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = deadzone(pad.axes[0] || 0, T.MENU_DEADZONE);
+      const ay = -deadzone(pad.axes[1] || 0, T.MENU_DEADZONE);
+      x += ax; y += ay;
+      if (btn(12)) y += 1;            // d-pad up
+      if (btn(13)) y -= 1;            // d-pad down
+      if (btn(14)) x -= 1;
+      if (btn(15)) x += 1;
+      confirm = confirm || btn(0);
+      back = back || btn(1);
+      start = start || btn(9);
+    }
+
+    const dirs = {
+      up: y > 0.5, down: y < -0.5, left: x < -0.5, right: x > 0.5,
+      confirm, back, start,
+    };
+    const out = {};
+    for (const key of Object.keys(dirs)) {
+      const held = dirs[key];
+      const was = this._menuHeld[key] || 0;
+      if (!held) { this._menuHeld[key] = 0; this._menuRepeat[key] = 0; out[key] = false; continue; }
+      if (!was) { out[key] = true; this._menuRepeat[key] = T.MENU_REPEAT_DELAY; }
+      else {
+        this._menuRepeat[key] -= dt;
+        if (this._menuRepeat[key] <= 0 && (key === 'up' || key === 'down' || key === 'left' || key === 'right')) {
+          out[key] = true;
+          this._menuRepeat[key] = T.MENU_REPEAT_RATE;
+        } else out[key] = false;
+      }
+      this._menuHeld[key] = 1;
+    }
+    out.any = Object.values(out).some(Boolean);
+    this._latched.clear();
+    return out;
+  }
 
   sample(dt, airborne) {
     if (!this.enabled) return this.actions;

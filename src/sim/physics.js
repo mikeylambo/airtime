@@ -22,11 +22,13 @@ export const LAYER = { WORLD: 0x0001, CAR: 0x0002, PANEL: 0x0004, TRIGGER: 0x000
 export const groups = (membership, filter) => ((membership << 16) | filter) >>> 0;
 
 export const GROUP_WORLD  = groups(LAYER.WORLD, LAYER.CAR | LAYER.PANEL);
-export const GROUP_CAR    = groups(LAYER.CAR,   LAYER.WORLD);
-export const GROUP_PANEL  = groups(LAYER.PANEL, LAYER.WORLD);
+export const GROUP_CAR    = groups(LAYER.CAR,   LAYER.WORLD | LAYER.TRIGGER);
+export const GROUP_PANEL  = groups(LAYER.PANEL, LAYER.WORLD | LAYER.TRIGGER);
 // Wheel ray-casts should see the world and nothing else — not the car's own
 // chassis, and definitely not its flapping doors.
-export const WHEEL_RAY_GROUPS = groups(LAYER.CAR, LAYER.WORLD);
+// Traffic is included: §4 wants you to be able to land *on* a car, which means
+// the wheels have to be able to find one.
+export const WHEEL_RAY_GROUPS = groups(LAYER.CAR, LAYER.WORLD | LAYER.TRIGGER);
 
 export function createWorld() {
   const world = new RAPIER.World({ x: 0, y: TUNING.SIM.GRAVITY, z: 0 });

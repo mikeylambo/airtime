@@ -16,6 +16,8 @@ import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 
 export const BEHAVIOR = {
+  SHOWCASE: 'showcase',
+  PREVIEW: 'preview',
   CHASE: 'chase-pullback',
   ORBIT: 'orbit',
   TARGET: 'landing-target-lock',
@@ -215,11 +217,43 @@ export class CameraDirector {
 
   _compose(shot, behavior, state, dt) {
     switch (behavior) {
+      case BEHAVIOR.SHOWCASE: return this._showcase(shot, state, dt);
+      case BEHAVIOR.PREVIEW: return this._preview(shot, state);
       case BEHAVIOR.ORBIT: return this._orbit(shot, state);
       case BEHAVIOR.TARGET: return this._targetLock(shot, state);
       case BEHAVIOR.CLASSIC: return this._chase(shot, state, true);
       default: return this._chase(shot, state, false);
     }
+  }
+
+  /**
+   * Showcase — the menu camera (§2.1: "car sits centre-stage, live 3D").
+   * A slow orbit, biased to the right of frame so the menu list sits in the
+   * empty half rather than on top of the car.
+   */
+  _showcase(shot, state, dt) {
+    const C = TUNING.CAMERA;
+    const K = C.SHOWCASE;
+    this.showcaseA = (this.showcaseA || 0) + dt * K.SPEED;
+    const p = state.position;
+    shot.position.set(
+      p.x + Math.sin(this.showcaseA) * K.RADIUS + K.BIAS_X,
+      p.y + K.HEIGHT,
+      p.z + Math.cos(this.showcaseA) * K.RADIUS
+    );
+    shot.target.set(p.x + K.BIAS_X * 0.35, p.y + 0.5, p.z);
+    shot.fov = K.FOV;
+    this._liftAboveDeck(shot);
+    return shot;
+  }
+
+  /** The garage's fixed cinematic angle (§2.1). Deliberately unmoving. */
+  _preview(shot, state) {
+    const K = TUNING.CAMERA.PREVIEW;
+    shot.position.set(K.EYE.x, K.EYE.y, K.EYE.z);
+    shot.target.set(K.LOOK.x, K.LOOK.y, K.LOOK.z);
+    shot.fov = K.FOV;
+    return shot;
   }
 
   /** Chase-pullback (§6 default): eases back and up, wider FOV, car centred. */

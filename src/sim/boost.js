@@ -12,7 +12,8 @@ import TUNING from '../TUNING.js';
 import { clamp } from './mathx.js';
 
 export class BoostBar {
-  constructor() {
+  constructor(setup = null) {
+    this.setup = setup;
     this.value = TUNING.BOOST.START;
     this.boosting = false;
     this.chainArmed = false;      // this hold began with a full bar
@@ -29,17 +30,19 @@ export class BoostBar {
   }
 
   /** True if a thrust burst can be paid for right now (§5). */
-  canAffordThrust() { return this.value >= TUNING.BOOST.THRUST_COST; }
+  get thrustCost() { return this.setup ? this.setup.thrustCost : TUNING.BOOST.THRUST_COST; }
+  canAffordThrust() { return this.value >= this.thrustCost; }
 
   spendThrust() {
     const B = TUNING.BOOST;
     if (!this.canAffordThrust()) return false;
-    this.value = clamp(this.value - B.THRUST_COST, 0, B.MAX);
-    this.spentThisRun += B.THRUST_COST;
+    const cost = this.thrustCost;
+    this.value = clamp(this.value - cost, 0, B.MAX);
+    this.spentThisRun += cost;
     return true;
   }
 
-  update(dt, { car, actions, airborne }) {
+  update(dt, { car, actions, airborne, oncoming = false }) {
     const B = TUNING.BOOST;
     const wantBoost = !!actions.boost && !airborne;
 
@@ -71,9 +74,10 @@ export class BoostBar {
     let earn = 0;
     if (car.driftTime > 0) earn += B.EARN_DRIFT_PER_SEC * dt;
     if (airborne) earn += B.EARN_AIRTIME_PER_SEC * dt;
-    if (!airborne && car.groundSpeed > B.PLACEHOLDER_EARN_SPEED_MIN) {
-      earn += B.PLACEHOLDER_EARN_SPEED_PER_SEC * dt;
+    if (!airborne && car.groundSpeed > B.EARN_SPEED_MIN) {
+      earn += B.EARN_SPEED_PER_SEC * dt;
     }
+    if (oncoming) earn += B.EARN_ONCOMING_PER_SEC * dt;
     if (earn > 0) {
       const before = this.value;
       this.value = clamp(this.value + earn, 0, B.MAX);
@@ -83,10 +87,13 @@ export class BoostBar {
     return this.boosting;
   }
 
-  /** Near-miss credit — the hook item 6's traffic will call. */
+  /** Near-miss credit, called by the traffic system (§4). */
   creditNearMiss(n = 1) {
     const B = TUNING.BOOST;
-    this.value = clamp(this.value + B.PLACEHOLDER_EARN_NEARMISS * n, 0, B.MAX);
+    const before = this.value;
+    this.value = clamp(this.value + B.EARN_NEARMISS * n, 0, B.MAX);
+    this.earnedThisRun += this.value - before;
+    this.nearMisses = (this.nearMisses || 0) + n;
   }
 }
 

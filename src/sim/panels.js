@@ -25,9 +25,10 @@ const SLOT_ACTION = {
 };
 
 export class Panels {
-  constructor(world, car) {
+  constructor(world, car, setup = null) {
     this.world = world;
     this.car = car;
+    this.setup = setup;
     this.parts = {};
 
     const P = TUNING.PANELS;
@@ -35,7 +36,10 @@ export class Panels {
     const chassisRot = car.rotation;
 
     for (const slot of SLOTS) {
-      const cfg = P[slot];
+      // A part variant is a different piece of bodywork, not a stat: it changes
+      // how far the hinge opens, and the aero then does what it does (§7).
+      const tuned = setup && setup.panels[slot];
+      const cfg = tuned ? { ...P[slot], open: tuned.open } : P[slot];
       const axis = norm(cfg.axis);
 
       // Panel spawns stowed: hinge point plus the offset to its centre, both
@@ -142,8 +146,9 @@ export class Panels {
     const sp = this.parts.SPOILER;
     if (!sp.attached || sp.deploy < 0.05) return;
     const cfg = TUNING.PANELS.SPOILER;
+    const lift = this.setup ? this.setup.panels.SPOILER.lift : 1;
     const av = this.car.body.angvel();
-    const k = Math.exp(-cfg.YAW_STABILISE * sp.deploy * dt);
+    const k = Math.exp(-cfg.YAW_STABILISE * lift * sp.deploy * dt);
     // Damp yaw and pitch, leave roll alone: a spoiler steadies the car, it
     // does not stop you spinning on the axis you are actually tricking on.
     this.car.body.setAngvel({ x: av.x * k, y: av.y * k, z: av.z }, true);

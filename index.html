@@ -3,126 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AIRTIME — Gate A</title>
+<title>AIRTIME</title>
 <style>
-  :root {
-    --ink: #eaf2f8;
-    --dim: #8fa3b4;
-    --accent: #59d0ff;
-    --hot: #ff9f1c;
-    --bg: #0b0f14;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
-  body { font-family: var(--mono); color: var(--ink); -webkit-font-smoothing: antialiased; }
-  #view { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
-
-  /* ── Boot / title (§2 shell) ───────────────────────────────────────────── */
+  html, body { margin: 0; height: 100%; background: #0b0f14; overflow: hidden; }
   #boot {
-    position: fixed; inset: 0; display: grid; place-content: center; gap: 1.1rem;
+    position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; gap: 1rem;
     text-align: center; background: radial-gradient(120% 90% at 50% 40%, #16202b 0%, #05080c 70%);
-    z-index: 40; transition: opacity .32s ease, visibility .32s;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #eaf2f8;
+    transition: opacity .3s ease, visibility .3s;
   }
   #boot.gone { opacity: 0; visibility: hidden; pointer-events: none; }
-  #boot h1 {
-    margin: 0; font-size: clamp(3rem, 12vw, 8rem); letter-spacing: .22em; font-weight: 800;
-    background: linear-gradient(180deg, #fff 10%, var(--accent) 55%, #2b6f92 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  #boot .tag { color: var(--dim); letter-spacing: .3em; font-size: .78rem; }
-  #boot-msg { color: var(--hot); letter-spacing: .26em; font-size: .82rem; min-height: 1.2em; }
-  #boot.ready #boot-msg { animation: blink 1.15s steps(2, start) infinite; }
-  @keyframes blink { to { opacity: .25; } }
-  #boot .clips { color:#59d0ff; text-decoration:none; letter-spacing:.24em; font-size:.68rem; border:1px solid #24485c; padding:.5rem 1.1rem; border-radius:2px; }
-  #boot .clips:hover { background:#59d0ff; color:#04252f; }
-  #boot .build { position: absolute; bottom: 1.2rem; left: 0; right: 0; color: #4a5b6b; font-size: .68rem; letter-spacing: .18em; }
-
-  /* ── HUD (§2.1) ────────────────────────────────────────────────────────── */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 20; transition: opacity .1s linear; }
-  #hud > * { position: absolute; }
-
-  .hud-left { left: 2.2rem; bottom: 2.0rem; }
-  .boost-label { font-size: .6rem; letter-spacing: .34em; color: var(--dim); margin-bottom: .34rem; }
-  .boost-track {
-    position: relative; width: 264px; height: 15px; background: #131c25;
-    border: 1px solid #2a3d4d; border-radius: 2px; overflow: hidden;
-  }
-  .boost-fill {
-    height: 100%; width: 0%; border-radius: 1px;
-    background: linear-gradient(90deg, #1d7fa8, var(--accent));
-    transition: width .05s linear;
-  }
-  .boost-fill.burning { background: linear-gradient(90deg, var(--hot), #ffe066); }
-  .boost-thrust { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .85; }
-  .speed { margin-top: .55rem; display: flex; align-items: baseline; gap: .35rem; }
-  .speed-n { font-size: 2.5rem; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
-  .speed-u { font-size: .6rem; letter-spacing: .28em; color: var(--dim); }
-
-  .hud-air { left: 50%; top: 2.0rem; transform: translateX(-50%); text-align: center; }
-  .airtime { font-size: 2.5rem; font-weight: 700; line-height: 1; color: #46586a; transition: color .18s; }
-  .airtime span { font-size: 1.05rem; margin-left: .1rem; }
-  .hud-air.up .airtime { color: var(--accent); text-shadow: 0 0 26px rgba(89,208,255,.55); }
-  .air-sub { font-size: .58rem; letter-spacing: .34em; color: var(--dim); margin-top: .28rem; }
-
-  .hud-right { right: 2.2rem; top: 2.0rem; text-align: right; font-size: .68rem; letter-spacing: .1em; }
-  .cam-line { margin-bottom: .3rem; }
-  .cam-line .k { color: var(--dim); letter-spacing: .26em; margin-right: .5rem; }
-  .cam-v, .style-v { color: var(--accent); }
-  .thrust-v { color: #5d6f80; }
-  .thrust-v.live { color: var(--hot); }
-
-  .hud-parts { right: 2.2rem; bottom: 2.0rem; display: flex; flex-direction: column; gap: .3rem; align-items: flex-end; }
-  .part {
-    display: flex; align-items: center; gap: .5rem; font-size: .6rem; letter-spacing: .18em;
-    color: #566878;
-  }
-  .part b { font-weight: 500; }
-  .part i {
-    display: block; width: 46px; height: 4px; background: #2a3d4d; border-radius: 2px;
-    transform: scaleX(0); transform-origin: right center; transition: none;
-  }
-  .part.on { color: var(--accent); }
-  .part.on i { background: var(--accent); box-shadow: 0 0 12px rgba(89,208,255,.7); }
-  .part.gone { color: #6b3040; text-decoration: line-through; }
-
-  .hud-landing {
-    left: 50%; top: 30%; transform: translate(-50%, -10px); text-align: center;
-    opacity: 0; transition: opacity .2s ease, transform .2s ease;
-  }
-  .hud-landing.show { opacity: 1; transform: translate(-50%, 0); }
-  .hud-landing span { display: block; font-size: 2.2rem; font-weight: 800; letter-spacing: .1em; }
-  .hud-landing em { display: block; font-style: normal; font-size: .66rem; letter-spacing: .2em; color: var(--dim); margin-top: .3rem; }
-
-  .hud-tel {
-    left: 2.2rem; top: 2.0rem; font-size: .62rem; letter-spacing: .08em; color: #5d7186;
-  }
-  .hud-tel em { font-style: normal; color: #3f4f5e; }
-
-  #keys {
-    position: fixed; left: 50%; bottom: 1.0rem; transform: translateX(-50%);
-    font-size: .58rem; letter-spacing: .16em; color: #45566a; z-index: 20;
-    pointer-events: none; text-align: center; line-height: 1.7;
-  }
-  #keys b { color: #6f8598; font-weight: 500; }
-  @media (max-width: 900px) { #keys, .hud-tel { display: none; } }
+  #boot h1 { margin: 0; font-size: clamp(3rem, 12vw, 7rem); letter-spacing: .22em; font-weight: 800;
+    background: linear-gradient(180deg, #fff 10%, #59d0ff 55%, #2b6f92 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #boot-msg { color: #ff9f1c; letter-spacing: .26em; font-size: .78rem; }
 </style>
 </head>
 <body>
   <canvas id="view"></canvas>
-  <div id="hud"></div>
-  <div id="keys">
-    <b>W</b> throttle · <b>S</b> brake · <b>A/D</b> steer · <b>SHIFT</b> boost &amp; air thrust · <b>SPACE</b> handbrake<br>
-    in the air — <b>Q/E</b> doors · <b>R</b> hood · <b>F</b> tail flap · <b>C</b> wing · <b>ARROWS</b> pick thrust mode<br>
-    <b>V</b> camera style · <b>B</b> art style · <b>ENTER</b> reset · gamepad supported
-  </div>
-  <div id="boot">
-    <h1>AIRTIME</h1>
-    <div class="tag">RUSH 2049 STUNT FRAME — GATE A</div>
-    <div id="boot-msg">LOADING PHYSICS…</div>
-    <a class="clips" href="./clips.html">GATE A CLIPS →</a>
-    <div class="build">THREE.JS + RAPIER · TEASE-THRUST · BODY-AS-TRICK · DYNAMIC AIRTIME CAMERA</div>
-  </div>
+  <div id="hud" class="hidden"></div>
+  <div id="screens"></div>
+  <div id="boot"><h1>AIRTIME</h1><div id="boot-msg">LOADING PHYSICS…</div></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

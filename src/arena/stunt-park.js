@@ -109,6 +109,10 @@ export function describePark() {
     ramp('wedge', 100, 60, { id: 'ret_r', height: 3.0, length: 12, halfWidth: 6, yaw: -Math.PI / 2 }),
     ramp('kicker', 0, -84, { id: 'k_mid', length: 18, halfWidth: 8, exitAngle: 0.59, lipFrac: 0.32 }),
 
+    // The garage ramp (§2.1 live preview). Parked well clear of the park so
+    // the fixed preview angle never has another structure in front of it.
+    ramp('kicker', -235, 0, { id: 'garage', length: 16, halfWidth: 6, exitAngle: 0.52, lipFrac: 0.40 }),
+
     // ── The landing hill: yaw PI so it falls away from the jump ────────────
     ramp('wedge', 0, hillPos(), {
       id: 'landing_hero', height: HILL.height, length: HILL.length,
@@ -162,7 +166,61 @@ export function describePark() {
     { id: 'qp_catch_deck', tier: 'rooftop', aim: { x: 0, y: 13.2, z: -209 }, half: { x: 22, y: 3, z: 5 } },
   ];
 
-  return { ramps, structures, targets };
+  return { ramps, structures, targets, coins: describeCoins(), lanes: describeLanes() };
+}
+
+/**
+ * Coin lines (§3.1). Authored *along* the flight paths the ramps produce, so a
+ * player who commits to the line gets paid for the line as well as the trick.
+ * Flat score, outside the bank — a crash still loses the bank but keeps these.
+ */
+function arc(from, to, apexY, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    out.push({
+      x: from.x + (to.x - from.x) * t,
+      y: from.y + (to.y - from.y) * t + Math.sin(Math.PI * t) * apexY,
+      z: from.z + (to.z - from.z) * t,
+    });
+  }
+  return out;
+}
+
+/**
+ * Traffic lanes (§4). Straight segments with a direction; the traffic system
+ * walks vehicles along them and wraps.
+ *
+ * The hero straight is left clear at x=0 so the ramp approach is never a
+ * lottery — the lanes flank it. That is the Burnout trade the mode wants:
+ * weave out to the lanes for near-miss boost, then line back up for the lip.
+ */
+export function describeLanes() {
+  return [
+    { id: 'run_w_out', from: { x: -20, z: 210 }, to: { x: -20, z: -210 }, oncoming: false },
+    { id: 'run_w_in',  from: { x: -13, z: -210 }, to: { x: -13, z: 210 }, oncoming: true },
+    { id: 'run_e_in',  from: { x: 13, z: 210 }, to: { x: 13, z: -210 }, oncoming: false },
+    { id: 'run_e_out', from: { x: 20, z: -210 }, to: { x: 20, z: 210 }, oncoming: true },
+    { id: 'cross_n',   from: { x: -230, z: -30 }, to: { x: 230, z: -30 }, oncoming: false },
+    { id: 'cross_s',   from: { x: 230, z: 112 }, to: { x: -230, z: 112 }, oncoming: false },
+  ];
+}
+
+export function describeCoins() {
+  const pts = [
+    // The hero arc: launch at the lip, apex ~31 m, down onto the hill.
+    ...arc({ x: 0, y: 12, z: 8 }, { x: 0, y: 6, z: -136 }, 19, 26),
+    // Off the west quarter pipe, over the west rooftop.
+    ...arc({ x: -70, y: 12, z: -10 }, { x: -92, y: 13, z: -46 }, 6, 8),
+    // Off the east quarter pipe.
+    ...arc({ x: 70, y: 12, z: -10 }, { x: 92, y: 13, z: -46 }, 6, 8),
+    // The hips, out toward the billboards.
+    ...arc({ x: -34, y: 7, z: -66 }, { x: -58, y: 16, z: -96 }, 8, 8),
+    ...arc({ x: 34, y: 7, z: -66 }, { x: 58, y: 16, z: -96 }, 8, 8),
+    // The mid kicker toward the pool.
+    ...arc({ x: 0, y: 8, z: -92 }, { x: -40, y: 2, z: -168 }, 12, 12),
+  ];
+  return pts.map((p, i) => ({ id: `coin_${i}`, pos: p }));
 }
 
 export { rampMesh, rampSlabs, rampSurface, rampLipHeight, rampExitAngle };

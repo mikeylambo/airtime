@@ -60,9 +60,10 @@ export function predictArc(world, p0, v0, gravity, dragK = 0, maxTime = 8, step 
 }
 
 export class AirtimeTracker {
-  constructor(world, park) {
+  constructor(world, park, movingTargetAt = null) {
     this.world = world;
     this.park = park;
+    this.movingTargetAt = movingTargetAt;   // (point) => traffic car | null
 
     this.airborne = false;
     this.airtime = 0;
@@ -255,7 +256,9 @@ export class AirtimeTracker {
     else if (angle <= A.CLEAN_ANGLE && wheels >= A.CLEAN_MIN_WHEELS) quality = LANDING.CLEAN;
     else quality = LANDING.SLOPPY;
 
-    const target = targetAt(this.park, p.position);
+    // §4: "a car landing on traffic is a Moving-vehicle-tier stick".
+    const moving = this.movingTargetAt ? this.movingTargetAt(p.position) : null;
+    const target = moving ? null : targetAt(this.park, p.position);
     return {
       quality,
       multiplier: LANDING_MULT[quality],
@@ -267,10 +270,33 @@ export class AirtimeTracker {
       height: p.height,
       impactVel: p.impactVel,
       bounces: p.bounces || 0,
-      target: target ? target.id : null,
-      tier: target ? target.tier : 'road',
+      target: moving ? `traffic_${moving.id}` : (target ? target.id : null),
+      tier: moving ? 'moving' : (target ? target.tier : 'road'),
       counted: p.airtime >= A.MIN_LOGGED_AIRTIME,
     };
+  }
+
+  /**
+   * End the flight as a crash immediately — used when traffic clips the car
+   * mid-air (§4), which is not something a settle window should get a vote on.
+   */
+  forceCrash(car, reason = 'clipped') {
+    if (!this.airborne) return null;
+    const A = TUNING.AIRTIME;
+    this.airborne = false;
+    const landed = {
+      quality: LANDING.CRASH, multiplier: 0,
+      angle: car.tiltAngle, angleDeg: (car.tiltAngle * 180) / Math.PI,
+      wheels: car.wheelsInContact, bounced: false,
+      airtime: this.airtime, height: this.maxHeight - this.launchHeight,
+      impactVel: 0, target: null, tier: 'road',
+      counted: this.airtime >= A.MIN_LOGGED_AIRTIME,
+      reason,
+    };
+    this.airtime = 0;
+    this.pending = null;
+    this.lastLanding = landed;
+    return landed;
   }
 }
 

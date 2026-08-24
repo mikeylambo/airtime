@@ -16,30 +16,41 @@ import { BoostBar } from './boost.js';
 import { TeaseThrust, THRUST_MODE } from './thrust.js';
 import { AirtimeTracker } from './airtime.js';
 import { Telemetry } from './telemetry.js';
+import { Traffic } from './traffic.js';
 import { AeroAccumulator, applyAngularDrag } from './aero.js';
+import { TrickTracker, resolveTrick } from './tricks.js';
+import { Run, RUN_STATE } from './run.js';
+import { TIER } from '../arena/stunt-park.js';
 import { add, qRot, v3, len } from './mathx.js';
 
 export class Sim {
-  static async create() {
+  static async create(setup = null) {
     await initRapier();
-    return new Sim();
+    return new Sim(setup);
   }
 
-  constructor() {
+  constructor(setup = null) {
+    this.setup = setup;
     this.world = createWorld();
     const { park } = buildArena(this.world);
     this.park = park;
 
-    this.car = new Car(this.world);
+    this.car = new Car(this.world, setup);
     this.car.reset();
-    this.panels = new Panels(this.world, this.car);
+    this.panels = new Panels(this.world, this.car, setup);
     this.panels.syncToChassis();
 
-    this.boost = new BoostBar();
-    this.thrust = new TeaseThrust(this.car, this.boost);
-    this.airtimeTracker = new AirtimeTracker(this.world, park);
+    this.boost = new BoostBar(setup);
+    this.thrust = new TeaseThrust(this.car, this.boost, setup);
+    this.traffic = new Traffic(this.world, park);
+    this.airtimeTracker = new AirtimeTracker(
+      this.world, park, (p) => this.traffic.roofAt(p)
+    );
     this.telemetry = new Telemetry();
     this.aero = new AeroAccumulator();
+    this.tricks = new TrickTracker();
+    this.run = new Run('stunt');
+    this.coinsTaken = new Set();
 
     this.time = 0;
     this.steps = 0;
@@ -47,6 +58,7 @@ export class Sim {
     this.lastLanding = null;
     this.lastLaunch = null;
     this.boosting = false;
+    this._runEnded = false;
     this.wasDeployed = {};
     for (const s of SLOTS) this.wasDeployed[s] = false;
   }
@@ -61,7 +73,31 @@ export class Sim {
     this.boost.reset();
     this.thrust.reset();
     this.airtimeTracker.reset();
+    this.tricks.reset();
     this.events.push({ type: 'reset' });
+  }
+
+  /**
+   * Move the car somewhere, panels and all.
+   *
+   * Never call car.reset() on its own: the panels are separate bodies on
+   * joints, so teleporting the chassis without them leaves the hinges stretched
+   * across the arena and the solver rips the car apart at 300 m/s.
+   */
+  placeCar(pos, heading = TUNING.ARENA.SPAWN_HEADING) {
+    this.car.reset(pos, heading);
+    this.panels.syncToChassis();
+    this.airtimeTracker.reset();
+    this.tricks.reset();
+  }
+
+  /** A fresh run: clock, score and coins all back to the start. */
+  restartRun(mode = 'stunt') {
+    this.run = new Run(mode);
+    this.coinsTaken.clear();
+    this.traffic.reset();
+    this.reset();
+    this.events.push({ type: 'runStart', mode });
   }
 
   /**
@@ -75,7 +111,14 @@ export class Sim {
 
     if (edges.reset) { this.reset(); return; }
 
-    this.boosting = this.boost.update(dt, { car: this.car, actions, airborne });
+    const t = this.traffic.update(dt, this.car, this.boost);
+    this.trafficSignal = t;
+    if (t.nearMiss) this.events.push({ type: 'nearMiss', n: t.nearMiss });
+    if (t.honk) this.events.push({ type: 'honk' });
+
+    this.boosting = this.boost.update(dt, {
+      car: this.car, actions, airborne, oncoming: t.oncoming,
+    });
     this.car.update(dt, actions, this.boosting);
     this.panels.update(dt, actions, airborne);
 
@@ -95,7 +138,7 @@ export class Sim {
       const target = A.APPLY_TO === 'chassis' ? this.car.body : p.body;
       this.aero.addPlate(
         p.body, p.body.rotation(), p.body.translation(), p.cfg.size,
-        p.cfg.cd, A.PANEL_SCALE * (p.cfg.gain ?? 1) * p.deploy, target
+        p.cfg.cd, A.PANEL_SCALE * this._panelGain(p.slot) * p.deploy, target
       );
     }
     this.aero.apply(dt, this.car.body.mass(), TUNING.SIM.GRAVITY);
@@ -106,15 +149,35 @@ export class Sim {
     if (finished) this.telemetry.recordThrust(finished);
 
     this.panels.applySpoiler(dt);
-    applyAngularDrag(this.car.body, dt);
+    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.chassisAngDrag : null);
 
     this.world.step();
     this.time += dt;
     this.steps++;
 
     // ── Events ─────────────────────────────────────────────────────────────
+    // §4: "traffic clipping you mid-air is a crash."
+    if (TUNING.TRAFFIC.MIDAIR_CLIP_IS_CRASH && this.airtimeTracker.airborne && this._clippedByTraffic()) {
+      const crash = this.airtimeTracker.forceCrash(this.car, 'traffic');
+      if (crash) {
+        const snap = this.pendingTrick || this.tricks.snapshot();
+        this.pendingTrick = null;
+        const result = resolveTrick(snap, crash, 1, this.run.nextCombo);
+        this.run.addLanding(result);
+        this.lastLanding = crash;
+        this.lastResult = result;
+        this.telemetry.recordLanding(crash);
+        this.events.push({ type: 'landed', landing: crash, result, clipped: true });
+      }
+    }
+
     const ev = this.airtimeTracker.update(dt, this.car);
     this.telemetry.tick(dt, this.airtimeTracker.airborne);
+    this.run.update(dt);
+    if (this.airtimeTracker.airborne) {
+      this.tricks.update(dt, this.car, this.panels);
+      this._collectCoins();
+    }
 
     for (const s of SLOTS) {
       const now = this.panels.parts[s].deploy > 0.5;
@@ -128,9 +191,14 @@ export class Sim {
     if (ev.launch) {
       this.lastLaunch = ev.launch;
       this.thrust.onLaunch();
+      this.tricks.onLaunch(this.car);
       this.events.push({ type: 'launch', launch: ev.launch });
     }
     if (ev.touchdown) {
+      // Freeze the flight on the *first* touch only. A bounce fires another
+      // touchdown inside the same settle window, and overwriting here banked
+      // the bounce instead of the flight that earned it.
+      if (!this.pendingTrick) this.pendingTrick = this.tricks.snapshot();
       const torn = this.panels.checkTearOff();
       if (torn.length) {
         this.telemetry.recordTearOff(torn.length);
@@ -141,7 +209,20 @@ export class Sim {
     if (ev.landed) {
       this.lastLanding = ev.landed;
       this.telemetry.recordLanding(ev.landed);
-      this.events.push({ type: 'landed', landing: ev.landed });
+
+      // §3.1: the bank is only worth anything once it is landed.
+      const tierMult = (TIER[ev.landed.tier] || TIER.road).mult;
+      const snap = this.pendingTrick || this.tricks.snapshot();
+      this.pendingTrick = null;
+      const result = resolveTrick(snap, ev.landed, tierMult, this.run.nextCombo);
+      this.run.addLanding(result);
+      this.lastResult = result;
+      this.events.push({ type: 'landed', landing: ev.landed, result });
+    }
+
+    if (this.run.over && !this._runEnded) {
+      this._runEnded = true;
+      this.events.push({ type: 'runOver', summary: this.run.summary() });
     }
 
     // Safety rail (TUNING.SIM.MAX_SPEED_CLAMP). Physics, not design: nothing
@@ -156,6 +237,39 @@ export class Sim {
     }
 
     if (this.car.position.y < TUNING.ARENA.RESET_HEIGHT) this.reset();
+  }
+
+  /** Per-panel aero gain, from the garage setup when there is one (§7). */
+  _panelGain(slot) {
+    if (this.setup) return this.setup.panels[slot].gain;
+    return TUNING.PANELS[slot].gain ?? 1;
+  }
+
+  _clippedByTraffic() {
+    let hit = false;
+    this.world.contactPairsWith(this.car.collider, (other) => {
+      if (hit || !this.traffic.isTrafficCollider(other)) return;
+      this.world.contactPair(this.car.collider, other, (m) => {
+        for (let i = 0; i < m.numContacts(); i++) {
+          if (m.contactDist(i) < TUNING.AIRTIME.CHASSIS_CRASH_DEPTH) { hit = true; return; }
+        }
+      });
+    });
+    return hit;
+  }
+
+  /** Coins are flat score on authored lines (§3.1), collected in the air. */
+  _collectCoins() {
+    const r2 = TUNING.SCORE.COIN_RADIUS * TUNING.SCORE.COIN_RADIUS;
+    const p = this.car.position;
+    for (const c of this.park.coins) {
+      if (this.coinsTaken.has(c.id)) continue;
+      const dx = c.pos.x - p.x, dy = c.pos.y - p.y, dz = c.pos.z - p.z;
+      if (dx * dx + dy * dy + dz * dz > r2) continue;
+      this.coinsTaken.add(c.id);
+      this.tricks.collectCoin();
+      this.events.push({ type: 'coin', id: c.id, pos: c.pos });
+    }
   }
 
   drainEvents() {
@@ -193,6 +307,22 @@ export class Sim {
       prediction: this.airtimeTracker.prediction,
       lastLanding: this.lastLanding,
       lastLaunch: this.lastLaunch,
+      lastResult: this.lastResult || null,
+
+      // Run + scoring (§3.1, §3)
+      runState: this.run.state,
+      countdown: this.run.countdown,
+      timeLeft: this.run.timeLeft,
+      score: this.run.score,
+      combo: this.run.combo,
+      chain: this.run.chain,
+      bank: this.airtimeTracker.airborne ? this.tricks.bank : 0,
+      liveTricks: this.airtimeTracker.airborne ? this.tricks._breakdown().tricks : [],
+      coinsThisJump: this.tricks.coinsThisJump,
+      coinsTaken: this.coinsTaken.size,
+      traffic: this.traffic.snapshot(),
+      nearMisses: this.traffic.nearMisses,
+      oncoming: !!(this.trafficSignal && this.trafficSignal.oncoming),
       driftTime: c.driftTime,
       slipAngle: c.slipAngle,
       liftClamp: this.aero.liftScale ?? 1,
