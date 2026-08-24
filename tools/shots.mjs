@@ -57,6 +57,11 @@ const SHOTS = [
   ['options', null],
   ['run', 'run'],
   ['city', 'city'],
+  ['party', null],
+  ['split3', 'split3'],
+  ['split4', 'split4'],
+  ['reel', 'reel'],
+  ['scoreboard', 'scoreboard'],
   ['result', 'result'],
 ];
 
@@ -100,6 +105,47 @@ const SHOTS = [
           g.sim.step(1 / window.AIRTIME.TUNING.SIM.HZ, { ...g.input.actions, throttle: 1 }, {});
           g.sim.drainEvents();
         }
+        return true;
+      } else if (sp === 'split3' || sp === 'split4') {
+        const n = sp === 'split4' ? 4 : 3;
+        await g.startRun(g.lastMode, window.AIRTIME.ARENAS[0], { players: n });
+        g.sim.round.begin();
+        const HZ = window.AIRTIME.TUNING.SIM.HZ;
+        // Give each driver a different line so the viewports are not identical.
+        for (let i = 0; i < 520; i++) {
+          const acts = g.sim.players.map((p, k) => ({
+            ...g.input.actionsFor(k), throttle: 1, boost: true,
+            steer: Math.sin((i / HZ) * 0.7 + k * 1.3) * 0.35,
+          }));
+          g.sim.step(1 / HZ, acts, g.sim.players.map(() => ({})));
+          g.sim.drainEvents();
+        }
+        return true;
+      } else if (sp === 'reel') {
+        await g.startRun(g.lastMode, window.AIRTIME.ARENAS[0], { players: 1 });
+        g.sim.round.begin();
+        const HZ = window.AIRTIME.TUNING.SIM.HZ;
+        for (let i = 0; i < 900; i++) g.stepFixed(1 / HZ);
+        // Force a reel even if nothing crossed the auto-save threshold.
+        if (!g.roundClips.length && g.recorder) {
+          g.roundClips.push(g.recorder.clip(20, g.recorder.step, {
+            total: 1234, quality: 'clean', tier: 'road', airtime: 2.9,
+            tricks: ['360', 'LEFT DOOR'], arena: 'park', mode: 'stunt', player: 0,
+          }, 0));
+        }
+        await g.startReel(() => {});
+        for (let i = 0; i < 240; i++) g.stepFixed(1 / HZ);
+        return true;
+      } else if (sp === 'scoreboard') {
+        g.inRun = false;
+        g.screens.go('scoreboard', {
+          kind: 'split',
+          all: [
+            { player: 0, score: 8420, landed: 7, jumps: 9, bestChain: 4, alive: true, best: { quality: 'perfect', total: 3100 } },
+            { player: 1, score: 6110, landed: 5, jumps: 8, bestChain: 3, alive: true, best: { quality: 'clean', total: 2050 } },
+            { player: 2, score: 2740, landed: 3, jumps: 7, bestChain: 2, alive: false, best: { quality: 'sloppy', total: 900 } },
+          ],
+        });
         return true;
       } else if (sp === 'result') {
         g.startRun(g.lastMode, g.lastArena);

@@ -194,3 +194,30 @@ table.brk tr.crash td { color: #7a4453; }
              border-radius: 2px; text-align: center; }
 .wall-clip b { display: block; font-size: .82rem; color: var(--hot); }
 .wall-clip em { display: block; font-style: normal; font-size: .56rem; letter-spacing: .12em; color: var(--faint); margin-top: .15rem; }
+
+/* ── Split-screen HUD (§9) ─────────────────────────────────────────────── */
+#splithud { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
+#splithud.hidden { display: none; }
+.vp { position: absolute; }
+.vp::after { content: ''; position: absolute; inset: 0; border: 1px solid rgba(89,208,255,.14); pointer-events: none; }
+.vp.dead { filter: grayscale(1) brightness(.6); }
+.vp-tag { position: absolute; top: .6rem; left: .8rem; font-size: .56rem; letter-spacing: .3em; color: var(--faint); }
+.vp-score { position: absolute; top: .5rem; right: .8rem; text-align: right; }
+.vp-score b { display: block; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vp-score i { display: block; font-style: normal; font-size: .6rem; letter-spacing: .16em; color: var(--faint); }
+.vp-air { position: absolute; top: .5rem; left: 50%; transform: translateX(-50%); font-size: 1.1rem; font-weight: 700; color: #46586a; }
+.vp-air span { font-size: .6rem; }
+.vp-boost { position: absolute; left: .8rem; bottom: .8rem; width: 34%; height: 7px; background: #131c25; border: 1px solid #2a3d4d; border-radius: 2px; overflow: hidden; }
+.vp-boost > div { height: 100%; width: 0%; background: linear-gradient(90deg, #1d7fa8, var(--accent)); }
+.vp-land { position: absolute; left: 50%; top: 34%; transform: translate(-50%, 0); text-align: center; opacity: 0; transition: opacity .18s; }
+.vp-land.show { opacity: 1; }
+.vp-land span { display: block; font-size: 1.1rem; font-weight: 800; letter-spacing: .08em; }
+.vp-land em { display: block; font-style: normal; font-size: .72rem; color: var(--hot); margin-top: .15rem; }
+.vp-out { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); font-size: 1.4rem; font-weight: 800; letter-spacing: .3em; color: var(--bad); }
+
+/* ── Highlight reel (§9) ───────────────────────────────────────────────── */
+.reel-bar { position: absolute; left: 2.4rem; top: 2rem; }
+.reel-tag { font-size: .58rem; letter-spacing: .34em; color: var(--faint); }
+.reel-score { font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; line-height: 1.05; margin-top: .2rem; }
+.reel-info { font-size: .68rem; letter-spacing: .16em; color: var(--dim); }
+.reel-foot { position: absolute; left: 2.4rem; bottom: 2rem; }

@@ -18,7 +18,8 @@
     "probe:cars": "node tools/probe-cars.mjs",
     "probe:traffic": "node tools/probe-traffic.mjs",
     "probe:score": "node tools/probe-score.mjs",
-    "shots": "node tools/shots.mjs"
+    "shots": "node tools/shots.mjs",
+    "probe:modes": "node tools/probe-modes.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

@@ -48,9 +48,9 @@ export function unpack(row) {
 }
 
 export class Recorder {
-  constructor({ arena, setup, seed = TUNING.SIM.SEED, profile = null }) {
+  constructor({ arena, setup, seed = TUNING.SIM.SEED, profile = null, players = 1, mode = 'stunt' }) {
     this.meta = {
-      arena, seed,
+      arena, seed, mode, players,
       car: setup?.car?.id || 'dart',
       livery: setup?.livery?.id || 'stock',
       tune: profile?.tune ? { ...profile.tune } : null,
@@ -58,87 +58,90 @@ export class Recorder {
       hz: TUNING.SIM.HZ,
       created: Date.now(),
     };
-    this.frames = [];       // [step, packed]
-    this.edges = [];        // [step, 'thrust'|'reset']
+    // One stream per driver: split-screen clips have to replay everybody,
+    // because the cars share a world and shove each other around in it.
+    this.streams = [];
+    for (let i = 0; i < players; i++) this.streams.push({ frames: [], edges: [], last: null });
     this.step = 0;
-    this.lastPacked = null;
   }
 
   record(actions, edges) {
-    const p = pack(actions);
-    if (!same(p, this.lastPacked)) {
-      this.frames.push([this.step, p]);
-      this.lastPacked = p;
+    const A = (i) => (Array.isArray(actions) ? actions[i] || {} : actions);
+    const E = (i) => (Array.isArray(edges) ? edges[i] || {} : edges);
+    for (let i = 0; i < this.streams.length; i++) {
+      const st = this.streams[i];
+      const p = pack(A(i));
+      if (!same(p, st.last)) { st.frames.push([this.step, p]); st.last = p; }
+      const e = E(i);
+      if (e.thrust) st.edges.push([this.step, 'thrust']);
+      if (e.reset) st.edges.push([this.step, 'reset']);
     }
-    if (edges && edges.thrust) this.edges.push([this.step, 'thrust']);
-    if (edges && edges.reset) this.edges.push([this.step, 'reset']);
     this.step++;
   }
 
-  /** A clip is a window into this run's stream, not a copy of it. */
-  clip(fromStep, toStep, info) {
+  /**
+   * A clip is a window into this round's streams, not a copy of them.
+   * @param focus which driver the camera should follow
+   */
+  clip(fromStep, toStep, info, focus = 0) {
     const pre = Math.round(TUNING.REPLAY.PREROLL * TUNING.SIM.HZ);
     const post = Math.round(TUNING.REPLAY.POSTROLL * TUNING.SIM.HZ);
     const start = Math.max(0, fromStep - pre);
     const end = Math.min(this.step, toStep + post);
     return {
-      id: `clip_${this.meta.created}_${fromStep}`,
+      id: `clip_${this.meta.created}_${focus}_${fromStep}`,
       meta: this.meta,
-      start, end,
-      // Only the frames the window needs, plus the state entering it.
-      frames: this.framesFor(start, end),
-      edges: this.edges.filter(([s]) => s >= 0 && s <= end),
+      start, end, focus,
+      // The prefix has to be kept: a deterministic replay runs from step zero,
+      // so the frames before the window are what get the car there at all.
+      streams: this.streams.map((st) => ({
+        frames: st.frames.filter((f) => f[0] <= end),
+        edges: st.edges.filter((e) => e[0] <= end),
+      })),
       info,
     };
   }
 
-  framesFor(start, end) {
-    const out = [];
-    let carry = null;
-    for (const f of this.frames) {
-      if (f[0] < start) { carry = f; continue; }
-      if (f[0] > end) break;
-      out.push(f);
-    }
-    // Everything before the window still has to run to get the car there, so
-    // the whole prefix is kept — it is only a few hundred rows.
-    return carry ? [...this.frames.filter((f) => f[0] < start), ...out] : out;
-  }
-
-  get sizeBytes() { return JSON.stringify(this.frames).length; }
+  get sizeBytes() { return JSON.stringify(this.streams).length; }
+  get frames() { return this.streams[0].frames; }
 }
 
-/** Feeds a recorded stream back into a sim, step for step. */
+/** Feeds recorded streams back into a sim, step for step. */
 export class Player {
   constructor(clip) {
     this.clip = clip;
+    this.streams = clip.streams || [{ frames: clip.frames || [], edges: clip.edges || [] }];
+    this.reset();
+  }
+
+  reset() {
     this.step = 0;
-    this.i = 0;
-    this.current = unpack(clip.frames[0] ? clip.frames[0][1] : new Array(KEYS.length).fill(0));
-    this.edgeI = 0;
+    this.cursors = this.streams.map(() => ({ i: 0, e: 0 }));
+    this.current = this.streams.map((st) =>
+      unpack(st.frames[0] ? st.frames[0][1] : new Array(KEYS.length).fill(0)));
   }
 
   get length() { return this.clip.end; }
   get done() { return this.step >= this.clip.end; }
 
-  /** @returns {{actions, edges}} for this step. */
+  /** @returns {{actions: object[], edges: object[]}} one entry per driver. */
   next() {
-    while (this.i < this.clip.frames.length && this.clip.frames[this.i][0] <= this.step) {
-      this.current = unpack(this.clip.frames[this.i][1]);
-      this.i++;
-    }
-    const edges = {};
-    while (this.edgeI < this.clip.edges.length && this.clip.edges[this.edgeI][0] <= this.step) {
-      edges[this.clip.edges[this.edgeI][1]] = true;
-      this.edgeI++;
+    const edges = this.streams.map(() => ({}));
+    for (let i = 0; i < this.streams.length; i++) {
+      const st = this.streams[i];
+      const c = this.cursors[i];
+      while (c.i < st.frames.length && st.frames[c.i][0] <= this.step) {
+        this.current[i] = unpack(st.frames[c.i][1]);
+        c.i++;
+      }
+      while (c.e < st.edges.length && st.edges[c.e][0] <= this.step) {
+        edges[i][st.edges[c.e][1]] = true;
+        c.e++;
+      }
     }
     this.step++;
     return { actions: this.current, edges };
   }
 
-  seek(step) {
-    this.step = 0; this.i = 0; this.edgeI = 0;
-    this.current = unpack(this.clip.frames[0] ? this.clip.frames[0][1] : new Array(KEYS.length).fill(0));
-    return step;
-  }
+  seek() { this.reset(); return 0; }
 }

@@ -370,6 +370,27 @@ export const TUNING = {
     MEDAL: { bronze: 6000, silver: 14000, gold: 26000, platinum: 42000 },
   },
 
+  // ── Modes (§9) ───────────────────────────────────────────────────────────
+  MODES: {
+    SHOT: {
+      CONE: 0.75,               // radians; how far off the nose a call can be
+      RANGE: 260,
+      MULTIPLIER: 2.5,          // §9 "hit it for a multiplier"
+    },
+    STANDING: {
+      LIVES: 1,                 // §9 "crash and you're out"
+    },
+    POTATO: {
+      PERIOD: 20,               // §9 "relocates every 20s"
+      MULTIPLIER: 2.0,
+    },
+    PARTY: {
+      TURN_SECONDS: 45,         // §9 pass-the-pad
+      MAX_PLAYERS: 4,
+      GRID_GAP: 7.5,            // lateral spacing on the starting grid
+    },
+  },
+
   // ── Recovery (§3: "Repeat until timer ends") ─────────────────────────────
   // Rush puts you back on the road; §4 is explicit that a crash is spectacle
   // and "never a punishment screen". Without this a single bad landing ends
@@ -529,6 +550,7 @@ export const TUNING = {
     RESULT_REEL_DELAY: 1.2,     // beat before the highlight reel auto-plays
     TICKER_LIFE: 2.6,           // how long a named trick stays on the ticker
     TICKER_MAX: 5,
+    REEL_CLIPS: 3,              // §9: the top three landings of the round
   },
 
   // ── HUD (Gate A diagnostics) ─────────────────────────────────────────────

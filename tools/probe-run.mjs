@@ -32,11 +32,13 @@ const log = [];
 
 // The same scripted driver the Gate B capture uses, so what the clip shows and
 // what this measures are the same run.
-const ctx = { thrusted: false, airborne: false, launchT: null, boost: 0 };
+const ctx = { thrusted: false, airborne: false, launchT: null, boost: 0, aim: null };
 const drive = () => {
   ctx.airborne = sim.airborne;
   ctx.launchT = launchT;
   ctx.boost = sim.boost.value;
+  ctx.car = sim.car;
+  ctx.park = sim.park;
   return loopActions(t, NEUTRAL_ACTIONS, ctx);
 };
 const edgesFor = () => loopEdges(t, DT, ctx);

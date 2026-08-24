@@ -88,6 +88,9 @@ const CAMERAS = [
   ['camera-orbit', 'orbit', 'Arms when the predicted hang time passes 2 s. One revolution around the car, then it hands back to chase on the descent.'],
   ['camera-target-lock', 'landing-target lock', 'A tagged target sits in the forward cone, so car and target are framed in one shot and the lens narrows as the gap closes.'],
 ];
+const PARTY = [
+  ['split-screen', 'split-screen', 'Three drivers, one world, one clock. Each viewport is pinned to chase-pullback — §6 is explicit that the cinematic camera does not survive a quartered screen, and the full one comes back in the highlight reel. The cars can see each other; they are in the same arena, not three copies of it.'],
+];
 const CITY = [
   ['city', 'the city block', 'Rooftops, billboards, an overpass and a rooftop pool, with traffic in every street. Fifty landing surfaces; twelve of them tagged for the camera to lock onto.'],
 ];
@@ -102,6 +105,7 @@ const card = ([id, title, desc]) => `
   </figure>`;
 document.getElementById('loop').innerHTML = LOOP.map(card).join('');
 document.getElementById('cameras').innerHTML = CAMERAS.map(card).join('');
+document.getElementById('party').innerHTML = PARTY.map(card).join('');
 document.getElementById('city').innerHTML = CITY.map(card).join('');
 document.getElementById('art').innerHTML = ART.map(card).join('');
 </script>

@@ -5,10 +5,10 @@
 Drive recklessly to earn boost, hit a ramp, flail through the air with too
 little thrust to actually fly, and stick a landing somewhere absurd.
 
-This build is **items 1–12 of §12** of `airtime-frame-spec.md` — through
-**Gate A** (the delta), **Gate B** (the loop) and **Gate C** (the frame).
-Item 13 (split-screen, pass-the-pad, highlight reel, the other three modes) and
-item 14 (audio and the polish pass) are not in it.
+This build is **items 1–13 of §12** of `airtime-frame-spec.md` — through
+**Gate A** (the delta), **Gate B** (the loop), **Gate C** (the frame) and the
+buildable half of **Gate D** (party). Item 14 — audio and the polish pass — is
+not in it, and there is no sound at all.
 
 ---
 
@@ -25,6 +25,7 @@ npm run dev
 | `npm run gate` | Gate A acceptance checks, headless |
 | `npm run probe:run` | a whole 90-second run, headless, with the score breakdown |
 | `npm run probe:aero` | measure what each body panel does to the car |
+| `npm run probe:modes` | run every §9 mode and check its rule actually bites |
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
@@ -125,6 +126,28 @@ vector   61.4   32.1  2.94s  clean
 anvil    56.5   28.2  2.89s  sloppy
 ```
 
+### Modes and party (§9)
+
+All five modes run. Each is the same loop with one rule bolted on
+(`src/sim/modes.js`), and `npm run probe:modes` exercises each rule directly:
+
+```
+potato:         inside the zone 800, outside it 0
+standing:       2 of 3 crashed -> 1 alive, round over true
+call your shot: called and hit 750, called and missed 300
+```
+
+**Split-screen** puts two to four cars in *one* world on one clock — not four
+worlds side by side, so they can hit each other. Per-viewport cameras are
+pinned to chase-pullback, because §6 is explicit that an orbit does not survive
+a quartered screen. **Pass-the-pad** is 45-second turns with a scoreboard
+between them, on the full screen and the full camera.
+
+Every round, in every mode, ends with the **highlight reel**: the top three
+landings replayed full-screen under the cinematic camera before anybody sees a
+score. Because a clip is inputs rather than footage, the reel is re-simulating
+the round, and it follows whichever driver earned the landing.
+
 ### Replay (§6.1)
 
 A clip is inputs and a seed, so the theater does not play footage back — it
@@ -168,6 +191,12 @@ screenshots.
 - **Clips carry their whole prefix.** A deterministic replay has to re-simulate
   from step zero, so a landing late in a run stores that run's whole input
   stream — tens of KB, not the few KB an early one costs.
-- **Item 13 modes are listed but locked**: Call Your Shot, Last Car Standing,
-  Hot Potato and Party appear in mode select and do not start.
-- **No audio.** That is item 14.
+- **No audio.** That is item 14, and it is the biggest single gap: a stunt game
+  with no engine note, no wind at launch and no landing hit is missing most of
+  its feel.
+- **The scripted driver is a weak proxy for a player.** It lands what it
+  launches but only finds a handful of ramps in a round, so `probe:run` is a
+  smoke test that the loop runs end to end, not a measure of what the mode is
+  worth in someone's hands.
+- **Gate D cannot be self-assessed.** Its pass condition is "somebody yells
+  during the reel", which needs three people and a room.

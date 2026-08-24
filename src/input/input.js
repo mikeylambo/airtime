@@ -85,6 +85,8 @@ export class Input {
     this.target = target;
     this.actions = { ...NEUTRAL_ACTIONS };
     this.prev = { ...NEUTRAL_ACTIONS };
+    this.pool = [this.actions];
+    this.prevs = [this.prev];
     this.source = 'keyboard';
     this.enabled = true;         // capture/replay drives this false and writes
                                  // `actions` directly
@@ -200,24 +202,53 @@ export class Input {
     return out;
   }
 
-  sample(dt, airborne) {
-    if (!this.enabled) return this.actions;
-    this.prev = { ...this.actions };
-    const a = this.actions;
-    const T = TUNING.INPUT;
+  sample(dt, airborne) { return this.sampleFor(0, dt, airborne); }
 
-    const pad = this._pad();
+  /**
+   * Sample one player's controls (§9 split-screen: up to four local players).
+   *
+   * Player 1 falls back to the keyboard when no pad is plugged in; players 2-4
+   * are pad-only, because one keyboard cannot carry four drivers.
+   */
+  sampleFor(index, dt, airborne) {
+    if (!this.enabled) return this.actionsFor(index);
+    const a = this.actionsFor(index);
+    this.prevs[index] = { ...a };
+
+    const pad = this._pad(index);
     if (pad) this._sampleGamepad(a, pad, airborne);
-    else this._sampleKeyboard(a, dt, airborne);
+    else if (index === 0) this._sampleKeyboard(a, dt, airborne);
+    else Object.assign(a, NEUTRAL_ACTIONS);
 
+    if (index === 0) { this.actions = a; this.prev = this.prevs[0]; }
     return a;
   }
 
-  _pad() {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const p of pads) if (p && p.connected && p.buttons.length >= 8) return p;
-    return null;
+  actionsFor(index) {
+    this.pool = this.pool || [];
+    this.prevs = this.prevs || [];
+    if (!this.pool[index]) {
+      this.pool[index] = { ...NEUTRAL_ACTIONS };
+      this.prevs[index] = { ...NEUTRAL_ACTIONS };
+    }
+    return this.pool[index];
   }
+
+  /** Edge detect for any player. */
+  pressedFor(index, name) {
+    const a = this.actionsFor(index);
+    return !!a[name] && !(this.prevs[index] || {})[name];
+  }
+
+  /** Connected pads, in slot order. */
+  pads() {
+    const list = navigator.getGamepads ? navigator.getGamepads() : [];
+    return [...list].filter((p) => p && p.connected && p.buttons.length >= 8);
+  }
+
+  get padCount() { return this.pads().length; }
+
+  _pad(index = 0) { return this.pads()[index] || null; }
 
   _sampleGamepad(a, pad, airborne) {
     this.source = 'gamepad';

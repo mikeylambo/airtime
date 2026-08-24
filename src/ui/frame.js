@@ -9,23 +9,18 @@
 import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
 import { STYLES } from '../render/art.js';
+import { MODES as SIM_MODES } from '../sim/modes.js';
 import { medalCount, medalRank } from '../storage/profiles.js';
 import { buildGarage } from './garage.js';
 import { buildTheater } from './theater.js';
 import { buildProgress } from './progress.js';
+import { buildParty } from './party.js';
 
-export const MODES = [
-  { id: 'stunt', label: 'STUNT', arena: 'park',
-    rules: 'Most points in a timed round. The Rush rule.' },
-  { id: 'shot', label: 'CALL YOUR SHOT', arena: 'city',
-    rules: 'Name a landing target before you launch. Hit it for a multiplier.' },
-  { id: 'standing', label: 'LAST CAR STANDING', arena: 'park',
-    rules: 'Crash and you are out. Last car live wins.' },
-  { id: 'potato', label: 'HOT POTATO', arena: 'city',
-    rules: 'One marked zone, relocating every 20s. Only landings inside it score.' },
-  { id: 'party', label: 'PARTY', arena: 'park',
-    rules: 'Split-screen, or one pad passed around. 45s turns.' },
-];
+// The modes, and their rules, live with the rules themselves (src/sim/modes.js)
+// so the menu can never describe a mode the simulation does not implement.
+export const MODES = Object.values(SIM_MODES).map((m) => ({
+  id: m.id, label: m.label, arena: m.arena, rules: m.rules,
+}));
 
 export const ARENAS = [
   { id: 'park', label: 'STUNT PARK', blurb: 'Ramps, gaps and pipes. Nothing to hit but the ground.', medals: 0 },
@@ -129,9 +124,13 @@ export function buildFrame(mgr, game) {
       const rules = document.getElementById('mode-rules');
       modeList = makeList(
         document.getElementById('mode-list'),
-        MODES.map((m) => ({ label: m.label, note: `default: ${m.arena}`, mode: m,
-          locked: m.id !== 'stunt' })),
-        (it) => { game.lastMode = it.mode; mgr.push('arena'); },
+        MODES.map((m) => ({ label: m.label, note: `default: ${m.arena}`, mode: m })),
+        (it) => {
+          game.lastMode = it.mode;
+          // Party is a shape, not an arena choice: pick the seats first.
+          if (it.mode.id === 'party') mgr.push('party');
+          else mgr.push('arena');
+        },
         (it) => { rules.textContent = it.mode.rules + (it.locked ? '   —   not in this build' : ''); }
       );
       rules.textContent = MODES[0].rules;
@@ -291,6 +290,7 @@ export function buildFrame(mgr, game) {
   buildGarage(mgr, game);
   buildTheater(mgr, game);
   buildProgress(mgr, game);
+  buildParty(mgr, game);
 
   return mgr;
 }

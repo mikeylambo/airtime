@@ -1,273 +1,308 @@
 /**
- * Sim — the whole simulation, headless.
+ * Sim — the whole simulation, headless, for one to four cars.
  *
  * No three.js anywhere below this line. main.js drives it at a fixed rate and
  * reads `snapshot()` to draw; tools/*.mjs drive the identical code in node to
- * measure the things Gate A claims. When the state-based replay of §6.1 lands,
- * it plugs in here: same seed, same fixed dt, same action stream.
+ * measure the things the gates claim.
+ *
+ * The Sim owns the world — arena, traffic, moving targets, coins, the clock —
+ * and nothing else. Everything that belongs to a driver is on a Player, so
+ * split-screen (§9) is four Players in one world rather than four worlds.
  */
 
 import TUNING from '../TUNING.js';
 import { initRapier, createWorld, RAPIER } from './physics.js';
 import { buildArena } from './arena-body.js';
-import { Car } from './car.js';
-import { Panels, SLOTS } from './panels.js';
-import { BoostBar } from './boost.js';
-import { TeaseThrust, THRUST_MODE } from './thrust.js';
-import { AirtimeTracker } from './airtime.js';
+import { Player } from './player.js';
+import { SLOTS } from './panels.js';
+import { resolveTrick } from './tricks.js';
+import { Round, RUN_STATE } from './round.js';
 import { Telemetry } from './telemetry.js';
 import { Traffic } from './traffic.js';
 import { Movers } from './movers.js';
-import { AeroAccumulator, applyAngularDrag } from './aero.js';
-import { TrickTracker, resolveTrick } from './tricks.js';
-import { Run, RUN_STATE } from './run.js';
+import { getMode } from './modes.js';
 import { TIER } from '../arena/stunt-park.js';
-import { add, qRot, v3, len, qAxisAngle, WORLD_UP } from './mathx.js';
 import { rampSurface } from '../arena/index.js';
 
+export { RUN_STATE };
+
 export class Sim {
-  static async create(setup = null, arenaId = 'park') {
+  static async create(setup = null, arenaId = 'park', opts = {}) {
     await initRapier();
-    return new Sim(setup, arenaId);
+    return new Sim(setup, arenaId, opts);
   }
 
-  constructor(setup = null, arenaId = 'park') {
-    this.setup = setup;
+  /**
+   * @param setup    a resolved garage setup, or an array of them for split-screen
+   * @param arenaId  'park' | 'city'
+   * @param opts     { players, mode, duration }
+   */
+  constructor(setup = null, arenaId = 'park', opts = {}) {
+    this.setup = Array.isArray(setup) ? setup[0] : setup;
     this.arenaId = arenaId;
     this.world = createWorld();
+
     const { park } = buildArena(this.world, arenaId);
     this.park = park;
     this.spawn = park.spawn || TUNING.ARENA.SPAWN;
 
-    this.car = new Car(this.world, setup);
-    this.car.reset(this.spawn);
-    this.panels = new Panels(this.world, this.car, setup);
-    this.panels.syncToChassis();
-
-    this.boost = new BoostBar(setup);
-    this.thrust = new TeaseThrust(this.car, this.boost, setup);
     this.traffic = new Traffic(this.world, park);
     this.movers = new Movers(this.world, park);
-    // §4 traffic roofs and §6.2 moving targets are both "landed on something
-    // that is moving"; the tracker just asks and takes whichever answers.
-    this.airtimeTracker = new AirtimeTracker(this.world, park, (p) => {
+    this.telemetry = new Telemetry();
+    this.events = [];
+    this.coinsTaken = new Set();
+
+    const count = Math.max(1, Math.min(opts.players || 1, TUNING.MODES.PARTY.MAX_PLAYERS));
+    this.mode = getMode(opts.mode || 'stunt');
+    this.round = new Round(this.mode.id, opts.duration);
+
+    const movingTargetAt = (p) => {
       const mv = this.movers.targetAt(p);
       if (mv) return { id: mv.id, tier: mv.tier };
       const car = this.traffic.roofAt(p);
       return car ? { id: `traffic_${car.id}`, tier: 'moving' } : null;
-    });
-    this.telemetry = new Telemetry();
-    this.aero = new AeroAccumulator();
-    this.tricks = new TrickTracker();
-    this.run = new Run('stunt');
-    this.coinsTaken = new Set();
+    };
+
+    this.players = [];
+    for (let i = 0; i < count; i++) {
+      this.players.push(new Player(this.world, park, {
+        setup: Array.isArray(setup) ? (setup[i] || setup[0]) : setup,
+        index: i,
+        round: this.round,
+        // Line the grid up across the road, Rush-style, so nobody starts behind.
+        spawn: this.gridSpawn(i, count),
+        movingTargetAt,
+      }));
+    }
 
     this.time = 0;
     this.steps = 0;
-    this.events = [];          // drained by main.js each render frame
-    this.lastLanding = null;
-    this.lastLaunch = null;
-    this.boosting = false;
     this._runEnded = false;
-    this.recover = 0;
-    this.stuck = 0;
-    this.respawns = 0;
-    this.wasDeployed = {};
-    for (const s of SLOTS) this.wasDeployed[s] = false;
+    this.modeState = null;
+    if (this.mode.init) this.mode.init(this);
   }
 
-  get airborne() { return this.airtimeTracker.airborne; }
-  get airtime() { return this.airtimeTracker.airtime; }
+  /** Starting grid: spread across the road, all on the same line. */
+  gridSpawn(i, count) {
+    const gap = TUNING.MODES.PARTY.GRID_GAP;
+    const off = (i - (count - 1) / 2) * gap;
+    return { x: this.spawn.x + off, y: this.spawn.y, z: this.spawn.z };
+  }
+
+  // ── Single-player conveniences ─────────────────────────────────────────
+  // Everything below keeps the solo API natural: `sim.car`, `sim.run`, and so
+  // on all mean player one, which is what every probe and the whole solo game
+  // actually wants.
+  get p0() { return this.players[0]; }
+  get car() { return this.p0.car; }
+  get panels() { return this.p0.panels; }
+  get boost() { return this.p0.boost; }
+  get thrust() { return this.p0.thrust; }
+  get tricks() { return this.p0.tricks; }
+  get aero() { return this.p0.aero; }
+  get airtimeTracker() { return this.p0.airtimeTracker; }
+  get run() { return this.p0.run; }
+  get airborne() { return this.p0.airborne; }
+  get airtime() { return this.p0.airtime; }
+  get boosting() { return this.p0.boosting; }
+  get lastLanding() { return this.p0.lastLanding; }
+  get lastResult() { return this.p0.lastResult; }
+  get respawns() { return this.players.reduce((a, p) => a + p.respawns, 0); }
 
   reset() {
-    this.car.reset(this.spawn);
-    this.panels.restoreAll();
-    this.panels.reset();
-    this.boost.reset();
-    this.thrust.reset();
-    this.airtimeTracker.reset();
-    this.tricks.reset();
+    for (const p of this.players) p.reset();
     this.events.push({ type: 'reset' });
   }
 
-  /**
-   * Move the car somewhere, panels and all.
-   *
-   * Never call car.reset() on its own: the panels are separate bodies on
-   * joints, so teleporting the chassis without them leaves the hinges stretched
-   * across the arena and the solver rips the car apart at 300 m/s.
-   */
   placeCar(pos = this.spawn, heading = TUNING.ARENA.SPAWN_HEADING) {
-    this.car.reset(pos, heading);
-    this.panels.syncToChassis();
-    this.airtimeTracker.reset();
-    this.tricks.reset();
+    this.p0.place(pos, heading);
   }
 
-  /** A fresh run: clock, score and coins all back to the start. */
+  /** A fresh round: clock, scores and coins all back to the start. */
   restartRun(mode = 'stunt', duration = undefined) {
-    this.run = new Run(mode, duration);
+    this.mode = getMode(mode);
+    this.round = new Round(this.mode.id, duration);
+    for (let i = 0; i < this.players.length; i++) {
+      const p = this.players[i];
+      p.run.round = this.round;
+      p.run.index = i;
+      p.run.reset();
+      p.coinsTaken.clear();
+      p.lives = undefined;
+      p.calledTarget = null;
+      p.launchCall = null;
+      p.place(this.gridSpawn(i, this.players.length));
+      p.reset();
+    }
     this.coinsTaken.clear();
     this.traffic.reset();
-    this.reset();
-    this.events.push({ type: 'runStart', mode });
+    this.movers.reset();
+    this.telemetry = new Telemetry();
+    this._runEnded = false;
+    this.modeState = null;
+    if (this.mode.init) this.mode.init(this);
+    this.events.push({ type: 'runStart', mode: this.mode.id, players: this.players.length });
   }
 
   /**
    * One fixed step.
    * @param dt      fixed timestep, seconds
-   * @param actions flat action object from src/input
-   * @param edges   one-shot presses: { thrust, reset }
+   * @param actions a flat action object (solo) or an array, one per player
+   * @param edges   one-shot presses, likewise
    */
   step(dt, actions, edges = {}) {
-    const airborne = this.airtimeTracker.airborne;
+    const A = (i) => (Array.isArray(actions) ? actions[i] || {} : actions);
+    const E = (i) => (Array.isArray(edges) ? edges[i] || {} : edges);
 
-    if (edges.reset) { this.reset(); return; }
+    if (E(0).reset) { this.reset(); return; }
 
     this.movers.update(dt);
-    const t = this.traffic.update(dt, this.car, this.boost);
-    this.trafficSignal = t;
-    if (t.nearMiss) this.events.push({ type: 'nearMiss', n: t.nearMiss });
-    if (t.honk) this.events.push({ type: 'honk' });
-
-    this.boosting = this.boost.update(dt, {
-      car: this.car, actions, airborne, oncoming: t.oncoming,
-    });
-    this.car.update(dt, actions, this.boosting);
-    this.panels.update(dt, actions, airborne);
-
-    // ── Aero: chassis + every attached panel, then the lift clamp ──────────
-    const A = TUNING.AERO;
-    this.aero.begin();
-    this.aero.addBoxPlates(
-      this.car.body, this.car.rotation, this.car.position,
-      TUNING.CAR.HALF, A.CHASSIS_CD, A.CHASSIS_SCALE
-    );
-    // Panel drag scales with how far the part is actually deployed. A stowed
-    // panel is flush with the bodywork and its area is already counted by the
-    // chassis box above — charging for it twice, at 5.4x the chassis gain, was
-    // enough to backflip the car on a neutral jump with no input at all.
-    for (const p of this.panels.list) {
-      if (p.deploy < 0.02) continue;
-      const target = A.APPLY_TO === 'chassis' ? this.car.body : p.body;
-      this.aero.addPlate(
-        p.body, p.body.rotation(), p.body.translation(), p.cfg.size,
-        p.cfg.cd, A.PANEL_SCALE * this._panelGain(p.slot) * p.deploy, target
-      );
+    const signal = this.traffic.update(dt, this.players);
+    for (const p of this.players) p.oncoming = signal.oncoming[p.index];
+    if (signal.nearMiss.some(Boolean)) {
+      this.events.push({ type: 'nearMiss', per: signal.nearMiss });
     }
-    this.aero.apply(dt, this.car.body.mass(), TUNING.SIM.GRAVITY);
+    if (signal.honk) this.events.push({ type: 'honk' });
 
-    const finished = this.thrust.update(dt, {
-      actions, airborne, pressedThrust: !!edges.thrust,
-    });
-    if (finished) this.telemetry.recordThrust(finished);
-
-    this.panels.applySpoiler(dt);
-    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.chassisAngDrag : null);
+    for (const p of this.players) {
+      const finished = p.preStep(dt, A(p.index), E(p.index), this.world);
+      if (finished) this.telemetry.recordThrust(finished);
+    }
 
     this.world.step();
     this.time += dt;
     this.steps++;
 
-    // ── Events ─────────────────────────────────────────────────────────────
-    // §4: "traffic clipping you mid-air is a crash."
-    if (TUNING.TRAFFIC.MIDAIR_CLIP_IS_CRASH && this.airtimeTracker.airborne && this._clippedByTraffic()) {
-      const crash = this.airtimeTracker.forceCrash(this.car, 'traffic');
-      if (crash) {
-        const snap = this.pendingTrick || this.tricks.snapshot();
-        this.pendingTrick = null;
-        const result = resolveTrick(snap, crash, 1, this.run.nextCombo);
-        this.run.addLanding(result);
-        this.lastLanding = crash;
-        this.lastResult = result;
-        this.telemetry.recordLanding(crash);
-        this.events.push({ type: 'landed', landing: crash, result, clipped: true });
-        this.requestRespawn();
-      }
+    this.round.update(dt);
+    if (this.mode.update) this.mode.update(dt, this);
+
+    for (const p of this.players) this._afterStep(dt, p, A(p.index));
+
+    // §9 Last Car Standing can finish a round before the clock does.
+    if (!this.round.over && this.mode.isOver && this.mode.isOver(this)) this.round.end();
+
+    if (this.round.over && !this._runEnded) {
+      this._runEnded = true;
+      this.events.push({ type: 'runOver', summary: this.runSummary(), all: this.allSummaries() });
     }
 
-    const ev = this.airtimeTracker.update(dt, this.car);
-    this.telemetry.tick(dt, this.airtimeTracker.airborne);
-    this.run.update(dt);
-    if (this.airtimeTracker.airborne) {
-      this.tricks.update(dt, this.car, this.panels);
-      this._collectCoins();
+    // Safety rail: nothing in the game can accelerate a car past this, so if it
+    // trips a contact has gone bad and clamping beats launching to orbit.
+    for (const p of this.players) {
+      const v = p.car.body.linvel();
+      const sp = Math.hypot(v.x, v.y, v.z);
+      if (sp > TUNING.SIM.MAX_SPEED_CLAMP) {
+        const k = TUNING.SIM.MAX_SPEED_CLAMP / sp;
+        p.car.body.setLinvel({ x: v.x * k, y: v.y * k, z: v.z * k }, true);
+        this.events.push({ type: 'speedClamp', player: p.index, speed: sp });
+      }
+      if (p.car.position.y < TUNING.ARENA.RESET_HEIGHT) p.respawn(this.park, rampSurface);
+    }
+  }
+
+  _afterStep(dt, p, actions) {
+    // While a crash is playing out the car is not flying, and asking the
+    // airtime tracker about it is how a car resting on its roof came to
+    // resolve a fresh crash landing five times a second for the rest of the
+    // round — 397 of them in one 90-second run.
+    if (p.recover > 0) {
+      p.airtimeTracker.reset();
+      p.tricks.reset();
+      p.pendingTrick = null;
+      this._recovery(dt, p);
+      return;
+    }
+
+    // §4: "traffic clipping you mid-air is a crash."
+    if (TUNING.TRAFFIC.MIDAIR_CLIP_IS_CRASH && p.airtimeTracker.airborne && this._clipped(p)) {
+      const crash = p.airtimeTracker.forceCrash(p.car, 'traffic');
+      if (crash) this._bank(p, crash, true);
+    }
+
+    const ev = p.airtimeTracker.update(dt, p.car);
+    p.run.update(dt);
+    if (p.index === 0) this.telemetry.tick(dt, p.airtimeTracker.airborne);
+
+    if (p.airtimeTracker.airborne) {
+      p.tricks.update(dt, p.car, p.panels);
+      this._collectCoins(p);
     }
 
     for (const s of SLOTS) {
-      const now = this.panels.parts[s].deploy > 0.5;
-      if (now && !this.wasDeployed[s]) {
-        this.telemetry.recordDeploy(s);
-        this.events.push({ type: 'deploy', slot: s });
+      const now = p.panels.parts[s].deploy > 0.5;
+      if (now && !p.wasDeployed[s]) {
+        if (p.index === 0) this.telemetry.recordDeploy(s);
+        this.events.push({ type: 'deploy', player: p.index, slot: s });
       }
-      this.wasDeployed[s] = now;
+      p.wasDeployed[s] = now;
     }
 
     if (ev.launch) {
-      this.lastLaunch = ev.launch;
-      this.thrust.onLaunch();
-      this.tricks.onLaunch(this.car);
-      this.events.push({ type: 'launch', launch: ev.launch });
+      p.lastLaunch = ev.launch;
+      p.thrust.onLaunch();
+      p.tricks.onLaunch(p.car);
+      if (this.mode.onLaunch) this.mode.onLaunch(p, ev.launch, this);
+      this.events.push({ type: 'launch', player: p.index, launch: ev.launch });
     }
     if (ev.touchdown) {
-      // Freeze the flight on the *first* touch only. A bounce fires another
-      // touchdown inside the same settle window, and overwriting here banked
-      // the bounce instead of the flight that earned it.
-      if (!this.pendingTrick) this.pendingTrick = this.tricks.snapshot();
-      const torn = this.panels.checkTearOff();
+      // Freeze the flight on the first touch only: a bounce fires another
+      // touchdown inside the same settle window.
+      if (!p.pendingTrick) p.pendingTrick = p.tricks.snapshot();
+      const torn = p.panels.checkTearOff();
       if (torn.length) {
-        this.telemetry.recordTearOff(torn.length);
-        this.events.push({ type: 'tearoff', slots: torn });
+        if (p.index === 0) this.telemetry.recordTearOff(torn.length);
+        this.events.push({ type: 'tearoff', player: p.index, slots: torn });
       }
-      this.events.push({ type: 'touchdown' });
+      this.events.push({ type: 'touchdown', player: p.index });
     }
-    if (ev.landed) {
-      this.lastLanding = ev.landed;
-      this.telemetry.recordLanding(ev.landed);
+    if (ev.landed) this._bank(p, ev.landed, false);
 
-      // §3.1: the bank is only worth anything once it is landed.
-      const tierMult = (TIER[ev.landed.tier] || TIER.road).mult;
-      const snap = this.pendingTrick || this.tricks.snapshot();
-      this.pendingTrick = null;
-      const result = resolveTrick(snap, ev.landed, tierMult, this.run.nextCombo);
-      this.run.addLanding(result);
-      this.lastResult = result;
-      this.events.push({ type: 'landed', landing: ev.landed, result });
-      if (!result.landed) this.requestRespawn();
-    }
-
-    if (this.run.over && !this._runEnded) {
-      this._runEnded = true;
-      this.events.push({ type: 'runOver', summary: this.runSummary() });
-    }
-
-    this._updateRecovery(dt);
-
-    // Safety rail (TUNING.SIM.MAX_SPEED_CLAMP). Physics, not design: nothing
-    // in the game can accelerate the car past this, so if it trips, a contact
-    // has gone bad and clamping is strictly better than launching to orbit.
-    const v = this.car.body.linvel();
-    const sp = Math.hypot(v.x, v.y, v.z);
-    if (sp > TUNING.SIM.MAX_SPEED_CLAMP) {
-      const k = TUNING.SIM.MAX_SPEED_CLAMP / sp;
-      this.car.body.setLinvel({ x: v.x * k, y: v.y * k, z: v.z * k }, true);
-      this.events.push({ type: 'speedClamp', speed: sp });
-    }
-
-    if (this.car.position.y < TUNING.ARENA.RESET_HEIGHT) this.reset();
+    this._recovery(dt, p);
   }
 
-  /** Per-panel aero gain, from the garage setup when there is one (§7). */
-  _panelGain(slot) {
-    if (this.setup) return this.setup.panels[slot].gain;
-    return TUNING.PANELS[slot].gain ?? 1;
+  /** Resolve a finished flight into score, through whatever the mode says. */
+  _bank(p, landing, clipped) {
+    p.lastLanding = landing;
+    if (p.index === 0) this.telemetry.recordLanding(landing);
+
+    const tierMult = clipped ? 1 : (TIER[landing.tier] || TIER.road).mult;
+    const snap = p.pendingTrick || p.tricks.snapshot();
+    p.pendingTrick = null;
+    let result = resolveTrick(snap, landing, tierMult, p.run.nextCombo);
+    result.player = p.index;
+    if (this.mode.onLanded) result = this.mode.onLanded(p, result, this) || result;
+
+    p.run.addLanding(result);
+    p.lastResult = result;
+    this.events.push({ type: 'landed', player: p.index, landing, result, clipped });
+    if (!result.landed) p.recover = TUNING.RESPAWN.DELAY;
   }
 
-  _clippedByTraffic() {
+  _recovery(dt, p) {
+    const R = TUNING.RESPAWN;
+    if (!this.round.running) { p.recover = 0; p.stuck = 0; return; }
+    const wrongWayUp = p.car.tiltAngle > R.STUCK_TILT;
+    const slow = p.car.speed < R.STUCK_SPEED;
+    p.stuck = (wrongWayUp && slow) ? p.stuck + dt : 0;
+    if (p.stuck > R.STUCK_TIME && p.recover <= 0) p.recover = R.DELAY;
+    if (p.recover > 0) {
+      p.recover -= dt;
+      if (p.recover <= 0) {
+        // Eliminated players stay where they crashed; there is nothing to
+        // come back to (§9 Last Car Standing).
+        if (p.run.alive) {
+          const r = p.respawn(this.park, rampSurface);
+          this.events.push({ type: 'respawn', player: p.index, ...r });
+        }
+      }
+    }
+  }
+
+  _clipped(p) {
     let hit = false;
-    this.world.contactPairsWith(this.car.collider, (other) => {
+    this.world.contactPairsWith(p.car.collider, (other) => {
       if (hit || !this.traffic.isTrafficCollider(other)) return;
-      this.world.contactPair(this.car.collider, other, (m) => {
+      this.world.contactPair(p.car.collider, other, (m) => {
         for (let i = 0; i < m.numContacts(); i++) {
           if (m.contactDist(i) < TUNING.AIRTIME.CHASSIS_CRASH_DEPTH) { hit = true; return; }
         }
@@ -276,90 +311,19 @@ export class Sim {
     return hit;
   }
 
-  /** Coins are flat score on authored lines (§3.1), collected in the air. */
-  _collectCoins() {
+  /** Coins are flat score on authored lines (§3.1). First come, first served. */
+  _collectCoins(p) {
     const r2 = TUNING.SCORE.COIN_RADIUS * TUNING.SCORE.COIN_RADIUS;
-    const p = this.car.position;
+    const pos = p.car.position;
     for (const c of this.park.coins) {
       if (this.coinsTaken.has(c.id)) continue;
-      const dx = c.pos.x - p.x, dy = c.pos.y - p.y, dz = c.pos.z - p.z;
+      const dx = c.pos.x - pos.x, dy = c.pos.y - pos.y, dz = c.pos.z - pos.z;
       if (dx * dx + dy * dy + dz * dz > r2) continue;
       this.coinsTaken.add(c.id);
-      this.tricks.collectCoin();
-      this.events.push({ type: 'coin', id: c.id, pos: c.pos });
+      p.coinsTaken.add(c.id);
+      p.tricks.collectCoin();
+      this.events.push({ type: 'coin', player: p.index, id: c.id, pos: c.pos });
     }
-  }
-
-  /**
-   * Put the player back on the road after a crash, or after getting wedged.
-   *
-   * Respawning at the arena spawn would cost most of a 90 second round in
-   * driving back, so this drops you on the approach to the nearest ramp,
-   * already rolling and pointed at it.
-   */
-  _updateRecovery(dt) {
-    const R = TUNING.RESPAWN;
-    if (!this.run.running) { this.recover = 0; this.stuck = 0; return; }
-
-    // Wedged: upside down or on a wall, going nowhere.
-    const wrongWayUp = this.car.tiltAngle > R.STUCK_TILT;
-    const slow = this.car.speed < R.STUCK_SPEED;
-    this.stuck = (wrongWayUp && slow) ? this.stuck + dt : 0;
-    if (this.stuck > R.STUCK_TIME && this.recover <= 0) this.recover = R.DELAY;
-
-    if (this.recover > 0) {
-      this.recover -= dt;
-      if (this.recover <= 0) this.respawn();
-    }
-  }
-
-  /** Called by the crash path and by the stuck detector. */
-  requestRespawn(delay = TUNING.RESPAWN.DELAY) {
-    if (this.recover <= 0) this.recover = delay;
-  }
-
-  respawn() {
-    const R = TUNING.RESPAWN;
-    const p = this.car.position;
-
-    // Nearest ramp, and the point on its approach the car should land back on.
-    let best = null, bestD = Infinity;
-    for (const r of this.park.ramps) {
-      if (r.id === 'garage') continue;
-      const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
-      if (d < bestD) { bestD = d; best = r; }
-    }
-
-    let pos = { ...this.spawn };
-    let heading = TUNING.ARENA.SPAWN_HEADING;
-    if (best) {
-      // A ramp faces -Z in its own frame, so its approach is +Z, rotated by yaw.
-      const s = Math.sin(best.yaw), c = Math.cos(best.yaw);
-      const back = rampSurface(best).zMax + R.APPROACH;
-      pos = { x: best.pos.x + s * back, y: 1.2, z: best.pos.z + c * back };
-      heading = best.yaw;
-    }
-
-    this.placeCar(pos, heading);
-    // Rolling restart: standing still 60 m from a ramp is its own punishment.
-    const fwd = qRot(qAxisAngle(WORLD_UP, heading), { x: 0, y: 0, z: -1 });
-    this.car.body.setLinvel({ x: fwd.x * R.SPEED, y: 0, z: fwd.z * R.SPEED }, true);
-    this.panels.restoreAll();
-    this.panels.reset();
-    this.stuck = 0;
-    this.recover = 0;
-    this.respawns++;
-    this.events.push({ type: 'respawn', pos, ramp: best ? best.id : null });
-  }
-
-  /** The run summary, plus the run-level counters the licences read. */
-  runSummary() {
-    const t = this.telemetry.thrustBursts;
-    return this.run.summary({
-      thrustBursts: t.extend + t.correct + t.dive,
-      coins: this.coinsTaken.size,
-      nearMisses: this.traffic.nearMisses,
-    });
   }
 
   drainEvents() {
@@ -368,58 +332,38 @@ export class Sim {
     return e;
   }
 
+  runSummary(i = 0) {
+    const p = this.players[i];
+    const t = this.telemetry.thrustBursts;
+    return p.run.summary({
+      thrustBursts: t.extend + t.correct + t.dive,
+      coins: p.coinsTaken.size,
+      nearMisses: this.traffic.nearMisses,
+    });
+  }
+
+  allSummaries() { return this.players.map((_, i) => this.runSummary(i)); }
+
   /** Everything the renderer and HUD need, as plain data. */
   snapshot() {
-    const c = this.car;
+    const p0 = this.p0.snapshot();
     return {
+      ...p0,
       time: this.time,
-      position: c.position,
-      rotation: c.rotation,
-      linvel: c.linvel,
-      angvel: c.angvel,
-      speed: c.speed,
-      groundSpeed: c.groundSpeed,
-      forward: c.forward,
-      up: c.up,
-      tiltAngle: c.tiltAngle,
-      wheelsInContact: c.wheelsInContact,
-      airborne: this.airtimeTracker.airborne,
-      airtime: this.airtimeTracker.airtime,
-      maxHeight: this.airtimeTracker.maxHeight,
-      heightAboveGround: this.airtimeTracker.heightAboveGround(c),
-      boost: this.boost.value,
-      boosting: this.boosting,
-      thrustMode: this.thrust.mode,
-      thrustActive: this.thrust.active,
-      thrustLast: this.thrust.lastMode,
-      burstsThisJump: this.thrust.burstsThisJump,
-      panels: this.panels.snapshot(),
-      prediction: this.airtimeTracker.prediction,
-      lastLanding: this.lastLanding,
-      lastLaunch: this.lastLaunch,
-      lastResult: this.lastResult || null,
-
-      // Run + scoring (§3.1, §3)
-      runState: this.run.state,
-      countdown: this.run.countdown,
-      timeLeft: this.run.timeLeft,
-      score: this.run.score,
-      combo: this.run.combo,
-      chain: this.run.chain,
-      bank: this.airtimeTracker.airborne ? this.tricks.bank : 0,
-      liveTricks: this.airtimeTracker.airborne ? this.tricks._breakdown().tricks : [],
-      coinsThisJump: this.tricks.coinsThisJump,
-      coinsTaken: this.coinsTaken.size,
-      recover: this.recover,
-      respawns: this.respawns,
+      players: this.players.map((p) => p.snapshot()),
+      playerCount: this.players.length,
+      runState: this.round.state,
+      countdown: this.round.countdown,
+      timeLeft: this.round.timeLeft,
+      mode: this.mode.id,
+      zone: this.modeState && this.modeState.zone ? this.modeState.zone : null,
       traffic: this.traffic.snapshot(),
       movers: this.movers.snapshot(),
       arena: this.arenaId,
+      coinsTaken: this.coinsTaken.size,
       nearMisses: this.traffic.nearMisses,
-      oncoming: !!(this.trafficSignal && this.trafficSignal.oncoming),
-      driftTime: c.driftTime,
-      slipAngle: c.slipAngle,
-      liftClamp: this.aero.liftScale ?? 1,
+      heightAboveGround: this.p0.airtimeTracker.heightAboveGround(this.car),
+      respawns: this.respawns,
     };
   }
 }

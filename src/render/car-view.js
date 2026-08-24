@@ -10,11 +10,11 @@ import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { SLOTS } from '../sim/panels.js';
 
-export function buildCarView(scene, art) {
+export function buildCarView(scene, art, index = 0) {
   const C = TUNING.CAR;
   const W = TUNING.WHEEL;
   const root = new THREE.Group();
-  root.name = 'car';
+  root.name = `car${index}`;
   scene.add(root);
 
   // Chassis. Gate A calls for "a box with four hinged panels" — this is that
@@ -56,13 +56,21 @@ export function buildCarView(scene, art) {
     const cfg = TUNING.PANELS[slot];
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.size.x * 2, cfg.size.y * 2, cfg.size.z * 2));
     mesh.castShadow = true;
-    mesh.name = slot;
+    mesh.name = `${slot}_${index}`;
     scene.add(art.register(mesh, 'panel'));
     panels[slot] = mesh;
   }
 
   return {
-    root, body, wheels, panels,
+    root, body, wheels, panels, index,
+
+    /** Remove every mesh this view owns — used when the player count drops. */
+    dispose() {
+      scene.remove(root);
+      for (const slot of SLOTS) scene.remove(panels[slot]);
+      art.unregisterUnder(root);
+      for (const slot of SLOTS) art.unregisterUnder(panels[slot]);
+    },
 
     /** Pull every transform straight from the physics bodies. */
     sync(car, panelBodies) {

@@ -44,7 +44,7 @@ export class Traffic {
         t: this.rng(),
         speed: T.SPEED[0] + this.rng() * (T.SPEED[1] - T.SPEED[0]),
         swerve: 0, swerveTarget: 0, panic: 0,
-        rearm: 0, missed: false,
+        rearm: 0, seen: new Set(),
         len: Math.hypot(lane.to.x - lane.from.x, lane.to.z - lane.from.z),
       });
     }
@@ -54,7 +54,7 @@ export class Traffic {
 
   reset() {
     this.nearMisses = 0;
-    for (const c of this.cars) { c.t = this.rng(); c.swerve = 0; c.panic = 0; c.rearm = 0; }
+    for (const c of this.cars) { c.t = this.rng(); c.swerve = 0; c.panic = 0; c.rearm = 0; c.seen = new Set(); }
   }
 
   /** Lane direction as a unit vector. */
@@ -65,17 +65,16 @@ export class Traffic {
   }
 
   /**
-   * @returns {{nearMiss:number, oncoming:boolean, honk:boolean}}
+   * @param players one or more Players sharing this road (§9 split-screen)
+   * @returns {{nearMiss:number[], oncoming:boolean[], honk:boolean}}
    */
-  update(dt, car, boost) {
+  update(dt, players) {
     const T = TUNING.TRAFFIC;
-    if (!this.cars.length) return { nearMiss: 0, oncoming: false, honk: false };
-
-    const p = car.position;
-    const speed = car.groundSpeed;
-    let nearMiss = 0;
+    const list = Array.isArray(players) ? players : [players];
+    const nearMiss = list.map(() => 0);
+    const oncoming = list.map(() => false);
     let honk = false;
-    let oncoming = false;
+    if (!this.cars.length) return { nearMiss, oncoming, honk };
 
     for (const c of this.cars) {
       const d = Traffic.dir(c.lane);
@@ -87,24 +86,28 @@ export class Traffic {
       const bx = c.lane.from.x + (c.lane.to.x - c.lane.from.x) * c.t;
       const bz = c.lane.from.z + (c.lane.to.z - c.lane.from.z) * c.t;
 
-      // Distance to the player, in the lane's own frame.
-      const rx = p.x - bx, rz = p.z - bz;
+      // React to whoever is closest — a car does not get to panic four ways.
+      let near = null, nearDist = Infinity, nearIdx = -1;
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i].car.position;
+        const dist = Math.hypot(p.x - bx, p.y - T.HALF.y, p.z - bz);
+        if (dist < nearDist) { nearDist = dist; near = list[i]; nearIdx = i; }
+      }
+      const rp = near.car.position;
+      const rx = rp.x - bx, rz = rp.z - bz;
       const along = rx * d.x + rz * d.z;
       const lateral = rx * nx + rz * nz;
-      const dist = Math.hypot(rx, p.y - T.HALF.y, rz);
 
       if (this.mode === 'reactive') {
-        // Panic when the player is close and in front. Swerve *away* laterally.
-        const threat = dist < T.REACT_RADIUS && along > -6 ? 1 : 0;
+        const threat = nearDist < T.REACT_RADIUS && along > -6 ? 1 : 0;
         c.panic += (threat - c.panic) * (1 - Math.exp(-dt * 3.2));
         if (threat && Math.abs(c.swerveTarget) < 0.01) {
           c.swerveTarget = (lateral >= 0 ? -1 : 1) * T.SWERVE;
         }
         if (!threat) c.swerveTarget = 0;
         c.swerve += clamp(c.swerveTarget - c.swerve, -T.SWERVE_RATE * dt, T.SWERVE_RATE * dt);
-        // Latch the honk to the approach, not the frame — otherwise 44 cars
-        // lean on the horn continuously for the whole run.
-        if (threat && dist < T.HONK_RADIUS && !c.honked) { honk = true; c.honked = true; }
+        // Latch the honk to the approach, not the frame.
+        if (threat && nearDist < T.HONK_RADIUS && !c.honked) { honk = true; c.honked = true; }
         if (!threat) c.honked = false;
       } else {
         c.panic = 0; c.swerve = 0; c.swerveTarget = 0; c.honked = false;
@@ -117,26 +120,36 @@ export class Traffic {
       c.body.setNextKinematicRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
       c.x = x; c.z = z; c.yaw = yaw;
 
-      // ── Near miss (§4) ──────────────────────────────────────────────────
+      // ── Near miss and oncoming, per player (§4) ─────────────────────────
       if (c.rearm > 0) c.rearm -= dt;
-      const close = dist < T.NEAR_MISS_RADIUS;
-      if (close && !c.missed && c.rearm <= 0 && speed > T.NEAR_MISS_MIN_SPEED) {
-        c.missed = true;
-        c.rearm = T.NEAR_MISS_REARM;
-        nearMiss++;
-      }
-      if (!close) c.missed = false;
+      c.seen = c.seen || new Set();
+      for (let i = 0; i < list.length; i++) {
+        const pl = list[i];
+        const p = pl.car.position;
+        const dist = Math.hypot(p.x - bx, p.y - T.HALF.y, p.z - bz);
+        const close = dist < T.NEAR_MISS_RADIUS;
+        const key = i;
+        if (close && !c.seen.has(key) && c.rearm <= 0 && pl.car.groundSpeed > T.NEAR_MISS_MIN_SPEED) {
+          c.seen.add(key);
+          c.rearm = T.NEAR_MISS_REARM;
+          nearMiss[i]++;
+        }
+        if (!close) c.seen.delete(key);
 
-      // ── Oncoming lane (§4) ──────────────────────────────────────────────
-      if (c.lane.oncoming && Math.abs(lateral) < T.ONCOMING_LANE_HALF && speed > 8) {
-        const f = car.forward;
-        if (f.x * d.x + f.z * d.z < T.ONCOMING_DOT) oncoming = true;
+        if (c.lane.oncoming && pl.car.groundSpeed > 8) {
+          const lat = (p.x - bx) * nx + (p.z - bz) * nz;
+          if (Math.abs(lat) < T.ONCOMING_LANE_HALF) {
+            const f = pl.car.forward;
+            if (f.x * d.x + f.z * d.z < T.ONCOMING_DOT) oncoming[i] = true;
+          }
+        }
       }
     }
 
-    if (nearMiss) {
-      this.nearMisses += nearMiss;
-      boost.creditNearMiss(nearMiss);
+    for (let i = 0; i < list.length; i++) {
+      if (!nearMiss[i]) continue;
+      this.nearMisses += nearMiss[i];
+      list[i].boost.creditNearMiss(nearMiss[i]);
     }
     this.honking = honk ? 0.4 : Math.max(0, this.honking - dt);
     return { nearMiss, oncoming, honk };

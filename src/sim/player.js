@@ -1,0 +1,191 @@
+/**
+ * One car and everything that belongs to it.
+ *
+ * Split-screen (§9) puts up to four of these in a single world, so anything
+ * per-driver — bodywork, boost bar, thrust, airtime, the trick bank, the
+ * score — lives here, and only the world itself (arena, traffic, moving
+ * targets, coins, clock) stays on the Sim.
+ */
+
+import TUNING from '../TUNING.js';
+import { Car } from './car.js';
+import { Panels, SLOTS } from './panels.js';
+import { BoostBar } from './boost.js';
+import { TeaseThrust } from './thrust.js';
+import { AirtimeTracker } from './airtime.js';
+import { TrickTracker } from './tricks.js';
+import { AeroAccumulator, applyAngularDrag } from './aero.js';
+import { Score } from './round.js';
+import { qRot, qAxisAngle, WORLD_UP } from './mathx.js';
+
+export class Player {
+  constructor(world, park, { setup = null, index = 0, round, spawn, movingTargetAt }) {
+    this.index = index;
+    this.world = world;
+    this.setup = setup;
+    this.spawn = spawn;
+
+    this.car = new Car(world, setup);
+    this.car.reset(spawn);
+    this.panels = new Panels(world, this.car, setup);
+    this.panels.syncToChassis();
+
+    this.boost = new BoostBar(setup);
+    this.thrust = new TeaseThrust(this.car, this.boost, setup);
+    this.airtimeTracker = new AirtimeTracker(world, park, movingTargetAt);
+    this.tricks = new TrickTracker();
+    // One accumulator each: the lift clamp of §5.1 is a fraction of *this*
+    // car's weight, and sharing one would clamp four cars against one budget.
+    this.aero = new AeroAccumulator();
+    this.run = new Score(round, index);
+
+    this.boosting = false;
+    this.pendingTrick = null;
+    this.lastLanding = null;
+    this.lastLaunch = null;
+    this.lastResult = null;
+    this.recover = 0;
+    this.stuck = 0;
+    this.respawns = 0;
+    this.coinsTaken = new Set();
+    this.calledTarget = null;      // §9 Call Your Shot
+    this.wasDeployed = {};
+    for (const s of SLOTS) this.wasDeployed[s] = false;
+  }
+
+  get airborne() { return this.airtimeTracker.airborne; }
+  get airtime() { return this.airtimeTracker.airtime; }
+  get alive() { return this.run.alive; }
+
+  reset() {
+    this.car.reset(this.spawn);
+    this.panels.restoreAll();
+    this.panels.reset();
+    this.boost.reset();
+    this.thrust.reset();
+    this.airtimeTracker.reset();
+    this.tricks.reset();
+    this.recover = 0;
+    this.stuck = 0;
+  }
+
+  /**
+   * Move the car, panels and all. Never call car.reset() on its own — the
+   * panels are separate bodies on joints, and teleporting the chassis without
+   * them leaves the hinges stretched across the arena.
+   */
+  place(pos = this.spawn, heading = TUNING.ARENA.SPAWN_HEADING) {
+    this.car.reset(pos, heading);
+    this.panels.syncToChassis();
+    this.airtimeTracker.reset();
+    this.tricks.reset();
+  }
+
+  /** Everything before world.step(): forces, motors, the vehicle controller. */
+  preStep(dt, actions, edges, world) {
+    const airborne = this.airtimeTracker.airborne;
+    const A = TUNING.AERO;
+
+    this.boosting = this.boost.update(dt, {
+      car: this.car, actions, airborne, oncoming: this.oncoming,
+    });
+    this.car.update(dt, actions, this.boosting);
+    this.panels.update(dt, actions, airborne);
+
+    this.aero.begin();
+    this.aero.addBoxPlates(
+      this.car.body, this.car.rotation, this.car.position,
+      TUNING.CAR.HALF, A.CHASSIS_CD, A.CHASSIS_SCALE
+    );
+    for (const p of this.panels.list) {
+      if (p.deploy < 0.02) continue;
+      const target = A.APPLY_TO === 'chassis' ? this.car.body : p.body;
+      this.aero.addPlate(
+        p.body, p.body.rotation(), p.body.translation(), p.cfg.size,
+        p.cfg.cd, A.PANEL_SCALE * this.panelGain(p.slot) * p.deploy, target
+      );
+    }
+    this.aero.apply(dt, this.car.body.mass(), TUNING.SIM.GRAVITY);
+
+    const finished = this.thrust.update(dt, {
+      actions, airborne, pressedThrust: !!edges.thrust,
+    });
+    this.panels.applySpoiler(dt);
+    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.chassisAngDrag : null);
+    return finished;
+  }
+
+  panelGain(slot) {
+    if (this.setup) return this.setup.panels[slot].gain;
+    return TUNING.PANELS[slot].gain ?? 1;
+  }
+
+  /**
+   * Put the player back on the road after a crash, or after getting wedged.
+   * Respawning at the arena spawn would cost most of a round in driving back,
+   * so this drops you on the approach to the nearest ramp, already rolling.
+   */
+  respawn(park, rampSurface) {
+    const R = TUNING.RESPAWN;
+    const p = this.car.position;
+    let best = null, bestD = Infinity;
+    for (const r of park.ramps) {
+      if (r.id === 'garage') continue;
+      const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+
+    let pos = { ...this.spawn };
+    let heading = TUNING.ARENA.SPAWN_HEADING;
+    if (best) {
+      const s = Math.sin(best.yaw), c = Math.cos(best.yaw);
+      const back = rampSurface(best).zMax + R.APPROACH;
+      pos = { x: best.pos.x + s * back, y: 1.2, z: best.pos.z + c * back };
+      heading = best.yaw;
+    }
+    this.place(pos, heading);
+    const fwd = qRot(qAxisAngle(WORLD_UP, heading), { x: 0, y: 0, z: -1 });
+    this.car.body.setLinvel({ x: fwd.x * R.SPEED, y: 0, z: fwd.z * R.SPEED }, true);
+    this.panels.restoreAll();
+    this.panels.reset();
+    this.stuck = 0;
+    this.recover = 0;
+    this.respawns++;
+    return { pos, ramp: best ? best.id : null };
+  }
+
+  snapshot() {
+    const c = this.car;
+    return {
+      index: this.index,
+      position: c.position, rotation: c.rotation,
+      linvel: c.linvel, angvel: c.angvel,
+      speed: c.speed, groundSpeed: c.groundSpeed,
+      forward: c.forward, up: c.up,
+      tiltAngle: c.tiltAngle, wheelsInContact: c.wheelsInContact,
+      airborne: this.airtimeTracker.airborne,
+      airtime: this.airtimeTracker.airtime,
+      maxHeight: this.airtimeTracker.maxHeight,
+      boost: this.boost.value, boosting: this.boosting,
+      thrustMode: this.thrust.mode, thrustActive: this.thrust.active,
+      thrustLast: this.thrust.lastMode, burstsThisJump: this.thrust.burstsThisJump,
+      panels: this.panels.snapshot(),
+      prediction: this.airtimeTracker.prediction,
+      lastLanding: this.lastLanding, lastLaunch: this.lastLaunch,
+      lastResult: this.lastResult,
+      driftTime: c.driftTime, slipAngle: c.slipAngle,
+      liftClamp: this.aero.liftScale ?? 1,
+      score: this.run.score, combo: this.run.combo, chain: this.run.chain,
+      alive: this.run.alive,
+      bank: this.airtimeTracker.airborne ? this.tricks.bank : 0,
+      liveTricks: this.airtimeTracker.airborne ? this.tricks._breakdown().tricks : [],
+      coinsThisJump: this.tricks.coinsThisJump,
+      coinsTaken: this.coinsTaken.size,
+      calledTarget: this.calledTarget,
+      recover: this.recover, respawns: this.respawns,
+      oncoming: !!this.oncoming,
+    };
+  }
+}
+
+export default Player;

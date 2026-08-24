@@ -43,16 +43,19 @@ const HEADFUL = has('headful');
 
 // Each clip names what it is proving.
 const CLIPS = [
-  { id: 'loop', behavior: null, style: 'neon', hud: true, script: 'loop', seconds: 20,
-    caption: 'Gate B — the loop: earn boost in traffic, launch, trick, land, chain' },
+  { id: 'loop', behavior: null, style: 'neon', hud: true, seconds: 13, start: 2.6,
+    caption: 'Gate B — one cycle of the loop: boost, launch, tricks, landing, score' },
   { id: 'camera-chase-pullback', behavior: 'chase-pullback', style: 'neon', hud: true,
     caption: '§6 chase-pullback — eases back and up, wider FOV, car centred' },
   { id: 'camera-orbit', behavior: 'orbit', style: 'neon', hud: true,
     caption: '§6 orbit — one revolution on big airtime, resumes chase on descent' },
   { id: 'camera-target-lock', behavior: 'landing-target-lock', style: 'neon', hud: true,
     caption: '§6 landing-target lock — car and target framed together, dolly-zoom in' },
-  { id: 'city', behavior: null, style: 'neon', hud: true, script: 'loop', arena: 'city', seconds: 16, start: 66,
+  { id: 'city', behavior: null, style: 'neon', hud: true, script: 'loop', arena: 'city', seconds: 16, start: 8,
     caption: '§10b — the city block: rooftops, billboards, overpasses, traffic' },
+  { id: 'split-screen', behavior: null, style: 'neon', hud: false, script: 'split',
+    players: 3, seconds: 14, start: 4,
+    caption: '§9 split-screen — three drivers, one world, one clock; per-viewport chase only' },
   { id: 'art-graybox', behavior: 'chase-pullback', style: 'graybox', hud: false,
     caption: 'Art gate — the same jump, lit gray box' },
   { id: 'art-flat-lowpoly', behavior: 'chase-pullback', style: 'lowpoly', hud: false,
@@ -145,7 +148,8 @@ async function encode(id, caption, frameCount) {
       document.getElementById('boot')?.classList.add('gone');
       document.getElementById('screens').style.display = 'none';
       document.getElementById('hud').style.display = c.hud ? '' : 'none';
-      await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null });
+      if ((c.players || 1) > 1) document.getElementById('splithud').classList.remove('hidden');
+      await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null, players: c.players || 1 });
     }, clip, FPS);
 
     const t0 = Date.now();
