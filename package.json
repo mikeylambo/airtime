@@ -26,7 +26,9 @@
     "probe:flow": "node tools/probe-flow.mjs",
     "lines": "node tools/lines.mjs",
     "gaps": "node tools/lines.mjs --emit-gaps",
-    "probe:gaps": "node tools/probe-gaps.mjs"
+    "probe:gaps": "node tools/probe-gaps.mjs",
+    "probe:audio": "node tools/probe-audio.mjs",
+    "probe:fx": "node tools/probe-fx.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

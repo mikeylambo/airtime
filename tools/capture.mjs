@@ -45,6 +45,11 @@ const HEADFUL = has('headful');
 const CLIPS = [
   { id: 'loop', behavior: null, style: 'neon', hud: true, seconds: 12, start: 2.4,
     caption: 'R1 — one cycle: boost, launch, stack facets, land, cash out' },
+  // R7 is the phase whose gate is "judged on footage", so it gets a clip whose
+  // whole job is to show it: a long run at speed for the streaks, a launch, a
+  // landing that shakes, and whatever the driver does to itself afterwards.
+  { id: 'premium', behavior: null, style: 'neon', hud: true, script: 'loop', seconds: 16, start: 1.2,
+    caption: 'R7 — speed lines, tyre smoke, landing dust and shake, crash debris' },
   { id: 'camera-chase-pullback', behavior: 'chase-pullback', style: 'neon', hud: true,
     caption: '§6 chase-pullback — eases back and up, wider FOV, car centred' },
   { id: 'camera-orbit', behavior: 'orbit', style: 'neon', hud: true,

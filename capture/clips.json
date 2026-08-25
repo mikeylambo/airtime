@@ -1,39 +1,5 @@
 [
   {
-    "id": "loop",
-    "behavior": null,
-    "style": "neon",
-    "hud": true,
-    "seconds": 12,
-    "start": 2.4,
-    "caption": "R1 — one cycle: boost, launch, stack facets, land, cash out",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/loop.mp4"
-  },
-  {
-    "id": "camera-chase-pullback",
-    "behavior": "chase-pullback",
-    "style": "neon",
-    "hud": true,
-    "caption": "§6 chase-pullback — eases back and up, wider FOV, car centred",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/camera-chase-pullback.mp4"
-  },
-  {
-    "id": "camera-orbit",
-    "behavior": "orbit",
-    "style": "neon",
-    "hud": true,
-    "caption": "§6 orbit — one revolution on big airtime, resumes chase on descent",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/camera-orbit.mp4"
-  },
-  {
-    "id": "camera-target-lock",
-    "behavior": "landing-target-lock",
-    "style": "neon",
-    "hud": true,
-    "caption": "§6 landing-target lock — car and target framed together, dolly-zoom in",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/camera-target-lock.mp4"
-  },
-  {
     "id": "city",
     "behavior": null,
     "style": "neon",
@@ -44,33 +10,5 @@
     "start": 6,
     "caption": "§10b — the city block: rooftops, billboards, overpasses, traffic",
     "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/city.mp4"
-  },
-  {
-    "id": "split-screen",
-    "behavior": null,
-    "style": "neon",
-    "hud": false,
-    "script": "split",
-    "players": 3,
-    "seconds": 14,
-    "start": 4,
-    "caption": "§9 split-screen — three drivers, one world, one clock; per-viewport chase only",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/split-screen.mp4"
-  },
-  {
-    "id": "art-graybox",
-    "behavior": "chase-pullback",
-    "style": "graybox",
-    "hud": false,
-    "caption": "Art gate — the same jump, lit gray box",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/art-graybox.mp4"
-  },
-  {
-    "id": "art-flat-lowpoly",
-    "behavior": "chase-pullback",
-    "style": "lowpoly",
-    "hud": false,
-    "caption": "Art gate — the same jump, flat low-poly",
-    "mp4": "/Users/mikeparker/Game Dev/03-Concept Vault/AIRTIME/capture/art-flat-lowpoly.mp4"
   }
 ]

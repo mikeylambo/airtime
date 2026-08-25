@@ -584,6 +584,31 @@ export const TUNING = {
   },
 
   // ── Render / art (§11 Art gate) ──────────────────────────────────────────
+  // Particles and screen effects (R7). Every one of these is a *response* to
+  // something the simulation did, so the numbers are rates and lifetimes
+  // rather than art direction.
+  FX: {
+    MAX_PARTICLES: 3000,   // one pooled buffer, never reallocated
+    SMOKE_RATE: 90,        // particles per second at full slip
+    SMOKE_LIFE: 1.1,
+    SPARK_LIFE: 0.55,
+    DEBRIS_MIN: 6,
+    DEBRIS_MAX: 34,
+    DEBRIS_LIFE: 1.5,
+    DUST_LIFE: 0.75,
+    FLAME_RATE: 140,
+    FLAME_LIFE: 0.22,
+    SLIP_THRESHOLD: 0.16,  // radians of slip before the tyres start smoking
+    SCRAPE_SPARKS: 5,      // per frame while the chassis is grinding
+    SHAKE_DECAY: 0.45,     // seconds for a shake to die away
+    SHAKE_AMPLITUDE: 0.55, // metres at full severity
+    LANDING_SHAKE: 26,     // impact m/s that produces a full-strength shake
+    // Speed lines: a screen-space streak field that arrives with speed.
+    LINES_FROM: 34,        // m/s at which streaks begin
+    LINES_FULL: 78,        // m/s at which they are at full strength
+    LINES_MAX_OPACITY: 0.62,
+  },
+
   RENDER: {
     // Default look. All three ship and cycle at runtime (Options / B key);
     // graybox stays the honest one for judging physics and framing.
@@ -615,12 +640,37 @@ export const TUNING = {
   // Synthesised, so these are the actual voices rather than file names.
   AUDIO: {
     ENGINE_GAIN: 0.10,
-    AIR_ENGINE: 0.06,           // §10: the engine cuts to wind at launch
+    AIR_ENGINE: 0.05,           // §10: the engine cuts to wind at launch
+    BOOST_LIFT: 1.3,
     IDLE_HZ: 46,
     REDLINE_HZ: 132,
     GEARS: 6,                   // faked, so pitch resets and speed stays audible
-    WIND_GAIN: 0.11,
+    WIND_GAIN: 0.13,
     SCRUB_GAIN: 0.09,
+
+    // R7. The handoff at the lip is the single loudest idea in the audio: the
+    // road and the engine drop out and wind and mechanical stress take over.
+    // Asymmetric time constants — out fast so the lip is an event, in slightly
+    // slower so a landing is not a click.
+    ROAD_GAIN: 0.16,
+    HANDOFF_OUT: 0.06,          // seconds, ground voices -> air voices
+    HANDOFF_IN: 0.10,           // seconds, coming back
+    STRESS_GAIN: 0.085,         // hinges and bodywork under load, airborne only
+
+    // The room, and the bed it sits over.
+    CROWD_GAIN: 0.10,
+    CROWD_BED: 0.16,            // always-on murmur
+    CROWD_DECAY: 2.4,           // seconds for a reaction to subside
+    MUSIC_GAIN: 0.055,
+    MUSIC_BED: 1.0,
+    MUSIC_HZ: 55,               // root of the pad
+    // "Sticking a 50,000-point stunt and the soundtrack briefly ducks
+    // underneath the landing sound. That's premium feel."
+    DUCK_FULL_PAYOUT: 45000,    // payout at which the duck is at full depth
+    DUCK_FLOOR: 0.22,           // deepest the bed goes
+    DUCK_HOLD: 0.75,            // seconds held down before recovering
+    DUCK_ATTACK: 0.05,
+    DUCK_RELEASE: 0.55,
   },
 
   // ── UI (§2.1 connective tissue) ──────────────────────────────────────────

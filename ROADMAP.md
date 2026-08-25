@@ -312,13 +312,13 @@ capture exactly that, unedited, in one take, the game is real.
 | **R4 — Flow** | Eliminate downtime | respawn, restart, timer, result pacing | Timer expires → back in the air in under 3 s, one input | **done** — 1.20 s |
 | **R5 — Instruments** | Cars are techniques, not tiers | `cars.js` → 8 vehicles, per-car geometry/inertia/CoP/damping, ungate the roster | No car Pareto-dominated; every car best at something; every car changes measured behaviour | **done** — 8 cars, 7 axes, 0 dominated |
 | **R6 — Named gaps** | The cheapest depth in the plan | analyzer → `gaps.js`, discovery tracking, HUD callout, profile | Every arena ships named gaps derived from its own reachability graph | **done** — 12 named in The Yard, discovery tracked |
-| **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, speed VFX, crash cam, cashout, damage | Judged on footage, against the acceptance clip | |
+| **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, particles, speed lines, shake | Judged on footage — but the handoff, the duck and the emission rules are measured | **done** — soundscape flips in 133 ms, a 60k stick ducks the bed to 0.22 |
 | **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | |
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |
 | **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
 | **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
 
-**Build 2 = R1–R4** + minimum audio. **Build 3 = R5 + R6.**
+**Build 2 = R1–R4** + minimum audio. **Build 3 = R5 + R6.** **Build 4 = R7.**
 
 ### Build 2 — what shipped
 
@@ -334,6 +334,40 @@ capture exactly that, unedited, in one take, the game is real.
 - **The park was measurably a scatter.** 1 of 15 ramps landed you anywhere
   authored. The Yard is 21 of 21, with a nine-ramp chain that never touches
   the ground. `npm run lines`.
+
+### Build 4 — what R7 bought
+
+The vision says audio is half the premium illusion and names the mechanism:
+*engine and road rumble become wind and mechanical stress at the lip.* That is
+a claim about levels over time, so the mix was pulled out of the Web Audio
+graph into a pure model (`src/audio/mix.js`) and measured:
+
+```
+the mix goes 65% air after              133 ms   (worst 133 ms)
+the mix is back under 45% air after     312 ms   (worst 325 ms)
+a 60,000 stick pulls the bed to         0.22
+a 900 hop pulls the bed to              0.98
+and the bed is back up 3 s later at     0.99
+```
+
+The road is now its own voice rather than part of the engine, which is what
+makes the lip land: an engine that merely gets quieter reads as lifting off the
+throttle, a road that *stops* reads as the wheels leaving the ground.
+
+Particles are held to the same standard — the emission decisions live in `Fx`
+rather than in the render loop precisely so they can be driven headlessly:
+
+```
+gripping at 40 m/s (slip 0.05)           0 particles
+sliding  at 40 m/s (slip 0.55)          35 particles
+sliding, but airborne                    0 particles
+crash vs hard landing                   66 vs 26 particles
+peak live over a 20 s drift             54 of 3,000
+```
+
+**Still owed by R7:** panel deformation and session-long scuffing, breakable
+props, active billboards, a PA, and brake glow. And the acceptance clip needs
+a skyscraper and a helicopter, so it needs R8 before it can be attempted.
 
 ### Build 2's acceptance test
 

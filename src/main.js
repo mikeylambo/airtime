@@ -21,6 +21,7 @@ import { createScene } from './render/scene.js';
 import { ArtDirector, STYLES } from './render/art.js';
 import { buildArenaView } from './render/arena-view.js';
 import { buildCarView } from './render/car-view.js';
+import { Fx } from './render/fx.js';
 import { buildTrafficView } from './render/traffic-view.js';
 import { CameraDirector, BEHAVIOR } from './render/camera-rig.js';
 import { Viewports } from './render/viewports.js';
@@ -78,6 +79,10 @@ class Game {
     this.arenaView = buildArenaView(scene, this.art, 'park');
     const park = this.arenaView.park;
     this.carViews = [buildCarView(scene, this.art, 0)];
+    // R7. Particles are a response to the simulation, so they live next to the
+    // car views and are driven from the same snapshot and event stream.
+    this.fx = new Fx(scene, this.art);
+    this._fxRand = (() => { let s = 0x9e3779b9; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
     this.carView = this.carViews[0];
     this.trafficView = buildTrafficView(scene, this.art);
     this.art.setStyle(this.options.artStyle || TUNING.RENDER.STYLE);
@@ -273,6 +278,9 @@ class Game {
   _sound(e) {
     const A = this.audio;
     if (!A || !A.ready) return;
+    // The bed reacts to the same events the one-shots do — ducking under a big
+    // stick, swelling for a discovery — so they are fed from one place.
+    A.onEvent(e);
     switch (e.type) {
       case 'launch': if (e.launch.armed) A.launch(e.launch.speed); break;
       case 'landed': A.landing(e.result, e.landing ? e.landing.impactVel : 10); break;
@@ -284,6 +292,16 @@ class Game {
       case 'tearoff': A.crash(); break;
       default: break;
     }
+  }
+
+  /**
+   * Events that throw something into the world (R7). Kept next to _sound
+   * because they answer the same question — "what did the car just do" — and
+   * a landing that shakes the camera but makes no noise is a bug in one of
+   * the two.
+   */
+  _fx(e) {
+    if (this.fx) this.fx.onEvent(e, this.sim.car, this._fxRand);
   }
 
   /** §6.1 auto-save, and §4's crash cam. */
@@ -673,6 +691,7 @@ class Game {
 
     for (const e of this.sim.drainEvents()) {
       this._sound(e);
+      this._fx(e);
       if (e.type === 'launch') {
         this.director.onLaunch(e.launch, this.sim.snapshot());
         if (e.launch.armed && this.recorder) {
@@ -756,7 +775,13 @@ class Game {
     this.splitRoot.classList.add('hidden');
 
     if (this._nearMissFlash > 0) this._nearMissFlash -= dt;
+
+    this.fx.setViewport(this.renderer.domElement.height, this.camera.fov);
+    this.fx.emit(dt, state, this._fxRand);
+    this.fx.update(dt);
+
     this.audio.update(dt, state);
+    this.hud.speedLines(state.groundSpeed || 0, state.airborne);
     this.hud.update(dt, state, {
       camera: this.director.activeBehavior,
       style: this.art.style,
@@ -769,6 +794,16 @@ class Game {
       const beat = Math.ceil(this.sim.run.countdown);
       if (beat !== this._lastBeat) { this._lastBeat = beat; this.audio.countdown(beat <= 0); }
     } else { this.hud.hideCountdown(); this._lastBeat = null; }
+
+    // Shake last, so it displaces whatever the director decided rather than
+    // being smoothed away by it.
+    if (this.fx.shake > 0.001) {
+      const s = this.fx.shake * this.fx.shake * TUNING.FX.SHAKE_AMPLITUDE;
+      const r = this._fxRand;
+      this.camera.position.x += (r() - 0.5) * s;
+      this.camera.position.y += (r() - 0.5) * s;
+      this.camera.position.z += (r() - 0.5) * s;
+    }
 
     this.renderer.render(this.scene, this.camera);
   }

@@ -56,6 +56,7 @@ export class Hud {
       <div class="hud-parts"></div>
       <div class="hud-landing"></div>
       <div class="hud-gap"></div>
+      <div class="hud-lines"></div>
       <div class="hud-dev"></div>
       <div class="hud-countdown"></div>`;
 
@@ -66,7 +67,7 @@ export class Hud {
       boostFill: q('.boost-fill'), boostThrust: q('.boost-thrust'), boostNote: q('.boost-note'),
       speed: q('.speed-n'), airtime: q('.airtime'), air: q('.hud-air'), bank: q('.bank b'),
       ticker: q('.hud-ticker'), parts: q('.hud-parts'), landing: q('.hud-landing'),
-      gap: q('.hud-gap'),
+      gap: q('.hud-gap'), lines: q('.hud-lines'),
       facetN: q('.facet-n'), facetName: q('.facet-name'), purity: q('.purity'),
       dev: q('.hud-dev'), countdown: q('.hud-countdown'),
     };
@@ -82,6 +83,21 @@ export class Hud {
     this.opacity = 1;
     this.landingHold = 0;
     this.gapHold = 0;
+
+    // Speed lines (R7): a fixed radial fan built once. Streaks are the cheapest
+    // way to make speed read on footage, and they have to arrive *with* speed
+    // rather than being always-on, or they stop meaning anything.
+    for (let i = 0; i < 26; i++) {
+      const s = document.createElement('i');
+      const a = (i / 26) * 360 + (i % 2 ? 7 : -7);
+      s.style.setProperty('--a', `${a}deg`);
+      // Distances are from the screen centre, so anything much past 30vmax is
+      // simply outside the frame — the first pass pushed the whole fan off the
+      // edges and three streaks out of twenty-six were visible.
+      s.style.setProperty('--d', `${13 + (i * 37) % 17}vmax`);
+      s.style.height = `${20 + (i * 23) % 26}vmin`;
+      this.el.lines.appendChild(s);
+    }
     this.ticker = [];
     this.shownScore = 0;
   }
@@ -114,6 +130,21 @@ export class Hud {
     if (l.gap) {
       this.pushTicker(l.gap.first ? `${l.gap.name} — NEW` : l.gap.name, l.gap.bonus, true);
     }
+  }
+
+  /**
+   * Speed streaks. Opacity and reach both track speed, so slow is clean and
+   * fast is loud, and the transition is where the sense of speed comes from.
+   */
+  speedLines(speed, airborne) {
+    const F = TUNING.FX;
+    const v = Math.max(0, Math.min(1, (speed - F.LINES_FROM) / (F.LINES_FULL - F.LINES_FROM)));
+    // Slightly stronger in the air: nothing else out there gives you a sense
+    // of how fast you are moving.
+    const k = v * (airborne ? 1.25 : 1);
+    this.el.lines.style.opacity = (k * F.LINES_MAX_OPACITY).toFixed(3);
+    // Streaks reach further out as speed rises, so the fan opens up.
+    this.el.lines.style.setProperty('--reach', (1 + k * 0.3).toFixed(3));
   }
 
   /** A gap crossing, called out the moment it lands. */

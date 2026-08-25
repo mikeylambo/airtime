@@ -17,6 +17,7 @@
  */
 
 import TUNING from '../TUNING.js';
+import { Mixer } from './mix.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -35,6 +36,9 @@ export class Audio {
     this.enabled = true;
     this.ctx = null;
     this.muted = false;
+    // The mix is a pure model (audio/mix.js) so it can be driven and measured
+    // in node. Everything below only pushes its numbers onto Web Audio nodes.
+    this.mix = new Mixer();
   }
 
   /** Browsers will not start audio without a gesture; call this from one. */
@@ -60,9 +64,20 @@ export class Audio {
     comp.connect(master);
     this.bus = comp;
 
+    // The bed — room and music — sits behind its own duck gain, so a landing
+    // can pull it out from under itself without touching the car voices.
+    const duck = ctx.createGain();
+    duck.gain.value = 1;
+    duck.connect(master);
+    this.duck = duck;
+
     this._buildEngine();
+    this._buildRoad();
     this._buildWind();
+    this._buildStress();
     this._buildScrub();
+    this._buildCrowd();
+    this._buildMusic();
     this.ready = true;
     if (ctx.state === 'suspended') ctx.resume();
   }
@@ -89,6 +104,95 @@ export class Audio {
     lp.connect(g); g.connect(this.bus);
     a.start(); b.start(); sub.start();
     this.engine = { a, b, sub, g, lp };
+  }
+
+  /**
+   * Road: the surface under the tyres. Separate from the engine on purpose —
+   * this is the voice whose disappearance *is* the launch. An engine that
+   * merely gets quieter reads as lifting off the throttle; a road that stops
+   * reads as the wheels leaving the ground.
+   */
+  _buildRoad() {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise; src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 260; lp.Q.value = 1.1;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(lp); lp.connect(g); g.connect(this.bus);
+    src.start();
+    this.roadVoice = { src, lp, g };
+  }
+
+  /**
+   * Mechanical stress: hinges, bodywork and a chassis being asked to rotate.
+   * Airborne only, and it tracks how violently the car is being flown, so a
+   * wild flight sounds like it is costing the car something.
+   */
+  _buildStress() {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise; src.loop = true;
+    src.playbackRate.value = 0.4;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 180; bp.Q.value = 5.5;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp); bp.connect(g); g.connect(this.bus);
+    src.start();
+    this.stress = { src, bp, g };
+  }
+
+  /**
+   * The room. Two noise layers — a low murmur that is always there and a
+   * brighter roar that only arrives when something happened. Synthesised like
+   * everything else, so there is no crowd sample to license or to loop
+   * audibly.
+   */
+  _buildCrowd() {
+    const ctx = this.ctx;
+    const g = ctx.createGain(); g.gain.value = 0;
+    for (const [freq, q, level, rate] of [[420, 0.7, 0.5, 0.35], [1150, 0.9, 0.32, 0.55]]) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise; src.loop = true; src.playbackRate.value = rate;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+      const lg = ctx.createGain(); lg.gain.value = level;
+      src.connect(bp); bp.connect(lg); lg.connect(g);
+      src.start();
+    }
+    g.connect(this.duck);
+    this.crowd = { g };
+  }
+
+  /**
+   * The bed: a slow pad of detuned saws under a lowpass, with an LFO on the
+   * cutoff so it breathes. Deliberately featureless — its job is to be
+   * something a landing can duck, and anything with a tune in it would start
+   * competing with the car.
+   */
+  _buildMusic() {
+    const ctx = this.ctx;
+    const A = TUNING.AUDIO;
+    const g = ctx.createGain(); g.gain.value = 0;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 1.2;
+
+    for (const [mult, detune] of [[1, -7], [1.5, 5], [2, 12], [3, -3]]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = A.MUSIC_HZ * mult;
+      o.detune.value = detune;
+      const og = ctx.createGain(); og.gain.value = mult >= 2 ? 0.18 : 0.34;
+      o.connect(og); og.connect(lp);
+      o.start();
+    }
+    // Breathing cutoff, slow enough that it never reads as a rhythm.
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.06;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 240;
+    lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+
+    lp.connect(g); g.connect(this.duck);
+    this.music = { g, lp };
   }
 
   /** Wind: filtered noise whose band opens with speed. The launch cue. */
@@ -157,11 +261,22 @@ export class Audio {
     this._tone({ gain: 0.16, from: 90, to: 220, decay: 0.5, type: 'triangle' });
   }
 
-  /** §10: "landing is a single stick hit weighted by landing tier." */
+  /**
+   * The landing. Not one hit — four, stacked in the order the car experiences
+   * them, because "KRRR-THOOM" is a sequence and a single thump is a door
+   * closing:
+   *
+   *   the crunch of contact, immediately
+   *   the sub thump of mass arriving, under it
+   *   the suspension packing down, a few milliseconds behind
+   *   the tyres chirping as they take the sideways load
+   */
   landing(result, impact = 10) {
     const heavy = clamp(impact / 22, 0.25, 1);
-    this._hit({ gain: 0.42 * heavy, freq: 220, decay: 0.22 });
-    this._tone({ gain: 0.5 * heavy, from: 130, to: 44, decay: 0.3 });
+    this._hit({ gain: 0.40 * heavy, freq: 240, decay: 0.20 });
+    this._tone({ gain: 0.52 * heavy, from: 130, to: 40, decay: 0.34 });
+    this._hit({ gain: 0.20 * heavy, freq: 130, q: 3.5, type: 'bandpass', attack: 0.03, decay: 0.30 });
+    this._hit({ gain: 0.16 * heavy, freq: 2100, q: 2.2, type: 'bandpass', attack: 0.02, decay: 0.16 });
     if (!result) return;
     if (!result.landed) return this.crash();
 
@@ -218,38 +333,36 @@ export class Audio {
   update(dt, state) {
     if (!this.ready || this.muted) return;
     const A = TUNING.AUDIO;
-    const t = this.ctx.currentTime;
-    const k = (cur, want, tau) => cur + (want - cur) * (1 - Math.exp(-dt / tau));
+    const m = this.mix.update(dt, state);
 
-    const speed = state.groundSpeed;
-    const norm = clamp(speed / TUNING.DRIVE.TOP_SPEED, 0, 1.3);
+    this.engine.g.gain.value = A.ENGINE_GAIN * m.engine;
+    this.engine.a.frequency.value = m.rpm;
+    this.engine.b.frequency.value = m.rpm * 1.005;
+    this.engine.sub.frequency.value = m.rpm * 0.5;
+    this.engine.lp.frequency.value = m.cutoff;
 
-    // Faked gearbox: the pitch resets on each shift, which is what makes speed
-    // audible rather than a single rising whine.
-    const gear = Math.min(A.GEARS - 1, Math.floor(norm * A.GEARS));
-    const within = clamp(norm * A.GEARS - gear, 0, 1);
-    const rpm = A.IDLE_HZ + within * (A.REDLINE_HZ - A.IDLE_HZ);
+    this.roadVoice.g.gain.value = A.ROAD_GAIN * m.road;
+    this.roadVoice.lp.frequency.value = 190 + m.road * 320;
 
-    // §10: the engine cuts to wind at launch.
-    const load = state.airborne ? A.AIR_ENGINE : clamp(0.25 + norm * 0.75, 0, 1);
-    const eg = this.engine.g.gain;
-    eg.value = k(eg.value, A.ENGINE_GAIN * load * (state.boosting ? 1.25 : 1), 0.05);
-    this.engine.a.frequency.value = rpm;
-    this.engine.b.frequency.value = rpm * 1.005;
-    this.engine.sub.frequency.value = rpm * 0.5;
-    this.engine.lp.frequency.value = 400 + load * 2400 + norm * 900;
+    this.wind.g.gain.value = A.WIND_GAIN * m.wind;
+    this.wind.bp.frequency.value = m.windFreq;
 
-    // Wind rises with speed and takes over completely in the air.
-    const wind = clamp(norm * 0.8 + (state.airborne ? 0.5 : 0), 0, 1.2);
-    const wg = this.wind.g.gain;
-    wg.value = k(wg.value, A.WIND_GAIN * wind, 0.12);
-    this.wind.bp.frequency.value = 320 + norm * 1500 + (state.airborne ? 500 : 0);
+    this.stress.g.gain.value = A.STRESS_GAIN * m.stress;
+    this.stress.bp.frequency.value = m.stressFreq;
 
-    // Scrub while the tyres are pointed somewhere other than they are going.
-    const slip = clamp((state.slipAngle || 0) / 0.6, 0, 1) * (state.airborne ? 0 : 1);
-    const sg = this.scrub.g.gain;
-    sg.value = k(sg.value, A.SCRUB_GAIN * slip * clamp(norm * 1.5, 0, 1), 0.06);
+    this.scrub.g.gain.value = A.SCRUB_GAIN * m.scrub;
+    this.scrub.bp.frequency.value = m.scrubFreq;
+
+    this.crowd.g.gain.value = A.CROWD_GAIN * m.crowd;
+    this.music.g.gain.value = A.MUSIC_GAIN * m.music;
+    this.duck.gain.value = m.duck;
   }
+
+  /**
+   * Events that move the bed rather than just firing a one-shot. Routed
+   * through the same call as the one-shots so the two cannot drift apart.
+   */
+  onEvent(e) { this.mix.onEvent(e); }
 
   setMuted(m) {
     this.muted = m;

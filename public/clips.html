@@ -50,7 +50,7 @@
 <div class="wrap">
   <header>
     <h1>AIRTIME</h1>
-    <div class="sub">Build 3 · R5 instruments · R6 named gaps · Three.js + Rapier</div>
+    <div class="sub">Build 4 · R7 premium feel · Three.js + Rapier</div>
     <p class="lede">
       Build 1 proved the car flies. Build 2 asks the harder question the
       reference actually answered: <b>is the air worth playing in?</b> Four
@@ -58,6 +58,11 @@
       that flies the whole car, an arena laid out by <b>range</b> instead of by
       eye, and a restart fast enough that failing is cheap. Plus sound, which
       is synthesised rather than sampled.
+    </p>
+    <p class="lede">
+      The clips are silent — they are rendered frame by frame in a headless
+      browser, so the sound only exists in the playable build. Everything the
+      audio section claims is measured rather than shown.
     </p>
     <p class="lede">
       Every camera and art clip below is the <b>same jump</b> — same seed, same
@@ -71,6 +76,9 @@
   <h2>The loop</h2>
   <p class="blurb">Earn boost on the ground, spend it in the air, land it, chain it.</p>
   <div class="grid" id="loop"></div>
+
+  <h2>R7 in motion</h2>
+  <div class="grid" id="premium"></div>
 
   <h2>R1 — scoring by facets</h2>
   <p class="blurb">
@@ -98,6 +106,41 @@ the works    11 facets   x42  IMPOSSIBLE     FLOWN  x1     bank <b>70,644</b>   
     bodywork also <i>creates</i> rotation, and charging for that would tax the
     trick generator itself.
   </p>
+
+  <h2>R7 — premium feel</h2>
+  <p class="blurb">
+    The vision's claim is that <b>audio is half the premium illusion</b>, and it
+    names the mechanism: leaving the ramp should change the entire soundscape —
+    engine and road rumble become wind and mechanical stress. That is a claim
+    about levels over time, which means it does not have to be taken on trust.
+    So the mix was pulled out of the Web Audio graph into a pure model and
+    driven through real jumps in a headless test:
+  </p>
+<pre>the mix goes 65% air after              <b>133 ms</b>   (worst 133 ms)
+the mix is back under 45% air after     <b>312 ms</b>   (worst 325 ms)
+
+a 60,000 stick pulls the bed to          <b>0.22</b>
+a 900 hop pulls the bed to               <b>0.98</b>
+and the bed is back up 3 s later at      <b>0.99</b></pre>
+  <p class="blurb">
+    The <b>road</b> is its own voice now rather than part of the engine, and
+    that is the whole trick: an engine that merely gets quieter reads as lifting
+    off the throttle, whereas a road that <i>stops</i> reads as the wheels
+    leaving the ground. Under it sits a crowd that reacts rather than drones and
+    a synthesised bed that a big stick ducks out from under itself.
+  </p>
+  <p class="blurb">
+    Particles are held to the same standard — the emission rules live with the
+    particle system rather than in the render loop, precisely so they can be
+    measured. Smoke has to appear where the tyres are <i>actually</i> slipping
+    and nowhere else, and a crash has to throw more than a landing:
+  </p>
+<pre>gripping at 40 m/s (slip 0.05)           <b>0</b> particles
+sliding  at 40 m/s (slip 0.55)          <b>35</b> particles
+sliding, but airborne                    <b>0</b> particles
+crash vs hard landing                <b>66</b> vs <b>26</b> particles
+
+peak live over a 20 s drift             54 of 3,000</pre>
 
   <h2>R5 — cars are instruments, not tiers</h2>
   <p class="blurb">
@@ -236,11 +279,14 @@ NORTHWEST LONG DECK LINE mid_up_0  -> board_1      132m  2.42s  apex 29m
     car's range.
   </div>
 
-  <footer>Build 3 · R1–R6 of ROADMAP.md · R7 premium feel, R8 Vertical City, R9 mastery and arenas 4–6 are not in this build.</footer>
+  <footer>Build 4 · R1–R7 of ROADMAP.md · R8 Vertical City, R9 mastery, R10 arenas 4–6 and R11 party/creator are not in this build.</footer>
 </div>
 
 <script>
 const SETS = {
+  premium: [
+    ['premium', 'speed, smoke, dust and debris', 'Streaks arrive with speed and leave with it, the tyres smoke only where they are actually slipping, a landing pushes dust out from under the car and shakes the camera in proportion to what hit, and a crash sheds the car across the deck. None of it is ambient — every particle is a response to something the simulation did.'],
+  ],
   loop: [
     ['loop', 'earn, launch, trick, land, chain', 'One stretch of a 90-second run: weaving the lanes for near-miss boost, launching, flying the car on the stick, landing, chaining. Score, timer, chain and airtime are live. It ends on a crash that dumps a five-figure bank — which is the point.'],
   ],

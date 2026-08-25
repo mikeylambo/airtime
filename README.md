@@ -33,6 +33,8 @@ npm run dev
 | `npm run gaps` | regenerate the named gaps from that graph |
 | `npm run probe:cars` | the instrument gate — is any car a tier? |
 | `npm run probe:gaps` | do the named gaps hold up in the real solver |
+| `npm run probe:audio` | the soundscape handoff, the duck, the room |
+| `npm run probe:fx` | particles as a response, and the pool ceiling |
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
@@ -198,6 +200,33 @@ over at launch, tyre scrub on slip, landing weight, crash, per-part whooshes,
 and a cash-out that climbs a note per facet. No files and no licensing, driven
 straight off the simulation.
 
+### Premium feel (R7)
+
+The vision's claim is that *audio is half the premium illusion*, and that the
+mechanism is the handoff: engine and road rumble become wind and mechanical
+stress at the lip. That is a claim about levels over time, which is a claim
+that can be checked — so the mix is a pure model with no Web Audio in it
+([src/audio/mix.js](src/audio/mix.js)), and `npm run probe:audio` drives real
+jumps through it:
+
+```
+the mix goes 65% air after              133 ms
+the mix is back under 45% air after     312 ms
+a 60,000 stick pulls the bed to         0.22
+a 900 hop pulls the bed to              0.98
+```
+
+The **road** is its own voice now, not part of the engine. That is the whole
+trick: an engine that merely gets quieter reads as lifting off the throttle,
+whereas a road that *stops* reads as the wheels leaving the ground. Underneath
+it there is a crowd that reacts rather than drones, and a synthesised bed that
+a big stick ducks out from under itself.
+
+Particles are held to the same standard. The emission decisions live in `Fx`,
+not in the render loop, so `npm run probe:fx` can check that smoke appears
+where the tyres are actually slipping and nowhere else, that a crash throws
+more than a landing does, and that a real run never overruns the pool.
+
 ### Traffic (§4)
 
 Both behaviours ship. Reactive swerves, brakes and honks; Ambient holds its
@@ -300,9 +329,10 @@ screenshots.
   against one, and a car that rolls three times as hard as another banks
   proportionally more. That is R9's problem, and it needs the boards to exist
   before it can be judged.
-- **The audio is a minimum, not a pass.** Engine, wind, scrub, impacts and the
-  cash-out exist. Crowd, PA, chassis groans, an escalating combo sting and any
-  music do not.
+- **Damage is still only tear-off.** Panels detach; they do not bend, the glass
+  does not break, and the car does not accumulate scuffs across a session.
+- **No PA, no breakable props, no active billboards, no brake glow.** All of
+  them are R7's remit and none of them is in this build.
 - **The city arena has not been reframed.** It is still a procedural grid of
   towers — the opposite of an instrument — and `npm run lines --city` will say
   so. It should be rebuilt against the same range logic, not iterated.

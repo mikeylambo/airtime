@@ -182,6 +182,11 @@ export class Player {
       lastLanding: this.lastLanding, lastLaunch: this.lastLaunch,
       lastResult: this.lastResult,
       driftTime: c.driftTime, slipAngle: c.slipAngle,
+      // R7: what the audio and the particles need to know about how hard the
+      // car is being worked, without either of them reaching into the sim.
+      rotationRate: Math.hypot(c.angvel.x, c.angvel.y, c.angvel.z),
+      panelsOut: this.panels.list.reduce((n, q) => Math.max(n, q.deploy), 0),
+      impactVel: this.lastLanding ? this.lastLanding.impactVel : 0,
       liftClamp: this.aero.liftScale ?? 1,
       score: this.run.score, combo: this.run.combo, chain: this.run.chain,
       alive: this.run.alive,
