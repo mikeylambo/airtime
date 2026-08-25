@@ -126,6 +126,13 @@ table.brk tr.crash td { color: #7a4453; }
 .bank { margin-top: .5rem; font-size: .62rem; letter-spacing: .2em; color: var(--faint); opacity: 0; transition: opacity .2s; }
 .hud-air.banking .bank { opacity: 1; }
 .bank b { color: var(--hot); font-size: .8rem; }
+.facets { margin-top: .35rem; display: flex; gap: .5rem; align-items: baseline; justify-content: center; }
+.facets b { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.facets i { font-style: normal; font-size: .62rem; letter-spacing: .26em; color: var(--dim); }
+.facets u { text-decoration: none; font-size: .56rem; letter-spacing: .22em; color: var(--faint); }
+.facets u.raw { color: var(--good); }
+.facets u.touched { color: var(--accent); }
+.hud-landing.big span { font-size: 3rem; text-shadow: 0 0 40px currentColor; }
 
 .hud-ticker { right: 2.2rem; top: 50%; transform: translateY(-50%); display: grid; gap: .28rem; justify-items: end; }
 .trick {

@@ -197,18 +197,39 @@ and it makes R3 tractable instead of guesswork.
 
 ## The roadmap
 
-| Phase | Objective | Touches | Gate |
-|---|---|---|---|
-| **R1 — Stunt grammar** | One jump becomes endlessly expressive | `tricks.js`, new `facets.js`, `score` tuning, HUD ticker, result | A jump with 6+ facets scores an order of magnitude above a clean single flip, and the player can see why |
-| **R2 — Air control** | Rush-like airborne mastery | per-axis aero (the COP fix), new air-control layer over `panels.js`, `input.js` | A newcomer can recover most jumps; an expert can land a triple with one 0.2 s touch. Minimum audible pass ships here |
-| **R3 — Stunt Park 2.0** | The equivalent of Rush Stunt 1 | line analyzer, then a rebuilt `stunt-park.js` | Analyzer says: no orphans, ≥15 surfaces reachable from 3+ others, a 5-surface chain exists without touching the deck |
-| **R4 — Flow** | Eliminate downtime | respawn, restart, run timer, result pacing | Timer expires → back in the air in under 3 seconds, one input |
+| Phase | Objective | Touches | Gate | Status |
+|---|---|---|---|---|
+| **R1 — Stunt grammar** | One jump becomes endlessly expressive | `tricks.js`, new `facets.js`, `score` tuning, HUD ticker, result | A jump with 6+ facets scores an order of magnitude above a clean single flip, and the player can see why | **done** — 4 facets ×4 → 9 facets ×30, a 7.5× multiplier span |
+| **R2 — Air control** | Rush-like airborne mastery | per-axis aero (the COP fix), new air-control layer over `panels.js`, `input.js` | A newcomer can recover most jumps; an expert can land a triple with one 0.2 s touch. Minimum audible pass ships here | **done** — per-axis CoP resolved the blocker; eight air verbs collapsed to one stick |
+| **R3 — Stunt Park 2.0** | The equivalent of Rush Stunt 1 | line analyzer, then a rebuilt `stunt-park.js` | Analyzer says: no orphans, ≥15 surfaces reachable from 3+ others, a 5-surface chain exists without touching the deck | **done** — 21/21 land somewhere authored, 16 reachable from 3+, a chain of 9 |
+| **R4 — Flow** | Eliminate downtime | respawn, restart, run timer, result pacing | Timer expires → back in the air in under 3 seconds, one input | **done** — 1.2 s, one input, from anywhere |
 | **R5 — Premium feel** | One car, one arena, expensive | full audio, speed VFX, crash cam, score cashout presentation | Judged on footage |
 | **R6 — Content grammar** | Prove arena variety | 3 more parks, each a different instrument | Each teaches a different routing idea |
 | **R7 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, boards, **The Gauntlet** | — |
 | **R8 — Party / creator** | Exploit what already exists | split-screen, Call Your Shot, replays, dailies | — |
 
 **Build 2 = R1 + R2 + R3 + R4**, plus the minimum audible pass. Nothing else.
+
+### Build 2 — what shipped
+
+`npm run gate` runs all twelve measurable criteria. The three that mattered:
+
+- **The R2 blocker resolved.** Stability and trick authority are the same dial
+  only if you insist on one centre of pressure. Splitting it per axis — side
+  force behind the CoM to weathercock in yaw, vertical force almost at it so
+  pitch stays free — buys both. A hands-off jump lands clean *and* a firm hold
+  on any surface turns the car all the way over. `npm run probe:axes`.
+- **Facets, and what they cost.** A jump doing two things banks 1,049. The
+  same launch doing eleven banks 70,644 — a 67x span across one ramp. And the
+  row that says everything: that 70,644 flight crashed and paid 175.
+- **The park was measurably a scatter.** 1 of 15 ramps landed you anywhere
+  authored; fourteen could only put you back on the deck. The Yard is 24 of 24,
+  with a nine-ramp chain that never touches the ground. `npm run lines`.
+
+Audio is synthesised rather than sampled — engine, wind, scrub, impacts and a
+cash-out that climbs with the facet count. No files, no licensing, and it is
+driven straight off the simulation, so the engine is telling the truth about
+the car.
 
 ### Build 2's acceptance test
 

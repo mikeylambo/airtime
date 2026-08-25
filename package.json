@@ -9,7 +9,6 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "gates": "node tools/gate-a.mjs",
-    "gate:a": "node tools/gate-a.mjs --verbose",
     "capture": "node tools/capture.mjs",
     "gate": "node tools/gate-a.mjs",
     "probe:aero": "node tools/probe-aero.mjs",
@@ -19,7 +18,13 @@
     "probe:traffic": "node tools/probe-traffic.mjs",
     "probe:score": "node tools/probe-score.mjs",
     "shots": "node tools/shots.mjs",
-    "probe:modes": "node tools/probe-modes.mjs"
+    "probe:modes": "node tools/probe-modes.mjs",
+    "gate:verbose": "node tools/gate-a.mjs --verbose",
+    "probe:facets": "node tools/probe-facets.mjs",
+    "probe:air": "node tools/probe-air.mjs",
+    "probe:axes": "node tools/probe-axes.mjs",
+    "probe:flow": "node tools/probe-flow.mjs",
+    "lines": "node tools/lines.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

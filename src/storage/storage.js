@@ -40,6 +40,8 @@ export const DEFAULT_OPTIONS = {
   colorblindTrails: false,
   showTelemetry: false,
   invertPitch: false,
+  manualAir: false,
+  mute: false,           // per-panel air controls for anyone who wants them
 };
 
 export function loadOptions() {

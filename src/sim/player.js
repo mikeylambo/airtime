@@ -111,7 +111,7 @@ export class Player {
       actions, airborne, pressedThrust: !!edges.thrust,
     });
     this.panels.applySpoiler(dt);
-    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.chassisAngDrag : null);
+    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.angDragScale : 1);
     return finished;
   }
 
@@ -178,7 +178,11 @@ export class Player {
       score: this.run.score, combo: this.run.combo, chain: this.run.chain,
       alive: this.run.alive,
       bank: this.airtimeTracker.airborne ? this.tricks.bank : 0,
-      liveTricks: this.airtimeTracker.airborne ? this.tricks._breakdown().tricks : [],
+      liveFacets: this.airtimeTracker.airborne ? (() => {
+        const b = this.tricks._breakdown();
+        return { count: b.facets.length, name: b.multName, mult: b.mult, purity: b.purity,
+                 labels: b.facets.map((f) => f.label) };
+      })() : null,
       coinsThisJump: this.tricks.coinsThisJump,
       coinsTaken: this.coinsTaken.size,
       calledTarget: this.calledTarget,

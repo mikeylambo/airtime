@@ -43,15 +43,15 @@ const HEADFUL = has('headful');
 
 // Each clip names what it is proving.
 const CLIPS = [
-  { id: 'loop', behavior: null, style: 'neon', hud: true, seconds: 13, start: 2.6,
-    caption: 'Gate B — one cycle of the loop: boost, launch, tricks, landing, score' },
+  { id: 'loop', behavior: null, style: 'neon', hud: true, seconds: 12, start: 2.4,
+    caption: 'R1 — one cycle: boost, launch, stack facets, land, cash out' },
   { id: 'camera-chase-pullback', behavior: 'chase-pullback', style: 'neon', hud: true,
     caption: '§6 chase-pullback — eases back and up, wider FOV, car centred' },
   { id: 'camera-orbit', behavior: 'orbit', style: 'neon', hud: true,
     caption: '§6 orbit — one revolution on big airtime, resumes chase on descent' },
   { id: 'camera-target-lock', behavior: 'landing-target-lock', style: 'neon', hud: true,
     caption: '§6 landing-target lock — car and target framed together, dolly-zoom in' },
-  { id: 'city', behavior: null, style: 'neon', hud: true, script: 'loop', arena: 'city', seconds: 16, start: 8,
+  { id: 'city', behavior: null, style: 'neon', hud: true, script: 'loop', arena: 'city', seconds: 14, start: 6,
     caption: '§10b — the city block: rooftops, billboards, overpasses, traffic' },
   { id: 'split-screen', behavior: null, style: 'neon', hud: false, script: 'split',
     players: 3, seconds: 14, start: 4,

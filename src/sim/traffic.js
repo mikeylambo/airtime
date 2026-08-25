@@ -126,7 +126,10 @@ export class Traffic {
       for (let i = 0; i < list.length; i++) {
         const pl = list[i];
         const p = pl.car.position;
-        const dist = Math.hypot(p.x - bx, p.y - T.HALF.y, p.z - bz);
+        // To where the car actually *is*, not to its lane centre: a reactive
+        // car swerves up to 1.8 m out of lane, which was enough for a clean
+        // pass at speed to measure as a miss and pay nothing.
+        const dist = Math.hypot(p.x - x, p.y - T.HALF.y, p.z - z);
         const close = dist < T.NEAR_MISS_RADIUS;
         const key = i;
         if (close && !c.seen.has(key) && c.rearm <= 0 && pl.car.groundSpeed > T.NEAR_MISS_MIN_SPEED) {
@@ -137,7 +140,7 @@ export class Traffic {
         if (!close) c.seen.delete(key);
 
         if (c.lane.oncoming && pl.car.groundSpeed > 8) {
-          const lat = (p.x - bx) * nx + (p.z - bz) * nz;
+          const lat = (p.x - x) * nx + (p.z - z) * nz;
           if (Math.abs(lat) < T.ONCOMING_LANE_HALF) {
             const f = pl.car.forward;
             if (f.x * d.x + f.z * d.z < T.ONCOMING_DOT) oncoming[i] = true;

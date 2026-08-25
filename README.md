@@ -5,10 +5,11 @@
 Drive recklessly to earn boost, hit a ramp, flail through the air with too
 little thrust to actually fly, and stick a landing somewhere absurd.
 
-This build is **items 1–13 of §12** of `airtime-frame-spec.md` — through
-**Gate A** (the delta), **Gate B** (the loop), **Gate C** (the frame) and the
-buildable half of **Gate D** (party). Item 14 — audio and the polish pass — is
-not in it, and there is no sound at all.
+This build is the **Rush Reframe** ([ROADMAP.md](ROADMAP.md)) on top of items
+1–13 of the original spec: R1 stunt grammar, R2 air control, R3 the rebuilt
+stunt park, R4 flow, and a synthesised audio pass.
+
+`npm run gate` runs all twelve measurable criteria.
 
 ---
 
@@ -26,6 +27,9 @@ npm run dev
 | `npm run probe:run` | a whole 90-second run, headless, with the score breakdown |
 | `npm run probe:aero` | measure what each body panel does to the car |
 | `npm run probe:modes` | run every §9 mode and check its rule actually bites |
+| `npm run probe:facets` | what a jump is worth as it stacks facets |
+| `npm run probe:air` | stick-to-rotation mapping, measured |
+| `npm run lines` | the arena's reachability graph |
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
@@ -86,12 +90,71 @@ Options. "Never cut, always ease" is structural: a behaviour change freezes the
 current on-screen framing as the outgoing shot and crossfades from it, and the
 crossfaded result is smoothed again on the way out.
 
-### Scoring (§3.1)
+### Scoring — facets (R1)
 
-Rotation is integrated from the car's own angular velocity and named *after the
-fact* — a player who does not know they did a 540 still gets paid for one. The
-maths reproduces the spec's worked examples exactly: a perfect 360 onto a
-rooftop is 450, a sloppy 1080 on the road is 220.
+The reference did not ask "what trick was that". It asked how many *different
+things* were true at once, then multiplied brutally. So a flight is decomposed
+into facets — flips, rolls, spins, twist, inverted, big air, height, distance,
+gap, transfer, wheelie, endo, two-wheel, near-miss, held bodywork — and the
+**count** is the multiplier, from ×1 at one to ×42 at ten.
+
+Rotation is still integrated from the car's own angular velocity and named
+after the fact. A player who does not know they did a 540 while inverted with
+the tail out gets paid for all three.
+
+```
+hands off    2 facets  x1.5              RAW   x2.2   bank  1,049   clean  ->  2,273
+one door     5 facets  x6   WILD         RAW   x2.2   bank  9,781   CRASH  ->    175
+the works   11 facets  x42  IMPOSSIBLE   FLOWN x1     bank 70,644   CRASH  ->    175
+```
+
+Those bottom rows are the mode in one line: a flight worth 70,644 that paid
+175 because it did not land. Bank is what the air was worth; payout is what
+the ground agreed to.
+
+**Purity** (RAW / TOUCHED / FLOWN) makes the assist a resource rather than a
+right — worth ×2.2 down to ×1. It counts only the *stabilising* verbs (the
+thrust burst, both doors as an air brake, the wing), because our bodywork also
+*creates* rotation and charging for that would make the trick generator the
+thing that costs you.
+
+### Air control (R2)
+
+The bodywork is five hinged surfaces; the player gets one stick. Left/right
+puts a door out and rolls. Up/down works the hood or the tail flap and pitches.
+A shoulder throws everything out at once as an air brake. The panels are
+actuators, not controls — the door still swings, you just stop addressing it.
+
+Underneath, the chassis has a **per-axis centre of pressure**: side force acts
+well behind the centre of mass so the car weathercocks in yaw and flies
+nose-first, vertical force acts almost at it so pitch stays cheap to start and
+cheap to stop. With a single CoP you must choose between a car that lands
+hands-off and a car that can be turned over at all. `npm run probe:axes`.
+
+### The Yard (R3)
+
+Build 1's park was a scatter: 1 of 15 ramps landed you anywhere authored, and
+the other fourteen could only put you back on the deck. `npm run lines`
+measured it, which is the only reason it was fixable.
+
+The Yard is laid out by *range* instead of by eye — a car leaves a 28° kicker
+at 40–50 m/s and travels 60–90 m, so everything sits on rings inside that
+envelope, and everything points inward:
+
+```
+ramps that land you somewhere authored   21/21  (100%)
+ramps that only ever land you on deck    0
+ramps nothing can reach                  0
+ramps reachable from 3+ others           16
+longest chain without touching deck      9
+```
+
+### Audio
+
+Synthesised, not sampled: engine load through a faked gearbox, wind that takes
+over at launch, tyre scrub on slip, landing weight, crash, per-part whooshes,
+and a cash-out that climbs a note per facet. No files and no licensing, driven
+straight off the simulation.
 
 ### Traffic (§4)
 
@@ -191,9 +254,12 @@ screenshots.
 - **Clips carry their whole prefix.** A deterministic replay has to re-simulate
   from step zero, so a landing late in a run stores that run's whole input
   stream — tens of KB, not the few KB an early one costs.
-- **No audio.** That is item 14, and it is the biggest single gap: a stunt game
-  with no engine note, no wind at launch and no landing hit is missing most of
-  its feel.
+- **The audio is a minimum, not a pass.** Engine, wind, scrub, impacts and the
+  cash-out exist. Crowd, PA, chassis groans, an escalating combo sting and any
+  music do not.
+- **The city arena has not been reframed.** It is still a procedural grid of
+  towers — the opposite of an instrument — and `npm run lines --city` will say
+  so. It should be rebuilt against the same range logic, not iterated.
 - **The scripted driver is a weak proxy for a player.** It lands what it
   launches but only finds a handful of ramps in a round, so `probe:run` is a
   smoke test that the loop runs end to end, not a measure of what the mode is

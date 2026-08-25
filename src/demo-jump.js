@@ -29,15 +29,15 @@ const GROUND = [
  * rolls back, and lands clean.
  */
 const AIR = [
-  ['trunk', 0.15, 0.33, 1],      // tail flap: drop the nose off the lip (§5.1)
-  ['doorL', 0.45, 0.69, 1],      // one door -> roll (§5.1)
-  ['doorR', 1.24, 1.48, 1],      // the other -> roll back
-  ['spoiler', 1.48, 3.40, 1],    // wing out to steady the descent
+  ['trunk', 0.15, 0.27, 1],      // tail flap: drop the nose off the lip (§5.1)
+  ['doorL', 0.45, 0.81, 1],      // one door -> roll (§5.1)
+  ['doorR', 1.23, 1.59, 1],      // the other -> roll back
+  ['spoiler', 1.59, 4.20, 1],    // wing out to steady the descent
 ];
 
 /** One-shot presses after launch: [action, at]. */
 const AIR_EDGES = [
-  ['thrust', 2.50],              // stick neutral at the press -> CORRECT (§5)
+  ['thrust', 2.20],              // stick neutral at the press -> CORRECT (§5)
 ];
 
 export function demoActions(t, neutral, launchT = null) {
@@ -65,4 +65,4 @@ export function demoEdges(t, dt, launchT = null) {
 }
 
 /** Capture window for a 10-second clip: approach, launch, flight, landing. */
-export const DEMO_CLIP = { start: 1.20, seconds: 10 };
+export const DEMO_CLIP = { start: 1.60, seconds: 10 };

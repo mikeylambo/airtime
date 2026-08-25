@@ -12,7 +12,7 @@
 
 import TUNING from '../TUNING.js';
 import { initRapier, createWorld, RAPIER } from './physics.js';
-import { buildArena } from './arena-body.js';
+import { buildArena, targetAt } from './arena-body.js';
 import { Player } from './player.js';
 import { SLOTS } from './panels.js';
 import { resolveTrick } from './tricks.js';
@@ -158,15 +158,21 @@ export class Sim {
 
     this.movers.update(dt);
     const signal = this.traffic.update(dt, this.players);
+    this.trafficSignal = signal;
     for (const p of this.players) p.oncoming = signal.oncoming[p.index];
     if (signal.nearMiss.some(Boolean)) {
+      this.players.forEach((p, i) => { if (signal.nearMiss[i]) p.tricks.creditNearMiss(signal.nearMiss[i]); });
       this.events.push({ type: 'nearMiss', per: signal.nearMiss });
     }
     if (signal.honk) this.events.push({ type: 'honk' });
 
     for (const p of this.players) {
       const finished = p.preStep(dt, A(p.index), E(p.index), this.world);
-      if (finished) this.telemetry.recordThrust(finished);
+      if (finished) {
+        this.telemetry.recordThrust(finished);
+        // Purity counts the stabilising verbs, and a burst is the loudest one.
+        p.tricks.creditThrust();
+      }
     }
 
     this.world.step();
@@ -226,6 +232,8 @@ export class Sim {
     if (p.airtimeTracker.airborne) {
       p.tricks.update(dt, p.car, p.panels);
       this._collectCoins(p);
+    } else {
+      p.tricks.updateGround(dt, p.car);
     }
 
     for (const s of SLOTS) {
@@ -239,6 +247,8 @@ export class Sim {
 
     if (ev.launch) {
       p.lastLaunch = ev.launch;
+      // Anything above the deck counts as launching high, for GAP.
+      p.launchedHigh = ev.launch.position.y > TUNING.SCORE.FACET.GAP_LAUNCH_Y;
       p.thrust.onLaunch();
       p.tricks.onLaunch(p.car);
       if (this.mode.onLaunch) this.mode.onLaunch(p, ev.launch, this);
@@ -247,7 +257,15 @@ export class Sim {
     if (ev.touchdown) {
       // Freeze the flight on the first touch only: a bounce fires another
       // touchdown inside the same settle window.
-      if (!p.pendingTrick) p.pendingTrick = p.tricks.snapshot();
+      if (!p.pendingTrick) {
+        // GAP: left raised ground and arrived on raised ground. TRANSFER:
+        // arrived somewhere authored that is not the deck.
+        const t = this.movers.targetAt(p.car.position) || targetAt(this.park, p.car.position);
+        p.pendingTrick = p.tricks.snapshot({
+          gap: p.launchedHigh && !!t,
+          transfer: !!t && t.tier !== 'road',
+        });
+      }
       const torn = p.panels.checkTearOff();
       if (torn.length) {
         if (p.index === 0) this.telemetry.recordTearOff(torn.length);

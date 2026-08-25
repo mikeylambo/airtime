@@ -123,7 +123,8 @@ export function resolveSetup(profile) {
     thrustAccel: TH.EXTEND_ACCEL * car.thrust * s(t.thrust, 0.28),
     thrustDive: TH.DIVE_ACCEL * car.thrust * s(t.thrust, 0.28),
     thrustCost: TUNING.BOOST.THRUST_COST * lerp(0.78, 1.28, t.thrust),
-    chassisAngDrag: A.CHASSIS_ANG_DRAG * s(1 - t.aero, 0.35),
+    // The aero slider scales all three axes together (§7 stability vs rotation).
+    angDragScale: s(1 - t.aero, 0.35),
     panels: {},
   };
 

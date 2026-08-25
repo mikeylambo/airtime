@@ -3,7 +3,7 @@ import { Sim } from '../src/sim/sim.js';
 import TUNING from '../src/TUNING.js';
 import { NEUTRAL_ACTIONS } from '../src/input/input.js';
 const DT = 1 / TUNING.SIM.HZ;
-const L = 4.80;
+const L = 4.29;   // measured launch time on the current park
 
 function mk(rollDur, gap, thrustAt, trunkDab) {
   const S = [['throttle', 0, 20, 1], ['boost', 0, 4.6, true]];

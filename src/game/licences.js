@@ -13,6 +13,9 @@
 import TUNING from '../TUNING.js';
 
 /** A test evaluates the landings of one short run. */
+/** Did this landing carry a given facet? */
+const has = (l, id) => (l.facets || l.tricks || []).some((f) => f.id === id);
+
 export const LICENCES = [
   {
     id: 'first_air', name: 'FIRST AIR', arena: 'park', seconds: 45,
@@ -27,9 +30,8 @@ export const LICENCES = [
     brief: 'Land a barrel roll using a single door.',
     teaches: 'One door is a roll input. Both are an air brake.',
     score: (r) => r.landings.filter((l) => l.landed
-      && l.tricks.some((t) => t.kind === 'roll')
-      && l.tricks.some((t) => t.slot === 'DOOR_L' || t.slot === 'DOOR_R')
-      && !(l.tricks.some((t) => t.slot === 'DOOR_L') && l.tricks.some((t) => t.slot === 'DOOR_R'))).length,
+      && has(l, 'roll')
+      && (has(l, 'pose_DOOR_L') !== has(l, 'pose_DOOR_R'))).length,
     tiers: { bronze: 1, silver: 2, gold: 4 },
     unit: 'rolls landed',
   },
@@ -46,7 +48,7 @@ export const LICENCES = [
     id: 'tail_down', name: 'NOSE DOWN', arena: 'park', seconds: 45,
     brief: 'Use the tail flap to drop the nose, then land it.',
     teaches: 'Only a surface below the centre of mass can pitch the nose down.',
-    score: (r) => r.landings.filter((l) => l.landed && l.tricks.some((t) => t.slot === 'TRUNK')).length,
+    score: (r) => r.landings.filter((l) => l.landed && has(l, 'pose_TRUNK')).length,
     tiers: { bronze: 1, silver: 3, gold: 5 },
     unit: 'landings',
   },
@@ -85,6 +87,23 @@ export const LICENCES = [
     score: (r) => r.coins,
     tiers: { bronze: 12, silver: 26, gold: 40 },
     unit: 'coins',
+  },
+  {
+    id: 'raw', name: 'RAW', arena: 'park', seconds: 60,
+    brief: 'Land a jump worth six facets without touching a stabiliser.',
+    teaches: 'The assist is a resource. Restraint is worth more than any trick.',
+    score: (r) => r.landings.filter((l) => l.landed
+      && l.facetCount >= 6 && l.purity && l.purity.id === 'raw').length,
+    tiers: { bronze: 1, silver: 2, gold: 4 },
+    unit: 'raw sticks',
+  },
+  {
+    id: 'stack', name: 'THE STACK', arena: 'park', seconds: 75,
+    brief: 'Land a jump that is doing eight different things at once.',
+    teaches: 'Variety multiplies. Repetition does not.',
+    score: (r) => Math.max(0, ...r.landings.filter((l) => l.landed).map((l) => l.facetCount || 0)),
+    tiers: { bronze: 6, silver: 8, gold: 10 },
+    unit: 'facets',
   },
   {
     id: 'secret', name: 'THE MAST', arena: 'city', seconds: 90,

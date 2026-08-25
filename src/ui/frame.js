@@ -254,13 +254,16 @@ export function buildFrame(mgr, game) {
       { key: 'artStyle', label: 'ART STYLE', values: STYLES },
       { key: 'cameraStyle', label: 'CAMERA', values: ['cinematic', 'classic'] },
       { key: 'traffic', label: 'TRAFFIC', values: ['reactive', 'ambient'] },
+      { key: 'mute', label: 'AUDIO', values: [false, true], names: ['ON', 'MUTED'] },
+      { key: 'manualAir', label: 'AIR CONTROL', values: [false, true], names: ['STICK', 'PER-PANEL'] },
+      { key: 'invertPitch', label: 'INVERT PITCH', values: [false, true] },
       { key: 'showTelemetry', label: 'DEV TELEMETRY', values: [false, true] },
       { key: 'colorblindTrails', label: 'COLOURBLIND TRAILS', values: [false, true] },
       { key: 'haptics', label: 'HAPTICS', values: [true, false] },
     ].map((r) => ({
       ...r,
       label: r.label,
-      note: String(o[r.key]).toUpperCase(),
+      note: r.names ? r.names[r.values.indexOf(o[r.key])] || String(o[r.key]).toUpperCase() : String(o[r.key]).toUpperCase(),
     }));
   };
   S('options', {

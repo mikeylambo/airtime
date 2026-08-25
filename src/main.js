@@ -31,6 +31,7 @@ import { buildFrame, MODES, ARENAS } from './ui/frame.js';
 import { demoActions, demoEdges, DEMO_CLIP } from './demo-jump.js';
 import { loopActions, loopEdges, LOOP_CLIP } from './loop-demo.js';
 import { loadOptions, saveOptions } from './storage/storage.js';
+import { Audio } from './audio/audio.js';
 import { loadAll, saveAll, activeSlot, setActiveSlot, recordRun } from './storage/profiles.js';
 import { resolveSetup } from './sim/cars.js';
 import { Recorder, Player } from './sim/replay.js';
@@ -97,6 +98,12 @@ class Game {
     this.playerCount = 1;
 
     this.input = new Input(window);
+    this.input.options = this.options;
+    this.audio = new Audio();
+    // Browsers will not start audio without a gesture.
+    const wake = () => { this.audio.start(); this.audio.setVolume(this.options.sfxVolume ?? 0.9); };
+    window.addEventListener('keydown', wake, { once: true });
+    window.addEventListener('pointerdown', wake, { once: true });
     this.hud = new Hud(this.hudRoot);
 
     // ── Frame ─────────────────────────────────────────────────────────────
@@ -117,7 +124,23 @@ class Game {
 
   get profile() { return this.profiles[this.profileIndex]; }
 
-  saveProfiles() { saveAll(this.profiles); }
+  saveProfiles() { saveAll(this.profiles); this.setupDirty = true; }
+
+  /**
+   * One input, from anywhere, straight back into the air (R4).
+   *
+   * The reel, the result screen and the menus are all things standing between
+   * "that run ended" and "I am driving again". Start collapses all of them.
+   */
+  restartNow() {
+    this.reel = null;
+    this._reelDone = false;
+    this.stopPlayback();
+    return this.startRun(this.lastMode, this.lastArena, {
+      players: this.playerCount,
+      duration: this.party ? TUNING.MODES.PARTY.TURN_SECONDS : undefined,
+    });
+  }
 
   /**
    * Swap arenas. Physics and render both rebuild from the same record, so
@@ -198,22 +221,36 @@ class Game {
   onResize() { this.resize(window.innerWidth, window.innerHeight); }
 
   // ── Run lifecycle ────────────────────────────────────────────────────────
+  /**
+   * Start a run (R4).
+   *
+   * Rebuilding the world costs 11-70 ms and a frame hitch; restarting one that
+   * is already standing costs 0.1 ms. Since the overwhelmingly common case is
+   * "same arena, same car, go again", that path reuses the world entirely.
+   */
   async startRun(mode, arena, opts = {}) {
+    const t0 = performance.now();
     this.lastMode = mode;
     this.lastArena = arena;
     if (!opts.licence) this.licence = null;
     this.mode = 'play';
     this.endPreview();
     this.reel = null;
+    this._reelDone = false;
     const players = Math.max(1, Math.min(opts.players || 1, TUNING.MODES.PARTY.MAX_PLAYERS));
-    // Rebuild the world with the garage setup so the run uses the car the
-    // player actually built (§7).
-    await this.useArena(arena.id, { players, mode: mode.id, duration: opts.duration });
-    this.setPlayerCount(players);
+
+    const reusable = this.sim && !this.setupDirty && !this.playback
+      && this.arenaId === arena.id && this.sim.players.length === players;
+    if (!reusable) {
+      await this.useArena(arena.id, { players, mode: mode.id, duration: opts.duration });
+      this.setPlayerCount(players);
+      this.setupDirty = false;
+    }
     this.applyLivery();
     this.inRun = true;
     this.playback = null;
     this.sim.restartRun(mode.id, opts.duration);
+    this.lastStartMs = performance.now() - t0;
     // §6.1: record every run. A clip costs a few KB, so there is no reason to
     // decide in advance which runs are worth keeping.
     this.recorder = new Recorder({
@@ -228,6 +265,22 @@ class Game {
     this.hud.shownScore = 0;
     this.hud.ticker = [];
     this.screens.go('run');
+  }
+
+  /** Every event that should make a noise (§10). */
+  _sound(e) {
+    const A = this.audio;
+    if (!A || !A.ready) return;
+    switch (e.type) {
+      case 'launch': if (e.launch.armed) A.launch(e.launch.speed); break;
+      case 'landed': A.landing(e.result, e.landing ? e.landing.impactVel : 10); break;
+      case 'deploy': A.deploy(e.slot); break;
+      case 'coin': A.coin(); break;
+      case 'nearMiss': A.nearMiss(); break;
+      case 'honk': A.honk(); break;
+      case 'tearoff': A.crash(); break;
+      default: break;
+    }
   }
 
   /** §6.1 auto-save, and §4's crash cam. */
@@ -502,10 +555,14 @@ class Game {
    */
   async startReel(after) {
     const clips = (this.roundClips || [])
-      .filter((c) => c.info.total > 0)
+      .filter((c) => c.info.total >= TUNING.UI.REEL_MIN_SCORE)
       .sort((a, b) => b.info.total - a.info.total)
       .slice(0, TUNING.UI.REEL_CLIPS);
-    if (!clips.length) return after();
+    // Solo, a reel of mediocre jumps is just downtime between attempts (R4).
+    // In party it is the point, so it always plays.
+    if (!clips.length || (this.playerCount === 1 && !this.party && !clips.some((c) => c.info.total >= TUNING.UI.REEL_SOLO_SCORE))) {
+      return after();
+    }
 
     this.reel = { clips, i: 0, after };
     this.splitRoot.classList.add('hidden');
@@ -612,6 +669,7 @@ class Game {
     if (this.mode === 'demo' || this.mode === 'loop' || this.mode === 'split') this.demoT += dt;
 
     for (const e of this.sim.drainEvents()) {
+      this._sound(e);
       if (e.type === 'launch') {
         this.director.onLaunch(e.launch, this.sim.snapshot());
         if (e.launch.armed && this.recorder) {
@@ -678,6 +736,7 @@ class Game {
     this.splitRoot.classList.add('hidden');
 
     if (this._nearMissFlash > 0) this._nearMissFlash -= dt;
+    this.audio.update(dt, state);
     this.hud.update(dt, state, {
       camera: this.director.activeBehavior,
       style: this.art.style,
@@ -685,8 +744,11 @@ class Game {
       nearMiss: this._nearMissFlash > 0,
     });
 
-    if (this.inRun && this.sim.run.state === RUN_STATE.COUNTDOWN) this.hud.countdown(this.sim.run.countdown);
-    else this.hud.hideCountdown();
+    if (this.inRun && this.sim.run.state === RUN_STATE.COUNTDOWN) {
+      this.hud.countdown(this.sim.run.countdown);
+      const beat = Math.ceil(this.sim.run.countdown);
+      if (beat !== this._lastBeat) { this._lastBeat = beat; this.audio.countdown(beat <= 0); }
+    } else { this.hud.hideCountdown(); this._lastBeat = null; }
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -719,7 +781,13 @@ class Game {
         }
         const menu = this.input.sampleMenu(dt);
         this.idle = menu.any ? 0 : this.idle + dt;
-        this.screens.tick(dt, driving ? { any: menu.back, back: menu.back } : menu);
+        // R4: Start always means "again", wherever you are.
+        const where = this.screens.current && this.screens.current.name;
+        if (menu.start && (driving || this.reel || where === 'result' || where === 'run')) {
+          this.restartNow();
+        } else {
+          this.screens.tick(dt, driving ? { any: menu.back, back: menu.back } : menu);
+        }
       }
 
       this.accum += dt;
@@ -755,8 +823,11 @@ class Game {
     saveOptions(this.options);
     if (k === 'cameraStyle') TUNING.CAMERA.STYLE = v;
     if (k === 'showTelemetry') TUNING.HUD.SHOW_TELEMETRY = v;
+    if (k === 'sfxVolume' && this.audio) this.audio.setVolume(v);
+    if (k === 'mute' && this.audio) this.audio.setMuted(v);
     if (k === 'traffic') TUNING.TRAFFIC.MODE = v;
     if (k === 'artStyle') this.art.setStyle(v);
+    if (this.input) this.input.options = this.options;
     return v;
   }
 
@@ -823,6 +894,7 @@ class Game {
       setup: () => this.setup(),
       profile: () => this.profile,
       preview: () => this.previewJump(),
+      audio: () => this.audio,
       clips: () => this.replays,
       playClip: (c, o) => this.playClip(c, o),
       wall: () => wallClips(this.profileIndex),

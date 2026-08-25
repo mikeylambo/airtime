@@ -1,22 +1,31 @@
 /**
- * Arena 1 — the stunt park, gray box (§10a).
+ * Arena 1 — THE YARD (R3).
  *
- * "Abstract Rush-style ramps/gaps/pipes, built first as a lit gray box so the
- * camera gates in week one." Authored as plain data: src/sim builds Rapier
- * colliders from it, src/render builds meshes from the same records, and the
- * camera director reads the target list. Nothing is described twice.
+ * Build 1's park was a scatter: twenty ramps, one hero line, and fourteen of
+ * them that could only ever put you back on the deck. tools/lines.mjs measured
+ * it at 1/15. A stunt park has to be a *network* — an instrument you learn to
+ * play, where a jump off any object lands you on or beside another one.
  *
- * Content slots (§10): 15–25 ramps, 8–12 tagged landing targets.
+ * So this is laid out by range rather than by eye. A car leaves a 28-degree
+ * kicker at 40-50 m/s and travels 60-90 m, so everything sits on rings spaced
+ * inside that envelope:
+ *
+ *   centre        a stepped tower — land on it from anywhere, leave in any direction
+ *   r=52          mid decks, for short hops
+ *   r=92          the inner kickers, all facing in
+ *   r=138         quarter pipes on the diagonals, facing in
+ *   r=168         the perimeter bank, which always returns you to the middle
+ *
+ * Everything points inward, so the park's default gravity is *toward the
+ * middle*, and the player's job is to keep finding ways back out.
+ *
+ * Content slots (§10): 15-25 ramps, 8-12 tagged landing targets.
  */
 
 import { rampMesh, rampSlabs, rampSurface, rampLipHeight, rampExitAngle } from './ramp-geometry.js';
 import TUNING from '../TUNING.js';
 
-const TUNING_GROUND = TUNING.ARENA.GROUND_SIZE;
-const SPAWN = TUNING.ARENA.SPAWN;
-
-// §3.1 target tier multipliers. Carried on the target records now so the
-// scoring pass (item 5) has nothing left to author.
+// §3.1 target tier multipliers, carried on the target records.
 export const TIER = {
   road:      { mult: 1.0, label: 'ROAD' },
   rooftop:   { mult: 1.5, label: 'ROOFTOP' },
@@ -26,48 +35,37 @@ export const TIER = {
   secret:    { mult: 5.0, label: 'SECRET' },
 };
 
-// The hero line runs down −Z from the spawn. These three numbers set the whole
-// Gate A jump; everything downrange is placed relative to them.
-export const HERO = {
-  RAMP_Z: 22,            // centre of the hero kicker
-  RAMP_LENGTH: 26,
-  RAMP_EXIT: 0.5236,     // 30 degrees at the lip
-  RAMP_LIP_FRAC: 0.42,   // the last 42% is straight, so the car leaves flat
-  RAMP_HALF_WIDTH: 7,
-  get LIP_Z() { return this.RAMP_Z - this.RAMP_LENGTH / 2; },
+/** The rings the whole park is built on. */
+export const YARD = {
+  MID: 52,
+  INNER: 92,
+  PIPES: 138,
+  BANK: 168,
+  TOWER: [
+    { half: 26, y: 6 },
+    { half: 18, y: 12 },
+    { half: 11, y: 18 },
+  ],
+  SPAWN_Z: 214,          // a long run-up into the south kicker
 };
 
-// Measured from the headless sim (tools/measure-jump.mjs): a full-boost run-up
-// off the hero kicker puts the car down around here.
-// Measured with tools/arc.mjs. The hero arc crosses y=9 m at z=-135 after
-// 2.8 s, so the landing hill's crest sits at z=-130 and it falls away at 27deg
-// — close enough to the arc's own 33deg descent that the car meets it almost
-// tangentially. Landing flat-out onto level deck at 22 m/s vertical bottoms
-// the suspension and always reads as a crash; a downslope is how ski jumps,
-// MX tracks and Rush itself make a big landing survivable.
-// Mutable so tools/hill-sweep.mjs can search it; the committed values are
-// what that sweep chose.
-export const HILL = {
-  crestZ: -128,      // where the top of the hill sits
-  height: 8,         // crest height above the deck
-  length: 27.9,      // horizontal run from crest to toe => 16 degrees
-  halfWidth: 26,
+/** A ramp at `p` that launches toward the origin. */
+const inward = (x, z) => Math.atan2(x, z);
+const ring = (r, i, n, phase = 0) => {
+  const a = phase + (i / n) * Math.PI * 2;
+  return { x: Math.sin(a) * r, z: Math.cos(a) * r };
 };
-/** Wedge centre for a hill whose crest is at HILL.crestZ (yaw PI flips it). */
-export const hillPos = () => HILL.crestZ - HILL.length / 2;
-export const HERO_ROOF_X = -52;          // the absurd alternative, off the hero line
-export const HERO_ROOF_Z = -112;
 
 const ramp = (kind, x, z, opts = {}) => ({
-  kind, id: opts.id || `${kind}_${x}_${z}`,
+  kind, id: opts.id || `${kind}_${Math.round(x)}_${Math.round(z)}`,
   pos: { x, y: opts.y || 0, z },
-  yaw: opts.yaw || 0,
+  yaw: opts.yaw ?? inward(x, z),
   height: opts.height ?? 4,
   length: opts.length ?? 12,
   halfWidth: opts.halfWidth ?? 5,
   radius: opts.radius ?? 8,
-  exitAngle: opts.exitAngle,     // kickers only: launch angle at the lip
-  lipFrac: opts.lipFrac,         // kickers only: how much of it is straight
+  exitAngle: opts.exitAngle,
+  lipFrac: opts.lipFrac,
 });
 
 const slab = (id, x, y, z, hx, hy, hz, opts = {}) => ({
@@ -76,114 +74,169 @@ const slab = (id, x, y, z, hx, hy, hz, opts = {}) => ({
 });
 
 export function describePark() {
-  const ramps = [
-    // ── The hero line ──────────────────────────────────────────────────────
-    ramp('kicker', 0, HERO.RAMP_Z, {
-      id: 'hero', length: HERO.RAMP_LENGTH, halfWidth: HERO.RAMP_HALF_WIDTH,
-      exitAngle: HERO.RAMP_EXIT, lipFrac: HERO.RAMP_LIP_FRAC,
-    }),
-    // Flankers, so the hero ramp is a choice and not a corridor
-    ramp('wedge', -30, 34, { id: 'flank_l', height: 4.6, length: 16, halfWidth: 5 }),
-    ramp('wedge', 30, 34, { id: 'flank_r', height: 4.6, length: 16, halfWidth: 5 }),
+  const ramps = [];
+  const structures = [];
+  const targets = [];
 
-    // ── Quarter pipes: the big-airtime launchers that arm the orbit cam ─────
-    ramp('quarterpipe', -76, -10, { id: 'qp_w', radius: 11, halfWidth: 13, yaw: -Math.PI / 2 }),
-    ramp('quarterpipe', 76, -10, { id: 'qp_e', radius: 11, halfWidth: 13, yaw: Math.PI / 2 }),
-    ramp('quarterpipe', 0, -196, { id: 'qp_catch', radius: 13, halfWidth: 22, yaw: Math.PI }),
-    ramp('quarterpipe', -118, 120, { id: 'qp_start', radius: 9, halfWidth: 16, yaw: -Math.PI / 2 }),
+  // ── The tower: the thing everything points at ───────────────────────────
+  YARD.TOWER.forEach((t, i) => {
+    structures.push(slab(`tower_${i}`, 0, t.y / 2, 0, t.half, t.y / 2, t.half, { kind: 'roof' }));
+  });
+  const top = YARD.TOWER[YARD.TOWER.length - 1];
+  targets.push({
+    id: 'tower', tier: 'rooftop', tagged: true,
+    aim: { x: 0, y: top.y, z: 0 }, half: { x: top.half, y: 4, z: top.half },
+  });
+  // Roll-offs on all four faces, so the tower is a launch point too.
+  for (let i = 0; i < 4; i++) {
+    const p = ring(YARD.TOWER[0].half + 13, i, 4);
+    ramps.push(ramp('wedge', p.x, p.z, {
+      id: `tower_off_${i}`, height: 6.6, length: 26, halfWidth: 9,
+      yaw: inward(p.x, p.z) + Math.PI,     // faces *out*: leave the tower
+    }));
+  }
 
-    // ── Spine: two wedges back to back ─────────────────────────────────────
-    ramp('wedge', -52, 78, { id: 'spine_a', height: 5.2, length: 14, halfWidth: 6 }),
-    ramp('wedge', -52, 64, { id: 'spine_b', height: 5.2, length: 14, halfWidth: 6, yaw: Math.PI }),
+  // ── Mid decks: catchers for the short hops ──────────────────────────────
+  for (let i = 0; i < 4; i++) {
+    const p = ring(YARD.MID, i, 4, Math.PI / 4);
+    structures.push(slab(`mid_${i}`, p.x, 5, p.z, 15, 5, 15, { kind: 'roof' }));
+    targets.push({
+      id: `mid_${i}`, tier: 'rooftop', tagged: i < 2,
+      aim: { x: p.x, y: 10, z: p.z }, half: { x: 15, y: 3.5, z: 15 },
+    });
+    // A kicker off the outer edge of each, aimed back at the tower.
+    const q = ring(YARD.MID + 21, i, 4, Math.PI / 4);
+    ramps.push(ramp('kicker', q.x, q.z, {
+      id: `mid_up_${i}`, length: 15, halfWidth: 6, exitAngle: 0.50, lipFrac: 0.38,
+    }));
+  }
 
-    // ── Table top: up, across, down ────────────────────────────────────────
-    ramp('wedge', 56, 82, { id: 'table_up', height: 3.4, length: 12, halfWidth: 7 }),
-    ramp('wedge', 56, 58, { id: 'table_down', height: 3.4, length: 12, halfWidth: 7, yaw: Math.PI }),
+  // ── Inner ring: eight kickers, all facing the tower ─────────────────────
+  for (let i = 0; i < 8; i++) {
+    const p = ring(YARD.INNER, i, 8);
+    const hero = i === 0;                  // the ramp the spawn straight feeds
+    ramps.push(ramp('kicker', p.x, p.z, {
+      id: hero ? 'hero' : `in_${i}`,
+      length: hero ? 24 : 19,
+      halfWidth: hero ? 8 : 6.5,
+      exitAngle: hero ? 0.50 : 0.47,
+      lipFrac: 0.40,
+    }));
+  }
 
-    // ── Hips: angled kickers that throw you sideways ───────────────────────
-    ramp('kicker', -34, -58, { id: 'hip_l', length: 16, halfWidth: 6, yaw: 0.62, exitAngle: 0.56, lipFrac: 0.35 }),
-    ramp('kicker', 34, -58, { id: 'hip_r', length: 16, halfWidth: 6, yaw: -0.62, exitAngle: 0.56, lipFrac: 0.35 }),
+  // ── Quarter pipes on the diagonals: ride up, come back ──────────────────
+  for (let i = 0; i < 4; i++) {
+    const p = ring(YARD.PIPES, i, 4, Math.PI / 4);
+    ramps.push(ramp('quarterpipe', p.x, p.z, {
+      id: `pipe_${i}`, radius: 11, halfWidth: 16,
+      // A quarter pipe is ridden, not launched off: it rises outward so you
+      // approach from inside, run up the wall and drop back in.
+      yaw: inward(p.x, p.z) + Math.PI,
+    }));
+  }
 
-    // ── Downrange kickers, for a second hop off the landing ────────────────
-    ramp('kicker', -14, -142, { id: 'k_far_l', length: 14, halfWidth: 5, exitAngle: 0.49, lipFrac: 0.35 }),
-    ramp('kicker', 14, -142, { id: 'k_far_r', length: 14, halfWidth: 5, exitAngle: 0.49, lipFrac: 0.35 }),
+  // ── The perimeter bank: wide, and steep enough to *throw* you back in ────
+  // Pitched at 25 degrees rather than 9, because the shallow version landed
+  // you on bare deck 30 m short of the quarter pipes — a feature whose whole
+  // job is returning you to the middle has to actually reach it (r=168 -> ~97,
+  // which is the inner ring).
+  for (let i = 0; i < 4; i++) {
+    const p = ring(YARD.BANK, i, 4);
+    // The south face is split, leaving a corridor on the axis: the spawn
+    // straight has to reach the yard, and a solid ring means the very first
+    // thing every run does is ride the perimeter instead of driving.
+    const split = i === 0;
+    const halves = split ? [-38, 38] : [0];
+    halves.forEach((off, k) => {
+      const c = Math.cos(inward(p.x, p.z)), sn = Math.sin(inward(p.x, p.z));
+      ramps.push(ramp('wedge', p.x + c * off, p.z - sn * off, {
+        id: split ? `bank_0${k ? 'b' : 'a'}` : `bank_${i}`,
+        height: 16, length: 34, halfWidth: split ? 16 : 30,
+        // Inward, not outward. With the extra PI these fired *away* from the
+        // park and every one of them was a deck-only ramp.
+        yaw: inward(p.x, p.z),
+      }));
+    });
+  }
 
-    // ── Return line: get back to the start without a reset ─────────────────
-    ramp('wedge', -100, 60, { id: 'ret_l', height: 3.0, length: 12, halfWidth: 6, yaw: Math.PI / 2 }),
-    ramp('wedge', 100, 60, { id: 'ret_r', height: 3.0, length: 12, halfWidth: 6, yaw: -Math.PI / 2 }),
-    ramp('kicker', 0, -84, { id: 'k_mid', length: 18, halfWidth: 8, exitAngle: 0.59, lipFrac: 0.32 }),
+  // ── Shelves at r=64: where the tower roll-offs land, so leaving the tower
+  //    puts you somewhere rather than nowhere.
+  //
+  // Catchers only. They started with kickers of their own at r=92, which is
+  // exactly the inner ring — two ramps in the same square metre, and the car
+  // simply climbed the pile and rolled back down.
+  for (let i = 0; i < 4; i++) {
+    const p = ring(64, i, 4);
+    structures.push(slab(`shelf_${i}`, p.x, 4, p.z, 11, 4, 11, { kind: 'roof' }));
+    targets.push({
+      id: `shelf_${i}`, tier: 'rooftop', tagged: i < 2,
+      aim: { x: p.x, y: 8, z: p.z }, half: { x: 11, y: 3, z: 11 },
+    });
+  }
 
-    // The garage ramp (§2.1 live preview). Parked well clear of the park so
-    // the fixed preview angle never has another structure in front of it.
-    ramp('kicker', -235, 0, { id: 'garage', length: 16, halfWidth: 6, exitAngle: 0.52, lipFrac: 0.40 }),
+  // ── Billboards: narrow, high, between tower and inner ring ──────────────
+  for (let i = 0; i < 2; i++) {
+    const p = ring(70, i, 2, Math.PI / 4);
+    structures.push(slab(`bb_leg_${i}`, p.x, 8, p.z, 1.2, 8, 1.2, { kind: 'leg' }));
+    structures.push(slab(`bb_${i}`, p.x, 16.4, p.z, 9, 0.4, 3.4, { kind: 'billboard' }));
+    targets.push({
+      id: `bb_${i}`, tier: 'billboard', tagged: true,
+      aim: { x: p.x, y: 16.8, z: p.z }, half: { x: 9, y: 2.5, z: 3.4 },
+    });
+  }
 
-    // ── The landing hill: yaw PI so it falls away from the jump ────────────
-    ramp('wedge', 0, hillPos(), {
-      id: 'landing_hero', height: HILL.height, length: HILL.length,
-      halfWidth: HILL.halfWidth, yaw: Math.PI,
-    }),
-  ];
+  // ── The pool, on the far mid deck ───────────────────────────────────────
+  const pool = ring(YARD.MID, 2, 4, Math.PI / 4);
+  structures.push(slab('pool_floor', pool.x, 10.3, pool.z, 10, 0.4, 10, { kind: 'pool' }));
+  for (const [dx, dz, hx, hz] of [[0, -10.6, 10, 0.6], [0, 10.6, 10, 0.6], [-10.6, 0, 0.6, 10], [10.6, 0, 0.6, 10]]) {
+    structures.push(slab(`pool_w_${dx}_${dz}`, pool.x + dx, 12, pool.z + dz, hx, 2, hz, { kind: 'poolwall' }));
+  }
+  targets.push({
+    id: 'pool', tier: 'pool', tagged: true,
+    aim: { x: pool.x, y: 11, z: pool.z }, half: { x: 10, y: 3.5, z: 10 },
+  });
 
-  // ── Structures. `target` marks a landing surface the camera can lock to ───
-  const structures = [
-    // The high roof the hero arc flies straight over — reachable only by
-    // spending a DIVE burst on the way down (§5).
-    slab('roof_hero', HERO_ROOF_X, 7.5, HERO_ROOF_Z, 18, 7.5, 15, { kind: 'roof' }),
-    slab('roof_hero_lo', 0, 2.2, -60, 15, 2.2, 14, { kind: 'roof' }),
+  // ── The mast: high, small, worth five times anything else ───────────────
+  const mast = ring(34, 1, 4, Math.PI / 4);
+  structures.push(slab('mast_leg', mast.x, 15, mast.z, 1.3, 15, 1.3, { kind: 'leg' }));
+  structures.push(slab('mast', mast.x, 30.3, mast.z, 4, 0.35, 4, { kind: 'secret' }));
+  targets.push({
+    id: 'mast', tier: 'secret', tagged: true,
+    aim: { x: mast.x, y: 30.7, z: mast.z }, half: { x: 4, y: 2.5, z: 4 },
+  });
 
-    // Billboard decks — narrow, high, terrifying
-    slab('bb_w_leg', -58, 7.5, -96, 1.1, 7.5, 1.1, { kind: 'leg' }),
-    slab('bb_w', -58, 15.4, -96, 9, 0.4, 3.4, { kind: 'billboard' }),
-    slab('bb_e_leg', 58, 7.5, -96, 1.1, 7.5, 1.1, { kind: 'leg' }),
-    slab('bb_e', 58, 15.4, -96, 9, 0.4, 3.4, { kind: 'billboard' }),
+  // ── The garage ramp, parked well clear (§2.1 live preview) ──────────────
+  ramps.push(ramp('kicker', -270, 0, {
+    id: 'garage', length: 16, halfWidth: 6, exitAngle: 0.52, lipFrac: 0.40, yaw: 0,
+  }));
 
-    // Rooftops flanking the run
-    slab('roof_w', -92, 6.0, -46, 16, 6.0, 16, { kind: 'roof' }),
-    slab('roof_e', 92, 6.0, -46, 16, 6.0, 16, { kind: 'roof' }),
-
-    // The pool — a drained basin sitting on the deck (§3.1 pool tier)
-    slab('pool_floor', -40, 0.5, -168, 13, 0.5, 13, { kind: 'pool' }),
-    slab('pool_w_n', -40, 2.6, -181.5, 13, 2.1, 0.6, { kind: 'poolwall' }),
-    slab('pool_w_s', -40, 2.6, -154.5, 13, 2.1, 0.6, { kind: 'poolwall' }),
-    slab('pool_w_w', -53.6, 2.6, -168, 0.6, 2.1, 13, { kind: 'poolwall' }),
-    slab('pool_w_e', -26.4, 2.6, -168, 0.6, 2.1, 13, { kind: 'poolwall' }),
-
-    // Secret pad — small, high, absurd (§3.1 secret tier ×5)
-    slab('secret_leg', 46, 11, -170, 1.4, 11, 1.4, { kind: 'leg' }),
-    slab('secret', 46, 22.3, -170, 4.2, 0.35, 4.2, { kind: 'secret' }),
-  ];
-
-  // ── Tagged landing targets (§3 absurdity tiers, §6 camera target-lock) ────
-  const targets = [
-    // The hill is the intended landing, so it pays road tier — §3.1's whole
-    // point is that the safe landing is cheap and the absurd one is not.
-    { id: 'landing_hero', tier: 'road', aim: { x: 0, y: HILL.height / 2, z: hillPos() }, half: { x: HILL.halfWidth, y: HILL.height, z: HILL.length / 2 }, primary: true },
-    { id: 'roof_hero', tier: 'rooftop', aim: { x: HERO_ROOF_X, y: 15.4, z: HERO_ROOF_Z }, half: { x: 18, y: 3, z: 15 } },
-    { id: 'roof_hero_lo', tier: 'rooftop', aim: { x: 0, y: 4.4, z: -60 }, half: { x: 15, y: 3, z: 14 } },
-    { id: 'bb_w', tier: 'billboard', aim: { x: -58, y: 15.8, z: -96 }, half: { x: 9, y: 2.5, z: 3.4 } },
-    { id: 'bb_e', tier: 'billboard', aim: { x: 58, y: 15.8, z: -96 }, half: { x: 9, y: 2.5, z: 3.4 } },
-    { id: 'roof_w', tier: 'rooftop', aim: { x: -92, y: 12.0, z: -46 }, half: { x: 16, y: 3, z: 16 } },
-    { id: 'roof_e', tier: 'rooftop', aim: { x: 92, y: 12.0, z: -46 }, half: { x: 16, y: 3, z: 16 } },
-    { id: 'pool', tier: 'pool', aim: { x: -40, y: 1.0, z: -168 }, half: { x: 13, y: 4, z: 13 } },
-    { id: 'secret', tier: 'secret', aim: { x: 46, y: 22.7, z: -170 }, half: { x: 4.2, y: 2.5, z: 4.2 } },
-    { id: 'table', tier: 'rooftop', aim: { x: 56, y: 3.4, z: 70 }, half: { x: 7, y: 2, z: 12 } },
-    { id: 'qp_catch_deck', tier: 'rooftop', aim: { x: 0, y: 13.2, z: -209 }, half: { x: 22, y: 3, z: 5 } },
-  ];
-
-  // Every target in the park is hand-placed, so every one is tagged (§10).
-  for (const t of targets) t.tagged = true;
   return {
-    id: 'park', ground: TUNING_GROUND, spawn: { ...SPAWN },
+    id: 'park',
+    ground: TUNING.ARENA.GROUND_SIZE,
+    spawn: { x: 0, y: 1.08, z: YARD.SPAWN_Z },
     ramps, structures, targets,
-    coins: describeCoins(), lanes: describeLanes(), movers: [],
+    coins: describeCoins(),
+    lanes: describeLanes(),
+    movers: [],
   };
 }
 
 /**
- * Coin lines (§3.1). Authored *along* the flight paths the ramps produce, so a
- * player who commits to the line gets paid for the line as well as the trick.
- * Flat score, outside the bank — a crash still loses the bank but keeps these.
+ * Traffic lanes (§4). A ring road outside the bank, plus the south straight,
+ * so near-miss boost is available on the way in without cluttering the yard.
  */
+export function describeLanes() {
+  const R = YARD.BANK + 46;
+  return [
+    { id: 'south_in', from: { x: -13, z: 260 }, to: { x: -13, z: -260 }, oncoming: false },
+    { id: 'south_out', from: { x: 13, z: -260 }, to: { x: 13, z: 260 }, oncoming: true },
+    { id: 'ring_n', from: { x: -R, z: -R }, to: { x: R, z: -R }, oncoming: false },
+    { id: 'ring_e', from: { x: R, z: -R }, to: { x: R, z: R }, oncoming: false },
+    { id: 'ring_s', from: { x: R, z: R }, to: { x: -R, z: R }, oncoming: true },
+    { id: 'ring_w', from: { x: -R, z: R }, to: { x: -R, z: -R }, oncoming: true },
+  ];
+}
+
 function arc(from, to, apexY, n) {
   const out = [];
   for (let i = 0; i <= n; i++) {
@@ -197,39 +250,14 @@ function arc(from, to, apexY, n) {
   return out;
 }
 
-/**
- * Traffic lanes (§4). Straight segments with a direction; the traffic system
- * walks vehicles along them and wraps.
- *
- * The hero straight is left clear at x=0 so the ramp approach is never a
- * lottery — the lanes flank it. That is the Burnout trade the mode wants:
- * weave out to the lanes for near-miss boost, then line back up for the lip.
- */
-export function describeLanes() {
-  return [
-    { id: 'run_w_out', from: { x: -20, z: 210 }, to: { x: -20, z: -210 }, oncoming: false },
-    { id: 'run_w_in',  from: { x: -13, z: -210 }, to: { x: -13, z: 210 }, oncoming: true },
-    { id: 'run_e_in',  from: { x: 13, z: 210 }, to: { x: 13, z: -210 }, oncoming: false },
-    { id: 'run_e_out', from: { x: 20, z: -210 }, to: { x: 20, z: 210 }, oncoming: true },
-    { id: 'cross_n',   from: { x: -230, z: -30 }, to: { x: 230, z: -30 }, oncoming: false },
-    { id: 'cross_s',   from: { x: 230, z: 112 }, to: { x: -230, z: 112 }, oncoming: false },
-  ];
-}
-
+/** Coin lines along the arcs the inner ring actually produces (§3.1). */
 export function describeCoins() {
-  const pts = [
-    // The hero arc: launch at the lip, apex ~31 m, down onto the hill.
-    ...arc({ x: 0, y: 12, z: 8 }, { x: 0, y: 6, z: -136 }, 19, 26),
-    // Off the west quarter pipe, over the west rooftop.
-    ...arc({ x: -70, y: 12, z: -10 }, { x: -92, y: 13, z: -46 }, 6, 8),
-    // Off the east quarter pipe.
-    ...arc({ x: 70, y: 12, z: -10 }, { x: 92, y: 13, z: -46 }, 6, 8),
-    // The hips, out toward the billboards.
-    ...arc({ x: -34, y: 7, z: -66 }, { x: -58, y: 16, z: -96 }, 8, 8),
-    ...arc({ x: 34, y: 7, z: -66 }, { x: 58, y: 16, z: -96 }, 8, 8),
-    // The mid kicker toward the pool.
-    ...arc({ x: 0, y: 8, z: -92 }, { x: -40, y: 2, z: -168 }, 12, 12),
-  ];
+  const pts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = ring(YARD.INNER - 12, i, 8);
+    const b = ring(14, i, 8);
+    pts.push(...arc({ x: a.x, y: 9, z: a.z }, { x: b.x, y: 20, z: b.z }, 9, 7));
+  }
   return pts.map((p, i) => ({ id: `coin_${i}`, pos: p }));
 }
 

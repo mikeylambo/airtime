@@ -11,6 +11,10 @@ import TUNING from '../TUNING.js';
 const QUALITY_COLOR = {
   perfect: '#39f0a0', clean: '#59d0ff', sloppy: '#ffd166', crash: '#ff5470',
 };
+/** Colour ramps with the count — the player should feel the tier before reading it. */
+const FACET_COLOR = (n) =>
+  n >= 9 ? '#ff3df0' : n >= 7 ? '#ff9f1c' : n >= 5 ? '#ffd166' : n >= 3 ? '#59d0ff' : '#8fa3b4';
+
 const TIER_LABEL = {
   road: null, rooftop: 'ROOFTOP', billboard: 'BILLBOARD',
   moving: 'MOVING VEHICLE', pool: 'POOL', secret: 'SECRET',
@@ -36,6 +40,7 @@ export class Hud {
         <div class="airtime">0.00<span>s</span></div>
         <div class="air-sub">AIRTIME</div>
         <div class="bank">BANK <b>0</b></div>
+        <div class="facets"><b class="facet-n">0</b><i class="facet-name"></i><u class="purity"></u></div>
       </div>
 
       <div class="hud-ticker"></div>
@@ -60,6 +65,7 @@ export class Hud {
       boostFill: q('.boost-fill'), boostThrust: q('.boost-thrust'), boostNote: q('.boost-note'),
       speed: q('.speed-n'), airtime: q('.airtime'), air: q('.hud-air'), bank: q('.bank b'),
       ticker: q('.hud-ticker'), parts: q('.hud-parts'), landing: q('.hud-landing'),
+      facetN: q('.facet-n'), facetName: q('.facet-name'), purity: q('.purity'),
       dev: q('.hud-dev'), countdown: q('.hud-countdown'),
     };
 
@@ -77,22 +83,29 @@ export class Hud {
     this.shownScore = 0;
   }
 
-  /** §2.1: the ticker names tricks only once they are in the bank. */
+  /**
+   * The cash-out. The count and its name lead, because the count is the point:
+   * the player has to learn that *variety* is what breaks the score open.
+   */
   showLanding(result) {
     const l = result;
-    this.landingHold = 2.6;
-    const tier = TIER_LABEL[l.tier] ? ` · ${TIER_LABEL[l.tier]} x${l.tierMult}` : '';
-    const head = l.landed ? l.quality.toUpperCase() : 'CRASHED';
+    this.landingHold = 3.0;
+    const tier = TIER_LABEL[l.tier] ? ` · ${TIER_LABEL[l.tier]} ×${l.tierMult}` : '';
+    const head = l.landed
+      ? (l.facetName || l.quality.toUpperCase())
+      : 'CRASHED';
+    const chain = l.combo > 1 ? ` · CHAIN ×${l.combo.toFixed(2)}` : '';
     const sub = l.landed
-      ? `${Math.round(l.bank)} × ${l.landingMult}${tier}${l.combo > 1 ? ` · CHAIN x${l.combo.toFixed(2)}` : ''}`
-      : 'BANK LOST';
+      ? `${l.facetCount} FACETS ×${l.facetMult} · ${l.purity.label} ×${l.purity.mult} · ${l.quality.toUpperCase()} ×${l.landingMult}${tier}${chain}`
+      : `${Math.round(l.bank).toLocaleString()} LOST`;
     this.el.landing.innerHTML =
-      `<span style="color:${QUALITY_COLOR[l.quality]}">${head}</span>` +
+      `<span style="color:${l.landed ? FACET_COLOR(l.facetCount) : QUALITY_COLOR.crash}">${head}</span>` +
       `<em>${sub}</em>` +
       (l.landed ? `<u>+${l.total.toLocaleString()}</u>` : '');
     this.el.landing.classList.add('show');
+    this.el.landing.classList.toggle('big', l.facetCount >= 6);
 
-    for (const t of l.tricks) this.pushTicker(t.name, t.value, l.landed);
+    for (const t of l.facets) this.pushTicker(t.label, t.value, l.landed);
   }
 
   pushTicker(name, value, landed = true) {
@@ -138,6 +151,15 @@ export class Hud {
     this.el.air.classList.toggle('up', state.airborne);
     this.el.bank.textContent = Math.round(state.bank).toLocaleString();
     this.el.air.classList.toggle('banking', state.bank > 0);
+
+    // Live facet count, so the player can see the stack building mid-flight.
+    const n = state.liveFacets ? state.liveFacets.count : 0;
+    this.el.facetN.textContent = n || '';
+    this.el.facetName.textContent = (state.liveFacets && state.liveFacets.name) || '';
+    this.el.facetN.style.color = FACET_COLOR(n);
+    const pur = state.liveFacets && state.liveFacets.purity;
+    this.el.purity.textContent = state.airborne && pur ? pur.label : '';
+    this.el.purity.className = `purity ${pur ? pur.id : ''}`;
 
     for (const s of this.slots) {
       const p = state.panels[s];

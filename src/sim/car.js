@@ -89,6 +89,7 @@ export class Car {
     this.driftTime = 0;
     this.slipAngle = 0;
     this.wheelsInContact = 0;
+    this.wheelContact = [false, false, false, false];
     this.contactNormal = { ...WORLD_UP };
   }
 
@@ -184,7 +185,9 @@ export class Car {
     let n = 0;
     let nx = 0, ny = 0, nz = 0;
     for (let i = 0; i < 4; i++) {
-      if (!this.vehicle.wheelIsInContact(i)) continue;
+      const down = this.vehicle.wheelIsInContact(i);
+      this.wheelContact[i] = down;
+      if (!down) continue;
       n++;
       const cn = this.vehicle.wheelContactNormal(i);
       if (cn) { nx += cn.x; ny += cn.y; nz += cn.z; }
@@ -206,6 +209,15 @@ export class Car {
       this.driftTime = 0;
     }
   }
+
+  // Wheel order is [FL, FR, RL, RR] — see the connection points above.
+  get frontDown() { return this.wheelContact[0] && this.wheelContact[1]; }
+  get rearDown() { return this.wheelContact[2] && this.wheelContact[3]; }
+  get leftDown() { return this.wheelContact[0] && this.wheelContact[2]; }
+  get rightDown() { return this.wheelContact[1] && this.wheelContact[3]; }
+
+  /** Signed nose pitch above horizontal, radians. */
+  get pitchAngle() { return Math.asin(clamp(this.forward.y, -1, 1)); }
 
   /** Wheel transforms for the renderer. */
   wheelState(i) {

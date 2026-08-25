@@ -14,7 +14,7 @@
  */
 
 import TUNING from '../TUNING.js';
-import { v3, add, sub, scale, dot, len, qRot } from './mathx.js';
+import { v3, add, sub, scale, dot, len, qRot, qInvRot } from './mathx.js';
 
 /** Index of the smallest half-extent — a flat plate's normal axis. */
 function normalAxis(size) {
@@ -105,18 +105,22 @@ export class AeroAccumulator {
     const d = [half.x * 2, half.y * 2, half.z * 2];
     const areas = [d[1] * d[2], d[0] * d[2], d[0] * d[1]];
     const A = TUNING.AERO;
-    const pos = add(origin, qRot(rot, A.CHASSIS_COP));
+    // Each plate acts at its own centre of pressure (see TUNING.AERO): the
+    // side force behind the CoM to weathercock in yaw, the vertical force
+    // almost at it so pitch stays free.
+    const cops = [A.COP_SIDE, A.COP_LIFT, A.COP_AXIAL];
     const lv = body.linvel();
     const av = body.angvel();
     const com = body.worldCom();
-    const r = sub(pos, com);
-    const v = add(lv, {
-      x: av.y * r.z - av.z * r.y,
-      y: av.z * r.x - av.x * r.z,
-      z: av.x * r.y - av.y * r.x,
-    });
 
     for (let i = 0; i < 3; i++) {
+      const pos = add(origin, qRot(rot, cops[i]));
+      const r = sub(pos, com);
+      const v = add(lv, {
+        x: av.y * r.z - av.z * r.y,
+        y: av.z * r.x - av.x * r.z,
+        z: av.x * r.y - av.y * r.x,
+      });
       const n = qRot(rot, AXIS_VEC[i]);
       const vn = dot(v, n);
       if (Math.abs(vn) < 1e-4) continue;
@@ -145,9 +149,19 @@ export class AeroAccumulator {
 }
 
 /** Rotational air drag on the chassis — the reason a tumble decays. */
-export function applyAngularDrag(body, dt, override = null) {
-  const A = TUNING.AERO;
-  const av = body.angvel();
-  const k = Math.exp(-(override ?? A.CHASSIS_ANG_DRAG) * dt);
-  body.setAngvel({ x: av.x * k, y: av.y * k, z: av.z * k }, true);
+/**
+ * Rotational air drag, per axis, in the *car's* frame.
+ *
+ * A single scalar damps the axis you want free as hard as the one you want
+ * damped. Yaw wants damping — a car weathervaning about its own vertical axis
+ * mid-flight reads as broken. Pitch and roll do not: those are the trick axes.
+ */
+export function applyAngularDrag(body, dt, scale_ = 1) {
+  const D = TUNING.AERO.ANG_DRAG;
+  const rot = body.rotation();
+  const w = qInvRot(rot, body.angvel());
+  w.x *= Math.exp(-D.pitch * scale_ * dt);
+  w.y *= Math.exp(-D.yaw * scale_ * dt);
+  w.z *= Math.exp(-D.roll * scale_ * dt);
+  body.setAngvel(qRot(rot, w), true);
 }

@@ -199,7 +199,9 @@ export const TUNING = {
       axis: { x: 1, y: 0, z: 0 },
       open: 1.16, limitMin: -0.02, limitMax: 1.26,   // steep scoop -> nose up
       cd: 1.34,
-      gain: 1.0,
+      // Roll inertia is ~7x smaller than pitch inertia, so matching *authority*
+      // means the pitch surfaces need far more gain than the doors.
+      gain: 2.8,
     },
     // The tail flap. It hangs *below* the car, and that is the whole trick:
     // every deployable surface above the centre of mass pitches the nose up,
@@ -214,7 +216,7 @@ export const TUNING = {
       axis: { x: 1, y: 0, z: 0 },
       open: 1.00, limitMin: -0.02, limitMax: 1.10,
       cd: 1.34,
-      gain: 1.5,
+      gain: 3.0,
     },
     SPOILER: {
       size: { x: 0.80, y: 0.04, z: 0.30 },
@@ -242,21 +244,29 @@ export const TUNING = {
     PANEL_SKIN_DRAG: 0.11,      // tangential drag along the plate
     CHASSIS_CD: 0.62,           // chassis treated as three plates (x/y/z faces)
     CHASSIS_SCALE: 1.0,
-    CHASSIS_ANG_DRAG: 0.50,     // rotational air drag on the chassis, 1/s
+    // ── Per-axis stability ─────────────────────────────────────────────
+    // Stability and trick authority are the same dial, and a single centre of
+    // pressure forces a choice between them: far enough back to land a
+    // hands-off jump and *no* panel input can rotate the car at all; far
+    // enough forward to trick and it will not settle.
+    //
+    // The way out is that they do not have to be the same axis. A tail fin
+    // stabilises yaw without touching pitch, so the chassis's three drag
+    // plates get their own application points:
+    //
+    //   side force  -> well behind the CoM  = weathercocks, flies nose-first
+    //   vertical    -> almost at the CoM    = pitch stays cheap to start/stop
+    //   axial drag  -> at CoM height        = no pitch coupling from drag
+    //
+    // All three are in chassis-local space, measured from the box centre.
+    COP_SIDE: { x: 0, y: -0.26, z: 1.05 },
+    COP_LIFT: { x: 0, y: -0.26, z: 0.30 },
+    COP_AXIAL: { x: 0, y: -0.26, z: 0.00 },
 
-    // Centre of pressure, in chassis-local space (the box centre is the
-    // origin; the centre of mass sits at CAR.COM). Behind the centre of mass
-    // is a weathercock: drag then pulls the tail into line and the car wants
-    // to fly nose-first. Ahead of it and the car tumbles no matter what the
-    // player does — which is what the first build did, and why a neutral jump
-    // could not be landed. This one number decides whether the car is
-    // recoverable, so it is the first thing to reach for if it feels wrong.
-    // Sweeps at 0.62 landed every neutral jump and made §3's tricks
-    // impossible: the car simply trimmed back to nose-first instead of ever
-    // rotating, so no hold on any part could complete a 360. At 0.20 the
-    // weathercock is still enough to land a hands-off jump clean, and a firm
-    // hold now earns real flips, rolls and spins. See tools/rotation-sweep.mjs.
-    CHASSIS_COP: { x: 0, y: -0.26, z: 0.20 },
+    // Rotational air drag, per axis, in the car's own frame. Yaw is damped
+    // hard (a car should not weathervane), pitch and roll lightly, so flips
+    // and rolls are cheap to start and cheap to stop.
+    ANG_DRAG: { pitch: 0.34, yaw: 1.15, roll: 0.30 },
 
     // Pillar 1 enforcement. Summed aero force may never push the car up by
     // more than this fraction of its own weight. Gravity always wins, by
@@ -314,13 +324,19 @@ export const TUNING = {
   // Reactive is Burnout's texture and the funnier default.
   TRAFFIC: {
     MODE: 'reactive',           // 'reactive' | 'ambient'   (Options, §2.1)
-    COUNT: 44,                  // vehicles alive at once
+    // Spread over the yard's six lanes, 44 cars is one every 74 m — a player
+    // can drive a whole approach and meet two. §4 wants traffic to *be* the
+    // boost economy, which needs enough of it to weave through.
+    COUNT: 76,                  // vehicles alive at once
     SPEED: [14, 26],            // m/s range, rolled per vehicle from the seed
     HALF: { x: 0.92, y: 0.78, z: 2.20 },
     MASS: 1400,
 
     // Near-miss (§4) — the main boost earn.
-    NEAR_MISS_RADIUS: 5.5,
+    // Centre to centre. Two cars are ~2 m wide each, so 6.5 m is about four
+    // metres of air — close enough to flinch at, and at 5.5 a clean lane pass
+    // at speed missed it by 20 cm and never paid.
+    NEAR_MISS_RADIUS: 6.5,
     NEAR_MISS_MIN_SPEED: 22,    // m/s; crawling past a bus is not a near miss
     NEAR_MISS_REARM: 2.5,       // seconds before the same vehicle can pay again
     ONCOMING_DOT: -0.35,        // player heading vs lane direction to count
@@ -341,33 +357,73 @@ export const TUNING = {
     MIDAIR_CLIP_IS_CRASH: true,
   },
 
-  // ── Scoring (§3.1) ───────────────────────────────────────────────────────
-  // "Rush rule: height and rotation are cheap, landing is the multiplier."
+  // ── Scoring: the facet grammar (R1) ──────────────────────────────────────
+  // The reference did not ask "what trick was that". It asked how many
+  // different things were true at once, then multiplied brutally. Doing one
+  // thing beautifully is worth a little; doing seven at once and surviving is
+  // worth an absurd amount. That curve is the whole design.
   SCORE: {
-    SPIN_BASE: 100,             // one full 360 about the car's own up axis
-    FLIP_BASE: 150,             // one full rotation about its pitch axis
-    ROLL_BASE: 150,             // one full barrel roll
-    // Each rotation past the first adds this fraction of the base, linearly.
-    // §3.1 wants a 1080 to be ~2.2x a 360, not 3x: 100 + 60 + 60 = 220.
-    EXTRA_ROTATION: 0.60,
-    // A rotation counts a little short of the full turn — 353 degrees reads to
-    // the player as a 360 and Rush always paid it.
-    ROTATION_GRACE: 0.12,       // radians
+    // Per-facet base values. Deliberately flat relative to each other — the
+    // *count* is what pays, not any single facet.
+    FACET: {
+      FLIP: 150, ROLL: 150, SPIN: 100,
+      TWIST: 220, TWIST_TIME: 0.45,     // seconds with two axes turning at once
+      INVERT: 120, INVERT_ANGLE: 1.75,  // radians of tilt (~100 deg)
 
-    POSE_PER_SEC: 50,           // §3.1 held pose, per deployed part per second
-    POSE_MIN_TIME: 0.20,        // shorter than this is a twitch, not a pose
+      BIG_AIR: 120, BIG_AIR_TIME: 2.4, BIG_AIR_PER_SEC: 90,
+      HIGH: 140, HIGH_M: 18,
+      FAR: 120, FAR_M: 95, FAR_PER_M: 2.2,
+      GAP: 200, GAP_LAUNCH_Y: 4.5,       // launched raised, landed raised
+      TRANSFER: 260,                     // landed on a different structure
 
-    AIRTIME_BONUS_PER_SEC: 40,  // linear, capped (§3.1)
-    AIRTIME_BONUS_CAP: 200,
-    HEIGHT_BONUS_PER_M: 3,      // "small"
-    HEIGHT_BONUS_CAP: 120,
+      WHEELIE: 120, ENDO: 160, TWO_WHEEL: 200,
+      GROUND_TIME: 0.6, GROUND_PER_SEC: 60,
+      GROUND_MIN_SPEED: 9,        // a wheelie at walking pace is not a wheelie
+      WHEELIE_ANGLE: 0.13, ENDO_ANGLE: 0.13,
 
-    COIN_VALUE: 25,             // flat, added outside the bank (§3.1)
+      NEAR_MISS: 90,
+      PURITY: 260,                       // the facet itself; the multiplier is below
+    },
+
+    // Facet count -> multiplier and the name it earns. Flat at the bottom so a
+    // single clean trick is not punished, steep from four so that stacking is
+    // always the strongest thing available.
+    FACET_MULT: [
+      { mult: 1.0, name: null },
+      { mult: 1.5, name: null },
+      { mult: 2.5, name: 'TRIPLE' },
+      { mult: 4.0, name: 'QUAD' },
+      { mult: 6.0, name: 'WILD' },
+      { mult: 9.0, name: 'SAVAGE' },
+      { mult: 13.0, name: 'INSANE' },
+      { mult: 22.0, name: 'MYTHIC' },
+      { mult: 30.0, name: 'LEGENDARY' },
+      { mult: 42.0, name: 'IMPOSSIBLE' },
+    ],
+
+    // Purity (RAW / TOUCHED / FLOWN). Counts only the *stabilising* verbs —
+    // the thrust burst, both doors as an air brake, the wing — because our
+    // bodywork also creates rotation, and charging for that would make the
+    // trick generator the thing that costs you.
+    PURITY: {
+      RAW: 2.2, RAW_SECONDS: 0.2,
+      TOUCHED: 1.5, TOUCHED_SECONDS: 1.0, TOUCHED_BURSTS: 1,
+      FLOWN: 1.0,
+    },
+
+    EXTRA_ROTATION: 0.60,       // each rotation past the first, per axis
+    ROTATION_GRACE: 0.12,       // radians; 353 degrees reads as a 360
+    TWIST_RATE: 1.1,            // rad/s an axis must exceed to count as turning
+
+    POSE_PER_SEC: 50,           // held bodywork, per part per second
+    POSE_MIN_TIME: 0.20,
+
+    COIN_VALUE: 25,             // flat, outside the bank (routes pay twice)
     COIN_RADIUS: 4.5,
 
-    // Landing multipliers live with the landing tiers they multiply:
+    // Landing multipliers live with the tiers they multiply:
     // LANDING_MULT in sim/airtime.js, TIER in arena/stunt-park.js.
-    MEDAL: { bronze: 6000, silver: 14000, gold: 26000, platinum: 42000 },
+    MEDAL: { bronze: 25000, silver: 70000, gold: 150000, platinum: 320000 },
   },
 
   // ── Modes (§9) ───────────────────────────────────────────────────────────
@@ -392,9 +448,9 @@ export const TUNING = {
   },
 
   // ── Recovery (§3: "Repeat until timer ends") ─────────────────────────────
-  // Rush puts you back on the road; §4 is explicit that a crash is spectacle
-  // and "never a punishment screen". Without this a single bad landing ends
-  // the run 80 seconds early with the car resting on its roof.
+  // The reference puts you back on the road; §4 is explicit that a crash is
+  // spectacle and "never a punishment screen". Without this a single bad
+  // landing ends the run eighty seconds early with the car on its roof.
   RESPAWN: {
     DELAY: 1.35,                // after the crash cam has had its moment
     STUCK_SPEED: 3.0,           // m/s below which a wrong-way-up car is stuck
@@ -407,7 +463,8 @@ export const TUNING = {
   // ── Run (§3: one run, 90-120 seconds) ────────────────────────────────────
   RUN: {
     DURATION: 90,
-    COUNTDOWN: 3,
+    // R4: long enough to read GO, short enough not to be downtime.
+    COUNTDOWN: 1.2,
     // A landing keeps the chain alive if the next launch comes soon enough.
     COMBO_WINDOW: 6.0,
     COMBO_STEP: 0.25,           // +25% per landed stick in the chain
@@ -543,6 +600,18 @@ export const TUNING = {
     EXPORT_BITRATE: 8_000_000,
   },
 
+  // ── Audio (§10 airtime signature sound) ──────────────────────────────────
+  // Synthesised, so these are the actual voices rather than file names.
+  AUDIO: {
+    ENGINE_GAIN: 0.10,
+    AIR_ENGINE: 0.06,           // §10: the engine cuts to wind at launch
+    IDLE_HZ: 46,
+    REDLINE_HZ: 132,
+    GEARS: 6,                   // faked, so pitch resets and speed stays audible
+    WIND_GAIN: 0.11,
+    SCRUB_GAIN: 0.09,
+  },
+
   // ── UI (§2.1 connective tissue) ──────────────────────────────────────────
   UI: {
     TRANSITION: 0.26,           // §2.1: every transition <= 300ms, eased
@@ -551,6 +620,8 @@ export const TUNING = {
     TICKER_LIFE: 2.6,           // how long a named trick stays on the ticker
     TICKER_MAX: 5,
     REEL_CLIPS: 3,              // §9: the top three landings of the round
+    REEL_MIN_SCORE: 400,
+    REEL_SOLO_SCORE: 12000,     // solo, only interrupt for something worth seeing
   },
 
   // ── HUD (Gate A diagnostics) ─────────────────────────────────────────────
@@ -566,6 +637,7 @@ export const TUNING = {
     TRIGGER_DEADZONE: 0.06,
     KEYBOARD_STEER_RATE: 4.2,   // how fast a key press ramps a virtual axis
     KEYBOARD_STEER_RETURN: 7.5,
+    AIR_CURVE: 0.55,            // stick -> panel deployment; <1 opens early
     MENU_DEADZONE: 0.55,        // a stick has to be pushed, not nudged, in menus
     MENU_REPEAT_DELAY: 0.42,
     MENU_REPEAT_RATE: 0.12,

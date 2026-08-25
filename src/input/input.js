@@ -1,6 +1,24 @@
 /**
  * Input — gamepad first, keyboard mirror, touch stubbed (§1 input priority).
  *
+ * ## Air control (R2)
+ *
+ * The bodywork is five hinged surfaces, but the *player* does not get five
+ * verbs. Build 1 gave them eight — two doors, hood, tail flap, wing and three
+ * thrust modes — and nobody holds eight verbs in their head at 60 m/s while
+ * inverted. The reference had roughly two: wings, and tilt.
+ *
+ * So the stick flies the car and the panels are the actuators:
+ *
+ *   stick left/right  -> one door out   -> roll that way
+ *   stick up/down     -> hood / flap    -> pitch that way
+ *   shoulder (hold)   -> both doors + wing -> air brake, kills rotation
+ *   A (tap)           -> thrust burst, mode read off the stick
+ *
+ * Analog throughout, so a nudge is a nudge. The door still swings and the flap
+ * still drops — the player just stops addressing them one at a time. The old
+ * per-panel mapping is still there behind `manualAir` for anyone who wants it.
+ *
  * The map is context sensitive, because §5.1 says panels are "deployable only
  * in air" and that frees the triggers to be throttle/brake on the ground:
  *
@@ -76,6 +94,7 @@ export const NEUTRAL_ACTIONS = Object.freeze({
   trunk: 0,
   spoiler: 0,
   reset: false,
+  airbrake: false,
   cycleCamera: false,
   cycleStyle: false,
 });
@@ -83,6 +102,8 @@ export const NEUTRAL_ACTIONS = Object.freeze({
 export class Input {
   constructor(target = window) {
     this.target = target;
+    /** Options the input layer reads: { manualAir, invertPitch }. */
+    this.options = { manualAir: false, invertPitch: false };
     this.actions = { ...NEUTRAL_ACTIONS };
     this.prev = { ...NEUTRAL_ACTIONS };
     this.pool = [this.actions];
@@ -114,10 +135,14 @@ export class Input {
     target.addEventListener('keydown', this._onKeyDown);
     target.addEventListener('keyup', this._onKeyUp);
     target.addEventListener('blur', this._onBlur);
-    window.addEventListener('gamepadconnected', (e) => {
-      this.source = 'gamepad';
-      console.info('[AIRTIME] gamepad:', e.gamepad.id);
-    });
+    // Guarded so the input layer can be constructed headlessly — the air
+    // control maths is worth testing without a browser around it.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('gamepadconnected', (e) => {
+        this.source = 'gamepad';
+        console.info('[AIRTIME] gamepad:', e.gamepad.id);
+      });
+    }
   }
 
   dispose() {
@@ -242,13 +267,14 @@ export class Input {
 
   /** Connected pads, in slot order. */
   pads() {
-    const list = navigator.getGamepads ? navigator.getGamepads() : [];
+    const list = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : [];
     return [...list].filter((p) => p && p.connected && p.buttons.length >= 8);
   }
 
   get padCount() { return this.pads().length; }
 
   _pad(index = 0) { return this.pads()[index] || null; }
+
 
   _sampleGamepad(a, pad, airborne) {
     this.source = 'gamepad';
@@ -272,16 +298,45 @@ export class Input {
 
     if (airborne) {
       a.throttle = 0; a.brake = 0;
-      a.hood = lt;
-      a.trunk = rt;
-      a.doorL = btn(4) ? 1 : 0;  // LB
-      a.doorR = btn(5) ? 1 : 0;  // RB
-      a.spoiler = btn(3) ? 1 : 0;// Y
+      if (this.options.manualAir) {
+        a.hood = lt;
+        a.trunk = rt;
+        a.doorL = btn(4) ? 1 : 0;  // LB
+        a.doorR = btn(5) ? 1 : 0;  // RB
+        a.spoiler = btn(3) ? 1 : 0;// Y
+      } else {
+        this._flyStick(a, btn(4) || btn(5) || Math.max(lt, rt) > 0.6);
+      }
     } else {
       a.throttle = rt;
       a.brake = lt;
       a.hood = 0; a.trunk = 0; a.doorL = 0; a.doorR = 0; a.spoiler = 0;
     }
+  }
+
+  /**
+   * Turn a stick position into bodywork. Roll is one door, pitch is hood or
+   * flap, and the brake is everything that kills rotation at once.
+   *
+   * Measured behaviour this relies on (tools/probe-aero.mjs): left door rolls
+   * left, hood pitches nose up, tail flap pitches nose down, both doors are an
+   * air brake worth six times the bare car's drag.
+   */
+  _flyStick(a, brake) {
+    // A door only bites once it is properly out into the airflow: at 40% open
+    // its face is still nearly edge-on and it does almost nothing, so a linear
+    // stick feels dead for its first half. The curve puts a small deflection
+    // meaningfully into the air and lets magnitude modulate from there.
+    const curve = (v) => Math.sign(v) * Math.pow(Math.abs(clamp(v, -1, 1)), TUNING.INPUT.AIR_CURVE);
+    const px = curve(a.stickX);
+    const py = curve(a.stickY) * (this.options.invertPitch ? -1 : 1);
+    a.doorL = Math.max(0, -px);
+    a.doorR = Math.max(0, px);
+    a.hood = Math.max(0, py);
+    a.trunk = Math.max(0, -py);
+    a.spoiler = 0;
+    if (brake) { a.doorL = 1; a.doorR = 1; a.spoiler = 1; a.airbrake = true; }
+    else a.airbrake = false;
   }
 
   _sampleKeyboard(a, dt, airborne) {
@@ -307,11 +362,20 @@ export class Input {
 
     if (airborne) {
       a.throttle = 0; a.brake = 0;
-      a.doorL = k('KeyQ') ? 1 : 0;
-      a.doorR = k('KeyE') ? 1 : 0;
-      a.hood = k('KeyR') ? 1 : 0;
-      a.trunk = k('KeyF') ? 1 : 0;
-      a.spoiler = k('KeyC') ? 1 : 0;
+      if (this.options.manualAir) {
+        a.doorL = k('KeyQ') ? 1 : 0;
+        a.doorR = k('KeyE') ? 1 : 0;
+        a.hood = k('KeyR') ? 1 : 0;
+        a.trunk = k('KeyF') ? 1 : 0;
+        a.spoiler = k('KeyC') ? 1 : 0;
+      } else {
+        // Arrows already fill stickX/stickY above; WASD mirrors them in the air.
+        if (k('KeyA')) a.stickX = -1;
+        if (k('KeyD')) a.stickX = 1;
+        if (k('KeyW')) a.stickY = 1;
+        if (k('KeyS')) a.stickY = -1;
+        this._flyStick(a, k('Space'));
+      }
     } else {
       a.throttle = k('KeyW') ? 1 : 0;
       a.brake = k('KeyS') ? 1 : 0;
