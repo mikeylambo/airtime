@@ -147,7 +147,9 @@ class Game {
    * there is exactly one place an arena is described (src/arena/index.js).
    */
   async useArena(id, opts = {}) {
-    const sim = await Sim.create(this.setup(), id, opts);
+    // Seed the sim with what this profile has already found, so a gap only
+    // reads as a discovery the first time it is ever crossed.
+    const sim = await Sim.create(this.setup(), id, { gapsKnown: this.profile.gaps || [], ...opts });
     if (this.arenaId !== id) {
       this.scene.remove(this.arenaView.group);
       this.art.unregisterUnder(this.arenaView.group);
@@ -274,6 +276,7 @@ class Game {
     switch (e.type) {
       case 'launch': if (e.launch.armed) A.launch(e.launch.speed); break;
       case 'landed': A.landing(e.result, e.landing ? e.landing.impactVel : 10); break;
+      case 'gap': A.gap(e.gap.first); break;
       case 'deploy': A.deploy(e.slot); break;
       case 'coin': A.coin(); break;
       case 'nearMiss': A.nearMiss(); break;
@@ -687,7 +690,17 @@ class Game {
       } else if (e.type === 'touchdown') this.director.onTouchdown();
       else if (e.type === 'landed' && e.result) {
         if (e.landing.counted || e.result.tricks.length) this.hud.showLanding(e.result);
-      } else if (e.type === 'reset') this.director.reset(this.sim.snapshot());
+      } else if (e.type === 'gap') {
+        this.hud.showGap(e.gap);
+        if (e.gap.first && e.player === 0) {
+          if (!this.profile.gaps) this.profile.gaps = [];
+          if (!this.profile.gaps.includes(e.gap.id)) {
+            this.profile.gaps.push(e.gap.id);
+            this.saveProfiles();
+          }
+        }
+      }
+      else if (e.type === 'reset') this.director.reset(this.sim.snapshot());
       else if (e.type === 'runOver') this.endRun();
       else if (e.type === 'nearMiss') this._nearMissFlash = 0.6;
     }
@@ -703,7 +716,14 @@ class Game {
     const state = this.sim.snapshot();
     for (let i = 0; i < this.carViews.length; i++) {
       const p = this.sim.players[i];
-      if (p) this.carViews[i].sync(p.car, p.panels);
+      if (!p) continue;
+      // Cheap identity check: the setup object is swapped, not mutated, so a
+      // reference compare is enough to know the instrument changed.
+      if (this.carViews[i].shownSetup !== p.setup) {
+        this.carViews[i].shownSetup = p.setup;
+        this.carViews[i].setChassis(p.setup && p.setup.half);
+      }
+      this.carViews[i].sync(p.car, p.panels);
     }
     this.trafficView.sync(state.traffic);
     this.arenaView.syncMovers(state.movers);

@@ -25,6 +25,8 @@ const CHECKS = [
   ['R2', 'the car flies from the stick', 'probe-air.mjs'],
   ['R3', 'the park is a network, not a scatter', 'lines.mjs'],
   ['R4', 'one input, back in the air under 3s', 'probe-flow.mjs'],
+  ['R5', 'the roster is instruments, not tiers', 'probe-cars.mjs'],
+  ['R6', 'the arena has named places in it', 'probe-gaps.mjs'],
 ];
 
 const verbose = process.argv.includes('--verbose');

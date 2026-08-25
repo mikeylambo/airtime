@@ -39,7 +39,14 @@ export class Panels {
       // A part variant is a different piece of bodywork, not a stat: it changes
       // how far the hinge opens, and the aero then does what it does (§7).
       const tuned = setup && setup.panels[slot];
-      const cfg = tuned ? { ...P[slot], open: tuned.open } : P[slot];
+      // The hinge point rides the chassis box, so a longer car's doors sit
+      // further out and swing on a longer moment arm — which is part of why a
+      // NEEDLE and a STUB do not fly alike.
+      const cfg = tuned
+        ? { ...P[slot], open: tuned.open, hinge: tuned.hinge,
+            centerOffset: tuned.centerOffset, size: tuned.size }
+        : P[slot];
+      const panelMass = tuned ? tuned.mass : P.MASS;
       const axis = norm(cfg.axis);
 
       // Panel spawns stowed: hinge point plus the offset to its centre, both
@@ -55,7 +62,7 @@ export class Panels {
           .setAngularDamping(0.4)
       );
       const col = RAPIER.ColliderDesc.cuboid(cfg.size.x, cfg.size.y, cfg.size.z)
-        .setMass(P.MASS)
+        .setMass(panelMass)
         .setFriction(0.5)
         .setRestitution(0.05)
         .setCollisionGroups(GROUP_PANEL);

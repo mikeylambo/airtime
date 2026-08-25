@@ -101,14 +101,16 @@ export class AeroAccumulator {
    * tumbling sideways drag far more than one flying nose-first, which is most
    * of why a bad attitude costs you distance.
    */
-  addBoxPlates(body, rot, origin, half, cd, gain) {
+  addBoxPlates(body, rot, origin, half, cd, gain, cops_ = null) {
     const d = [half.x * 2, half.y * 2, half.z * 2];
     const areas = [d[1] * d[2], d[0] * d[2], d[0] * d[1]];
     const A = TUNING.AERO;
     // Each plate acts at its own centre of pressure (see TUNING.AERO): the
     // side force behind the CoM to weathercock in yaw, the vertical force
     // almost at it so pitch stays free.
-    const cops = [A.COP_SIDE, A.COP_LIFT, A.COP_AXIAL];
+    const cops = cops_
+      ? [cops_.side, cops_.lift, cops_.axial]
+      : [A.COP_SIDE, A.COP_LIFT, A.COP_AXIAL];
     const lv = body.linvel();
     const av = body.angvel();
     const com = body.worldCom();
@@ -156,8 +158,36 @@ export class AeroAccumulator {
  * damped. Yaw wants damping — a car weathervaning about its own vertical axis
  * mid-flight reads as broken. Pitch and roll do not: those are the trick axes.
  */
-export function applyAngularDrag(body, dt, scale_ = 1) {
-  const D = TUNING.AERO.ANG_DRAG;
+/**
+ * Body lift: a flat car flying nose-first is a wing at a small angle of
+ * attack, and some of the roster leans on that much harder than the rest.
+ *
+ * Without this the flight is purely ballistic and "glide" is not a property a
+ * car can have — every arc is the same parabola and the only thing that moves
+ * range is how you left the lip. Lift acts at the lift centre of pressure, so
+ * a car that generates a lot of it also trims its own pitch, which is exactly
+ * the trade a long glider should be making.
+ */
+export function addBodyLift(acc, body, rot, origin, half, cl, cop) {
+  if (cl <= 0) return;
+  const v = body.linvel();
+  const speed = Math.hypot(v.x, v.y, v.z);
+  if (speed < 4) return;
+  const up = qRot(rot, { x: 0, y: 1, z: 0 });
+  const fwd = qRot(rot, { x: 0, y: 0, z: -1 });
+  // Angle of attack, signed: positive when the nose is above the flight path.
+  const alpha = -(dot(v, up) / speed);
+  const along = dot(v, fwd) / speed;
+  if (along <= 0) return;                       // flying backwards produces nothing
+  const area = half.x * 2 * half.z * 2;
+  const q = 0.5 * TUNING.AERO.AIR_DENSITY * speed * speed * area;
+  // Linear in alpha and capped, so it behaves like a wing rather than a rocket.
+  const lift = q * cl * Math.max(-0.5, Math.min(0.5, alpha + 0.06)) * along;
+  acc.push(body, add(origin, qRot(rot, cop)), scale(up, lift));
+}
+
+export function applyAngularDrag(body, dt, scale_ = 1, perAxis = null) {
+  const D = perAxis || TUNING.AERO.ANG_DRAG;
   const rot = body.rotation();
   const w = qInvRot(rot, body.angvel());
   w.x *= Math.exp(-D.pitch * scale_ * dt);

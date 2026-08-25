@@ -55,6 +55,7 @@ export class Hud {
 
       <div class="hud-parts"></div>
       <div class="hud-landing"></div>
+      <div class="hud-gap"></div>
       <div class="hud-dev"></div>
       <div class="hud-countdown"></div>`;
 
@@ -65,6 +66,7 @@ export class Hud {
       boostFill: q('.boost-fill'), boostThrust: q('.boost-thrust'), boostNote: q('.boost-note'),
       speed: q('.speed-n'), airtime: q('.airtime'), air: q('.hud-air'), bank: q('.bank b'),
       ticker: q('.hud-ticker'), parts: q('.hud-parts'), landing: q('.hud-landing'),
+      gap: q('.hud-gap'),
       facetN: q('.facet-n'), facetName: q('.facet-name'), purity: q('.purity'),
       dev: q('.hud-dev'), countdown: q('.hud-countdown'),
     };
@@ -79,6 +81,7 @@ export class Hud {
 
     this.opacity = 1;
     this.landingHold = 0;
+    this.gapHold = 0;
     this.ticker = [];
     this.shownScore = 0;
   }
@@ -106,6 +109,19 @@ export class Hud {
     this.el.landing.classList.toggle('big', l.facetCount >= 6);
 
     for (const t of l.facets) this.pushTicker(t.label, t.value, l.landed);
+    // A named gap is a place, so it gets its own line rather than joining the
+    // facet list — you crossed something, you did not do something.
+    if (l.gap) {
+      this.pushTicker(l.gap.first ? `${l.gap.name} — NEW` : l.gap.name, l.gap.bonus, true);
+    }
+  }
+
+  /** A gap crossing, called out the moment it lands. */
+  showGap(gap) {
+    this.gapHold = 2.6;
+    this.el.gap.innerHTML = (gap.first ? '<b>GAP DISCOVERED</b>' : '<b>GAP</b>') +
+      `<span>${gap.name}</span><u>+${gap.bonus.toLocaleString()}</u>`;
+    this.el.gap.className = `hud-gap show${gap.first ? ' first' : ''}`;
   }
 
   pushTicker(name, value, landed = true) {
@@ -169,6 +185,10 @@ export class Hud {
       el.querySelector('i').style.transform = `scaleX(${p.deploy.toFixed(2)})`;
     }
 
+    if (this.gapHold > 0) {
+      this.gapHold -= dt;
+      if (this.gapHold <= 0) this.el.gap.className = 'hud-gap';
+    }
     if (this.landingHold > 0) {
       this.landingHold -= dt;
       if (this.landingHold <= 0) this.el.landing.classList.remove('show');

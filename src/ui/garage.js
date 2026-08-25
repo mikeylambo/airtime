@@ -30,8 +30,10 @@ export function buildGarage(mgr, game) {
     const p = game.profile;
     if (tab === 0) {
       return CARS.map((c) => ({
-        label: c.name, car: c, locked: !unlocked(c.unlock),
-        note: !unlocked(c.unlock) ? `${c.unlock} medals` : (p.car === c.id ? '● equipped' : c.archetype),
+        // Never gated. A car is a different way to play, not a stronger one,
+        // so unlocking one would be selling a tier — see ROADMAP.
+        label: c.name, car: c, locked: false,
+        note: p.car === c.id ? '● equipped' : (c.owns || c.archetype),
       }));
     }
     if (tab === 1) {

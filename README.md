@@ -30,6 +30,9 @@ npm run dev
 | `npm run probe:facets` | what a jump is worth as it stacks facets |
 | `npm run probe:air` | stick-to-rotation mapping, measured |
 | `npm run lines` | the arena's reachability graph |
+| `npm run gaps` | regenerate the named gaps from that graph |
+| `npm run probe:cars` | the instrument gate — is any car a tier? |
+| `npm run probe:gaps` | do the named gaps hold up in the real solver |
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
@@ -117,6 +120,45 @@ right — worth ×2.2 down to ×1. It counts only the *stabilising* verbs (the
 thrust burst, both doors as an air brake, the wing), because our bodywork also
 *creates* rotation and charging for that would make the trick generator the
 thing that costs you.
+
+### Cars are instruments, not tiers (R5)
+
+Eight vehicles, and the law is that **no car is Level 8 and therefore better
+than Level 2**. A car is a different way to play, never a stronger one — so
+none of them is gated behind medals, and "the best ANVIL player" has to be a
+thing somebody can be.
+
+That is testable, and `npm run probe:cars` tests it: every car is flown through
+the same eight fixed experiments and the build fails if any car is
+**Pareto-dominated** — if some other car is at least as good at everything.
+Non-dominated is the precise form of the law: it means that against any rival,
+there is always some axis where this car wins.
+
+```
+car        top spd     slip     flip     roll   impact airbrake    glide  recover
+vector       58.04     4.11     2.71     2.85     5.00     0.06     2.17     6.00
+dart         55.90     3.74     4.50     3.48     4.00     0.47     1.95     4.00
+anvil        59.62     3.80     2.07     2.14     5.00     0.52     2.25     3.00
+...
+```
+
+Each car is built around one dominant knob and stays neutral on the others —
+GRIP on engine, DRIFTER on rear-axle grip, STUB on pitch inertia, PROTOTYPE on
+body width (roll inertia comes out of the box formula as width, so only the
+roll car is narrow), ANVIL on suspension, NEEDLE on body lift, DART on panel
+area, VECTOR on nothing at all. Anything less disciplined and the winners get
+decided by whichever coupling happened to be strongest.
+
+### Named gaps (R6)
+
+Every arena has named, discoverable gaps — and they are **derived, not
+authored**. `npm run gaps` takes the reachability graph the line analyzer
+already computes, keeps the long, high edges that land somewhere real, and
+names them by bearing and shape: the north bank drop, the west kicker step.
+Crossing one for the first time is worth 4,000 and is recorded on the profile
+forever.
+
+Hand-placing them would be guesswork about geometry the analyzer knows exactly.
 
 ### Air control (R2)
 
@@ -254,6 +296,10 @@ screenshots.
 - **Clips carry their whole prefix.** A deterministic replay has to re-simulate
   from step zero, so a landing late in a run stores that run's whole input
   stream — tens of KB, not the few KB an early one costs.
+- **The scoring is not balanced against eight cars.** The facet curve was tuned
+  against one, and a car that rolls three times as hard as another banks
+  proportionally more. That is R9's problem, and it needs the boards to exist
+  before it can be judged.
 - **The audio is a minimum, not a pass.** Engine, wind, scrub, impacts and the
   cash-out exist. Crowd, PA, chassis groans, an escalating combo sting and any
   music do not.

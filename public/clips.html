@@ -50,7 +50,7 @@
 <div class="wrap">
   <header>
     <h1>AIRTIME</h1>
-    <div class="sub">Build 2 · the Rush reframe · R1–R4 + audio · Three.js + Rapier</div>
+    <div class="sub">Build 3 · R5 instruments · R6 named gaps · Three.js + Rapier</div>
     <p class="lede">
       Build 1 proved the car flies. Build 2 asks the harder question the
       reference actually answered: <b>is the air worth playing in?</b> Four
@@ -97,6 +97,57 @@ the works    11 facets   x42  IMPOSSIBLE     FLOWN  x1     bank <b>70,644</b>   
     verbs (the thrust burst, both doors as an air brake, the wing), because the
     bodywork also <i>creates</i> rotation, and charging for that would tax the
     trick generator itself.
+  </p>
+
+  <h2>R5 — cars are instruments, not tiers</h2>
+  <p class="blurb">
+    Eight vehicles, and the law is that <b>no car is Level 8 and therefore
+    better than Level 2</b>. A car is a different way to play, never a stronger
+    one — so none is gated behind medals, and "the best ANVIL player" has to be
+    something a person can be.
+  </p>
+  <p class="blurb">
+    That is testable. Every car is flown through the same eight fixed
+    experiments and the build fails if any car is <b>Pareto-dominated</b> — if
+    some other car is at least as good at everything. Non-dominated is the
+    precise form of the law: against any rival, there is always some axis where
+    this car wins.
+  </p>
+<pre>car        top spd     slip     flip     roll   impact airbrake    glide  recover
+
+<b>grip</b>         <b>74.60</b>     3.80     1.56     0.83     3.00     0.26     1.87     4.00
+<b>drifter</b>      59.24     <b>8.73</b>     2.89     2.73     5.00     0.00     2.10     4.00
+<b>stub</b>         54.38     4.15     <b>4.95</b>     2.62     1.00     0.00     2.87     3.00
+<b>proto</b>        56.60     4.29     3.27     <b>8.29</b>     3.00     0.00     <b>3.46</b>     2.00
+<b>anvil</b>        59.62     3.80     2.07     2.14     <b>5.00</b>     <b>0.52</b>     2.25     3.00
+<b>dart</b>         55.90     3.74     4.50     3.48     4.00     0.47     1.95     4.00
+<b>needle</b>       59.74     4.26     2.61     4.64     4.00     0.00     2.05     <b>7.00</b>
+<b>vector</b>       58.04     4.11     2.71     2.85     5.00     0.06     2.17     6.00</pre>
+  <p class="blurb">
+    Each car is built around one dominant knob and stays neutral on the rest —
+    GRIP on engine, DRIFTER on rear-axle grip, STUB on pitch inertia, PROTOTYPE
+    on body <i>width</i> (roll inertia falls out of the box formula as width, so
+    only the roll car is narrow), ANVIL on suspension, NEEDLE on body lift, DART
+    on panel area. Anything less disciplined and the winners are decided by
+    whichever coupling happened to be strongest, not by design.
+  </p>
+
+  <h2>R6 — named gaps, derived rather than authored</h2>
+  <p class="blurb">
+    Every arena has named, discoverable gaps. They are not hand-placed: the
+    generator takes the reachability graph the line analyzer already computes,
+    keeps the long high edges that land somewhere real, and names them by
+    bearing and shape. Crossing one for the first time is worth 4,000 and is on
+    your profile forever.
+  </p>
+<pre>SOUTH LONG HERO STEP     hero      -> shelf_2      154m  2.87s  apex 32m
+NORTH LONG BANK DROP     bank_2    -> tower        141m  2.52s  apex 34m
+EAST LONG KICKER STEP    in_2      -> shelf_3      145m  2.65s  apex 27m
+NORTHWEST LONG DECK LINE mid_up_0  -> board_1      132m  2.42s  apex 29m
+                                                        ...and 12 more</pre>
+  <p class="blurb">
+    Hand-authoring these would be guesswork about geometry the analyzer knows
+    exactly — which makes this the cheapest depth in the whole plan.
   </p>
 
   <h2>R2 — one stick flies the whole car</h2>
@@ -185,7 +236,7 @@ the works    11 facets   x42  IMPOSSIBLE     FLOWN  x1     bank <b>70,644</b>   
     car's range.
   </div>
 
-  <footer>Build 2 · R1–R4 of ROADMAP.md · R5 mastery, R6 arenas, R7 garage-as-instruments and the audio pass are not in this build.</footer>
+  <footer>Build 3 · R1–R6 of ROADMAP.md · R7 premium feel, R8 Vertical City, R9 mastery and arenas 4–6 are not in this build.</footer>
 </div>
 
 <script>

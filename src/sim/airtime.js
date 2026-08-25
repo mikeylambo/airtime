@@ -71,6 +71,7 @@ export class AirtimeTracker {
     this.onGroundTimer = 0;
 
     this.launchHeight = 0;
+    this.launchPos = { x: 0, y: 0, z: 0 };
     this.maxHeight = 0;
     this.launchSpeed = 0;
     this.prediction = null;
@@ -150,6 +151,7 @@ export class AirtimeTracker {
       const p = car.position;
       const v = car.linvel;
       this.launchHeight = p.y;
+      this.launchPos = { x: p.x, y: p.y, z: p.z };
       this.maxHeight = p.y;
       this.launchSpeed = car.speed;
 
@@ -186,7 +188,8 @@ export class AirtimeTracker {
           angle: car.tiltAngle, angleDeg: (car.tiltAngle * 180) / Math.PI,
           wheels: car.wheelsInContact, bounced: false,
           airtime: this.airtime, height: this.maxHeight - this.launchHeight,
-          impactVel: 0,
+          impactVel: 0, from: { ...this.launchPos },
+          landedAt: { ...car.position },
           target: null, tier: 'road',
           counted: this.airtime >= A.MIN_LOGGED_AIRTIME,
           beached: true,
@@ -270,6 +273,8 @@ export class AirtimeTracker {
       height: p.height,
       impactVel: p.impactVel,
       bounces: p.bounces || 0,
+      from: { ...this.launchPos },
+      landedAt: { x: p.position.x, y: p.position.y, z: p.position.z },
       target: moving ? moving.id : (target ? target.id : null),
       tier: moving ? moving.tier : (target ? target.tier : 'road'),
       counted: p.airtime >= A.MIN_LOGGED_AIRTIME,
@@ -290,6 +295,8 @@ export class AirtimeTracker {
       wheels: car.wheelsInContact, bounced: false,
       airtime: this.airtime, height: this.maxHeight - this.launchHeight,
       impactVel: 0, target: null, tier: 'road',
+      from: { ...this.launchPos },
+      landedAt: { ...car.position },
       counted: this.airtime >= A.MIN_LOGGED_AIRTIME,
       reason,
     };

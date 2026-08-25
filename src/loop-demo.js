@@ -25,9 +25,13 @@ export function loopActions(t, neutral, ctx) {
 
   if (airborne) {
     // Taps, not holds — a part held through a whole flight ends it on its roof.
-    if (u > 0.30 && u < 0.62) a.doorL = 1;
-    if (u > 1.05 && u < 1.34) a.doorR = 1;
-    if (u > 1.34) a.spoiler = 1;
+    // Shorter taps than Build 2 used. Every car now carries its own centre of
+    // pressure, and VECTOR's trims nose-up where the old shared one did not,
+    // so the same hold that used to produce a tidy roll-and-catch now puts the
+    // car past vertical and lands it on its roof.
+    if (u > 0.30 && u < 0.52) a.doorL = 1;
+    if (u > 0.95 && u < 1.15) a.doorR = 1;
+    if (u > 1.30) a.spoiler = 1;
     ctx.wasAir = true;
     return a;
   }
@@ -46,34 +50,53 @@ export function loopActions(t, neutral, ctx) {
   const speed = car.groundSpeed;
   if (speed < 6 || ctx.hold === undefined) ctx.hold = heading;
 
-  // Turn around once the line has run out. Holding a heading forever means
-  // one jump and then eighty seconds of driving away from the park.
+  // Where to point. This driver is a smoke test, not an AI: its job is to
+  // produce the same loop every run so the probes measure the game rather than
+  // the driver. So the rule is deliberately dumb — line up on the hero ramp
+  // whenever you are not already on its approach, and hold whatever heading
+  // the landing left you with while you are close to it.
+  //
+  // Two cleverer versions failed here. Re-aiming only when far from the ramp
+  // *and* pointed away from it is a condition a car circling a ring park never
+  // meets, so it drove into the perimeter and stopped. Aiming at the middle of
+  // the yard whenever heading outward turned it around on the spawn straight,
+  // which points at the middle already.
   if (park) {
-    const home = park.ramps.find((r) => r.id === 'hero') || park.ramps.find((r) => r.id !== 'garage');
+    const home = park.ramps.find((h) => h.id === 'hero');
     if (home) {
       const hx = home.pos.x - car.position.x, hz = home.pos.z - car.position.z;
-      const hd = Math.hypot(hx, hz) || 1;
-      const facing = (hx * car.forward.x + hz * car.forward.z) / hd;
-      // Far away and pointed the wrong way: line up on the ramp again.
-      if (hd > 110 && facing < 0.25) ctx.hold = Math.atan2(hx, hz);
+      if (Math.hypot(hx, hz) > 60) ctx.hold = Math.atan2(hx, hz);
     }
   }
 
-  // Sway across the traffic lanes for near-miss boost (§4), gently.
-  const target = ctx.hold + Math.sin(t * 0.45) * 0.11;
+  // Sway across the traffic lanes for near-miss boost (§4), gently — and only
+  // once the car is actually inside the yard. On the spawn straight the sway
+  // was enough to walk it 30 m sideways into the corner of a perimeter bank,
+  // and a scripted driver that cannot reliably reach the first ramp measures
+  // nothing.
+  const inside = Math.hypot(car.position.x, car.position.z) < 150;
+  const target = ctx.hold + (inside ? Math.sin(t * 0.45) * 0.11 : 0);
   let err = target - heading;
   while (err > Math.PI) err -= Math.PI * 2;
   while (err < -Math.PI) err += Math.PI * 2;
 
-  // Facing the wrong way entirely: take the new heading as the line rather
-  // than fighting it. At an error near 180 degrees the sign of the correction
-  // flips every frame, the wheel chatters between full lock either way, and
-  // the car simply drives straight out of the arena — which is exactly what it
-  // did, every run, from a 0.15 rad drift the gain then overcorrected into a
-  // spin.
-  if (Math.abs(err) > 2.4) { ctx.hold = heading; err = 0; }
+  // Facing the wrong way entirely: commit to a U-turn in one direction.
+  //
+  // Near 180 degrees the sign of the correction flips every frame, the wheel
+  // chatters between full lock either way, and the car drives straight out of
+  // the arena. The first fix for that was to surrender — adopt the current
+  // heading as the line — which works only while nothing else is choosing the
+  // line. Once the driver aims at a ramp, surrendering means it can never
+  // execute a turn bigger than 137 degrees: the aim sets the target, the guard
+  // throws it away, and the car drives off in whatever direction it was left
+  // pointing. That is precisely what it did. So latch a direction instead and
+  // hold it until the turn is most of the way done.
+  if (Math.abs(err) > 2.4) ctx.turning = ctx.turning || (err > 0 ? 1 : -1);
+  else if (Math.abs(err) < 1.6) ctx.turning = 0;
 
-  a.steer = clamp(err * 0.9, -1, 1) * clamp(speed / 14, 0.2, 1);
+  a.steer = ctx.turning
+    ? ctx.turning * clamp(speed / 14, 0.35, 1)
+    : clamp(err * 0.55, -0.6, 0.6) * clamp(speed / 14, 0.2, 1);
   ctx.wasAir = false;
   return a;
 }

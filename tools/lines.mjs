@@ -10,9 +10,17 @@
  * against the real collision world, and reports what it lands on. The result is
  * a reachability graph — which turns "is this park an instrument?" into numbers.
  *
- *   node tools/lines.mjs            the current arena
+ *   node tools/lines.mjs             the current arena
  *   node tools/lines.mjs --city
- *   node tools/lines.mjs --verbose  every edge
+ *   node tools/lines.mjs --verbose   every edge
+ *   node tools/lines.mjs --emit-gaps name the notable ones (R6)
+ *
+ * The last one is the point of having built this: named gaps are the cheapest
+ * depth in the plan, and hand-authoring them is guesswork about geometry the
+ * analyzer already knows exactly. So the gaps are *derived* — the long, high,
+ * lands-on-something-real edges of the reachability graph get names, and the
+ * game learns them from the same measurement that proved the park is a
+ * network in the first place.
  */
 
 import TUNING from '../src/TUNING.js';
@@ -20,12 +28,18 @@ import { Sim } from '../src/sim/sim.js';
 import { RAPIER, WHEEL_RAY_GROUPS } from '../src/sim/physics.js';
 import { rampSurface, rampExitAngle } from '../src/arena/index.js';
 import { predictArc } from '../src/sim/airtime.js';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 const ARENA = argv.includes('--city') ? 'city' : 'park';
 const VERBOSE = argv.includes('--verbose');
+const EMIT = argv.includes('--emit-gaps');
 
-const SPEEDS = [28, 38, 48, 58, 68];
+// Dense enough that each ramp->surface pair has a real middle to pick from;
+// five samples left most pairs with a single arc, and "the median flight" then
+// meant "the only flight", which is where the gap definitions drifted to the
+// top of the speed range.
+const SPEEDS = [26, 32, 38, 44, 50, 56, 62, 68];
 const LAUNCHABLE = 0.95;      // steeper than this is a wall ride, not a launch
 const CHAIN_RADIUS = 60;      // land this close to a ramp and you can take it
 
@@ -114,7 +128,11 @@ for (const r of launchable) {
     const next = launchable.filter((o) => o.id !== r.id
       && Math.hypot(o.pos.x - arc.point.x, o.pos.z - arc.point.z) < CHAIN_RADIUS)
       .map((o) => o.id);
-    const e = { from: r.id, speed, airtime: arc.airtime, apex: arc.apexHeight, to: surf, next };
+    // Keep the real endpoints, not the ramp's centre and the target's centre.
+    // A ramp is 30 m long; matching a runtime flight against its midpoint puts
+    // the tolerance in the wrong place and nothing ever matches.
+    const e = { from: r.id, speed, airtime: arc.airtime, apex: arc.apexHeight, to: surf, next,
+                at: { x: pos.x, y: pos.y, z: pos.z }, point: { ...arc.point } };
     edges.push(e);
     hits.add(surf.id);
     for (const n of next) {
@@ -164,9 +182,129 @@ console.log(`ramps nothing can reach                  ${unreachable.length}  ${u
 console.log(`ramps reachable from 3+ others           ${chainable.length}  ${chainable.length ? '— ' + chainable.join(', ') : ''}`);
 console.log(`longest chain without touching deck      ${longest.length}  ${longest.join(' -> ')}`);
 
-const GATE = { chainable: 15, chain: 5, orphans: 0 };
+// ── Named gaps (R6) ────────────────────────────────────────────────────────
+const NOUN = [
+  [/^tower/, 'TOWER'], [/^mid_up/, 'DECK'], [/^mid/, 'DECK'], [/^hero/, 'HERO'],
+  [/^in_/, 'KICKER'], [/^bank/, 'BANK'], [/^pipe/, 'PIPE'], [/^shelf/, 'SHELF'],
+  [/^board/, 'BILLBOARD'], [/^pool/, 'POOL'], [/^mast/, 'MAST'], [/^roof/, 'ROOF'],
+  [/^over/, 'OVERPASS'], [/^garage/, 'GARAGE'],
+];
+const nounOf = (id) => (NOUN.find(([re]) => re.test(id)) || [null, id.toUpperCase()])[1];
+const VERB = { TOWER: 'DROP', BANK: 'SWEEP', PIPE: 'SPILL', DECK: 'HOP', SHELF: 'STEP',
+               BILLBOARD: 'SIGN', POOL: 'PLUNGE', ROOF: 'SKIP', OVERPASS: 'UNDERPASS' };
+
+// The Yard is four-fold symmetric, so a dozen gaps are rotations of each other
+// and naming them by shape alone produces BANK DROP I through VI. Bearing off
+// the launch point separates them into things a player can actually say out
+// loud: the north bank drop, the west kicker hop.
+const COMPASS = ['NORTH', 'NORTHEAST', 'EAST', 'SOUTHEAST', 'SOUTH', 'SOUTHWEST', 'WEST', 'NORTHWEST'];
+const bearingOf = (p) => {
+  const a = Math.atan2(p.x, -p.z);                       // -z is north
+  return COMPASS[(Math.round((a / (Math.PI / 4)) + 8) % 8)];
+};
+
+function nameGap(e, dist, src) {
+  src = { at: e.at };
+  const a = nounOf(e.from), b = nounOf(e.to.id);
+  const far = dist > 130, high = e.apex > 32;
+  const shape = a === b ? `${a} ${VERB[a] || 'LINE'}` : `${a} ${VERB[b] || 'LINE'}`;
+  const qualifier = far ? 'LONG ' : high ? 'HIGH ' : '';
+  return `${bearingOf(src.at)} ${qualifier}${shape}`;
+}
+
+// Only edges worth a name: a real flight that ends somewhere authored.
+const candidates = [];
+for (const e of edges) {
+  if (e.to.kind === 'deck' || e.to.id === e.from) continue;
+  if (e.airtime < 1.5) continue;
+  const src = launchable.find((r) => r.id === e.from);
+  const dst = park.targets.find((t) => t.id === e.to.id)
+    || park.structures.find((x) => x.id === e.to.id)
+    || park.ramps.find((x) => x.id === e.to.id);
+  if (!src || !dst) continue;
+  const dp = e.point;
+  const dist = Math.hypot(dp.x - e.at.x, dp.z - e.at.z);
+  if (dist < 45) continue;
+  candidates.push({ e, src, dst, dp, dist });
+}
+// One gap per (from -> to) pair, keeping the *median* flight rather than the
+// longest. The longest is the one flown at the top of the speed sweep, which
+// sits at the edge of what the car can actually do — pin the gap there and a
+// normal crossing lands 30 m short of its own definition and matches nothing.
+// The median is the version a player will really fly.
+const byPair = new Map();
+for (const c of candidates) {
+  const key = `${c.e.from}>${c.e.to.id}`;
+  if (!byPair.has(key)) byPair.set(key, []);
+  byPair.get(key).push(c);
+}
+const REALISTIC = [44, 62];   // the band a car actually leaves a kicker in
+for (const [key, list] of byPair) {
+  list.sort((a, b) => a.dist - b.dist);
+  const pick = list[Math.floor(list.length / 2)];
+  pick.support = list.filter((c) => c.e.speed >= REALISTIC[0] && c.e.speed <= REALISTIC[1]).length;
+  byPair.set(key, pick);
+}
+// Capped. Naming everything names nothing — a gap is supposed to be a place
+// with a reputation, not a row in a table.
+const MAX_GAPS = 16;
+const gaps = [...byPair.values()]
+  // Ranked on drama *and* on how many realistic launch speeds reach it. A gap
+  // only one speed in the sweep can hit is a curiosity; one that half the band
+  // reaches is a place.
+  .sort((a, b) => (b.dist + b.e.airtime * 40 + b.e.apex * 2 + b.support * 70)
+                - (a.dist + a.e.airtime * 40 + a.e.apex * 2 + a.support * 70))
+  .slice(0, MAX_GAPS);
+const used = new Map();
+for (const g of gaps) {
+  let name = nameGap(g.e, g.dist, g.src);
+  const n = (used.get(name) || 0) + 1;
+  used.set(name, n);
+  g.name = n > 1 ? `${name} ${'II III IV V VI VII VIII IX X'.split(' ')[n - 2]}` : name;
+}
+
+console.log(`\nnamed gaps                               ${gaps.length}`);
+for (const g of gaps.slice(0, 14)) {
+  console.log(`  ${g.name.padEnd(22)} ${g.e.from.padEnd(12)} -> ${g.e.to.id.padEnd(14)} ` +
+    `${g.dist.toFixed(0).padStart(3)}m  ${g.e.airtime.toFixed(2)}s  apex ${g.e.apex.toFixed(0)}m`);
+}
+if (gaps.length > 14) console.log(`  ...and ${gaps.length - 14} more`);
+
+if (EMIT) {
+  const rows = gaps.map((g) => ({
+    id: `${ARENA}:${g.e.from}>${g.e.to.id}`, name: g.name, arena: ARENA,
+    from: { x: +g.e.at.x.toFixed(2), z: +g.e.at.z.toFixed(2) },
+    to: { x: +g.dp.x.toFixed(2), z: +g.dp.z.toFixed(2) },
+    dist: +g.dist.toFixed(1), airtime: +g.e.airtime.toFixed(2), apex: +g.e.apex.toFixed(1),
+    tier: g.e.to.tier || g.e.to.kind,
+  }));
+  const path = new URL('../src/arena/gaps.generated.js', import.meta.url);
+  const prev = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const others = prev.match(/\/\* ---- (\w+) ---- \*\/\n([\s\S]*?)\/\* ---- end \1 ---- \*\//g) || [];
+  const kept = others.filter((b) => !b.startsWith(`/* ---- ${ARENA} ---- */`));
+  const block = `/* ---- ${ARENA} ---- */\n` +
+    rows.map((r) => '  ' + JSON.stringify(r) + ',').join('\n') +
+    `\n/* ---- end ${ARENA} ---- */`;
+  writeFileSync(path, `/**
+ * Named gaps — GENERATED by \`npm run gaps\`. Do not hand-edit.
+ *
+ * Each entry is a notable edge of an arena's reachability graph: a launch
+ * point, a landing point, and how far and how long the flight between them is.
+ * The game matches a flight to a gap by proximity at both ends, so nothing in
+ * the simulation needs to know a gap exists.
+ */
+export const GENERATED_GAPS = [
+${[...kept, block].join('\n')}
+];
+`);
+  console.log(`\nwrote src/arena/gaps.generated.js  (${rows.length} gaps for ${ARENA})`);
+}
+
+const GATE = { chainable: 15, chain: 5, orphans: 0, gaps: 8 };
 const pass = chainable.length >= GATE.chainable && longest.length >= GATE.chain
-  && unreachable.length === GATE.orphans && deckOnly.length === 0;
-console.log(`\ngate: >=${GATE.chainable} reachable from 3+, a chain of >=${GATE.chain}, no orphans, no deck-only ramps`);
+  && unreachable.length === GATE.orphans && deckOnly.length === 0
+  && gaps.length >= GATE.gaps;
+console.log(`\ngate: >=${GATE.chainable} reachable from 3+, a chain of >=${GATE.chain}, no orphans, ` +
+  `no deck-only ramps, >=${GATE.gaps} named gaps`);
 console.log(pass ? 'PASS  this park is a network' : 'FAIL  this park is a scatter');
 process.exit(pass ? 0 : 1);

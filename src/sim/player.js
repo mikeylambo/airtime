@@ -14,7 +14,7 @@ import { BoostBar } from './boost.js';
 import { TeaseThrust } from './thrust.js';
 import { AirtimeTracker } from './airtime.js';
 import { TrickTracker } from './tricks.js';
-import { AeroAccumulator, applyAngularDrag } from './aero.js';
+import { AeroAccumulator, applyAngularDrag, addBodyLift } from './aero.js';
 import { Score } from './round.js';
 import { qRot, qAxisAngle, WORLD_UP } from './mathx.js';
 
@@ -95,8 +95,14 @@ export class Player {
     this.aero.begin();
     this.aero.addBoxPlates(
       this.car.body, this.car.rotation, this.car.position,
-      TUNING.CAR.HALF, A.CHASSIS_CD, A.CHASSIS_SCALE
+      this.setup ? this.setup.half : TUNING.CAR.HALF,
+      A.CHASSIS_CD * (this.setup ? this.setup.chassisCd : 1), A.CHASSIS_SCALE,
+      this.setup ? this.setup.cops : null
     );
+    if (this.setup && this.setup.bodyLift > 0) {
+      addBodyLift(this.aero, this.car.body, this.car.rotation, this.car.position,
+        this.setup.half, A.BODY_LIFT * this.setup.bodyLift, this.setup.cops.lift);
+    }
     for (const p of this.panels.list) {
       if (p.deploy < 0.02) continue;
       const target = A.APPLY_TO === 'chassis' ? this.car.body : p.body;
@@ -111,7 +117,9 @@ export class Player {
       actions, airborne, pressedThrust: !!edges.thrust,
     });
     this.panels.applySpoiler(dt);
-    applyAngularDrag(this.car.body, dt, this.setup ? this.setup.angDragScale : 1);
+    applyAngularDrag(this.car.body, dt,
+      this.setup ? this.setup.angDragScale : 1,
+      this.setup ? this.setup.angDrag : null);
     return finished;
   }
 

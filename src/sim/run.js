@@ -23,6 +23,7 @@ export class Run {
     this.countdown = TUNING.RUN.COUNTDOWN;
     this.timeLeft = this.duration ?? TUNING.RUN.DURATION;
     this.score = 0;
+    this.gaps = [];       // named gaps flown this run (R6)
     this.landings = [];
     this.combo = 1;
     this.comboTimer = 0;

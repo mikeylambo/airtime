@@ -195,52 +195,154 @@ and it makes R3 tractable instead of guesswork.
 
 ---
 
+## The release shape
+
+Locked 2026-08-24. The governing insight, in the user's words:
+
+> We do not need a massive amount of content to make this feel like a premium
+> game. We need an unreasonable amount of depth, feedback, and polish packed
+> into a modest amount of content.
+
+So content count is **capped**, not aspired to. Anything that adds breadth at
+the expense of depth is a regression.
+
+| | Target | Why this number |
+|---|---|---|
+| Arenas | **6** | Six players memorise like skateparks beats twenty they forget. 30 hours in one arena should still surface new approaches. |
+| Vehicles | **8–12** | Enough that each is a distinct instrument; few enough that each can be tuned by hand and gated by the instrument test. |
+| Modes | **7** | Lenses on one game, not seven games. |
+| Challenges | **100–150** | The mastery ladder. Structure without narrative. |
+| Online live MP | **not in V1** | Ghosts and async boards buy most of the competitive value for a fraction of the engineering. |
+
+### The pitch
+
+> AIRTIME is the definitive standalone vehicular stunt sandbox: part score
+> attack, part physics toy, part competitive mastery game, built around
+> launching cars into absurd aerial lines and somehow bringing them back down
+> clean.
+
+### The arena roster
+
+Each is an *instrument*, not a biome — it has to teach a different routing idea
+or it does not ship.
+
+| Arena | Identity | State |
+|---|---|---|
+| **The Yard** | The pure stunt park. Bowls, towers, banks, transfer lines, verticality. | **built** (R3) |
+| **Vertical City** | Rooftops, parking structures, glass towers, traffic, billboards, skybridges. | exists as a procedural grid; **must be rebuilt**, not iterated |
+| **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | — |
+| **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | — |
+| **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | — |
+| **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | — |
+
+Traffic settles here: it is an **ingredient of Vertical City**, not a universal
+boost economy. That resolves the tension left open in Build 2.
+
+### The vehicle roster
+
+Eight instruments. Vector, Dart, Anvil, Needle, Stub, Drifter, Grip, Prototype.
+
+**The law:** *no car is Level 8 and therefore better than Level 2.* A car is a
+different way to play, never a stronger one. Cars are therefore **never gated
+behind medals** — unlocking one is unlocking a technique, not a tier. "The best
+Anvil player" has to be a real thing somebody can be.
+
+This is mechanically testable and now is: `npm run probe:cars` measures every
+car on seven axes and fails the build if any car is Pareto-dominated (worse than
+some other car at everything) or if any car is best at nothing.
+
+### The mode roster
+
+Stunt Run (default), Free Ride, Call Your Shot, Best Trick, Combo Run,
+Survival, Party Stunts, plus daily/weekly challenges. **Call Your Shot** —
+declare the facet criteria before you jump — is new, and it is nearly free: it
+is the facet system read backwards.
+
+### Progression is a licence ladder, not a story
+
+Bronze/Silver/Gold/Platinum score thresholds per arena, plus challenge sets
+("land a 1080", "three facets in one jump", "20,000 without using wings",
+"beat the Vector ghost", "discover every named gap"). Rewards are cars,
+liveries, arena variants, tuning parts, advanced trials — and eventually
+**The Gauntlet**.
+
+### Named gaps
+
+Every arena has named, discoverable gaps and transfers. The line analyzer
+already computes the reachability graph, so the notable edges can be
+**derived and then named** rather than hand-authored and hoped for. This is the
+single cheapest depth-per-byte system in the plan.
+
+### The competitive layer
+
+Not one scoreboard — seven: arena overall, vehicle-specific, stock setup, best
+single stunt, RAW/no-wing, daily seed, friends. Plus **ghosts**, which our
+replay architecture already gives us nearly free: replays are inputs + seed,
+re-simulated, so a ghost is a replay we do not draw the HUD for. Loading a
+2.1M ghost and discovering they use a ramp completely differently is how a
+community invents technique.
+
+### Two things the vision sharpened
+
+- **RETRY is the most important UI element in the game.** R4 made it 1.20 s.
+  That is now a permanent budget, not an achievement — every screen we add has
+  to keep one input between "that run ended" and "I am driving".
+- **Audio is half the premium illusion**, and specifically the *handoff*:
+  engine + road rumble → wind and mechanical stress at the ramp lip → KRRR-THOOM
+  on landing, with the music ducking underneath a big stick. Build 2 shipped the
+  minimum; R7 owes the handoff, the duck, the crowd and the chassis stress.
+
+### The acceptance clip
+
+The vision ends with a ten-second shot: off a skyscraper, triple corkscrew,
+near-miss on a helicopter, one wing for a split second, lands sideways on a
+parking garage, suspension nearly collapses, PERFECT STICK, RAW ×2.5, 87,460,
+straight back out toward another ramp. **Treat that as a test.** When we can
+capture exactly that, unedited, in one take, the game is real.
+
+---
+
 ## The roadmap
 
 | Phase | Objective | Touches | Gate | Status |
 |---|---|---|---|---|
-| **R1 — Stunt grammar** | One jump becomes endlessly expressive | `tricks.js`, new `facets.js`, `score` tuning, HUD ticker, result | A jump with 6+ facets scores an order of magnitude above a clean single flip, and the player can see why | **done** — 4 facets ×4 → 9 facets ×30, a 7.5× multiplier span |
-| **R2 — Air control** | Rush-like airborne mastery | per-axis aero (the COP fix), new air-control layer over `panels.js`, `input.js` | A newcomer can recover most jumps; an expert can land a triple with one 0.2 s touch. Minimum audible pass ships here | **done** — per-axis CoP resolved the blocker; eight air verbs collapsed to one stick |
-| **R3 — Stunt Park 2.0** | The equivalent of Rush Stunt 1 | line analyzer, then a rebuilt `stunt-park.js` | Analyzer says: no orphans, ≥15 surfaces reachable from 3+ others, a 5-surface chain exists without touching the deck | **done** — 21/21 land somewhere authored, 16 reachable from 3+, a chain of 9 |
-| **R4 — Flow** | Eliminate downtime | respawn, restart, run timer, result pacing | Timer expires → back in the air in under 3 seconds, one input | **done** — 1.2 s, one input, from anywhere |
-| **R5 — Premium feel** | One car, one arena, expensive | full audio, speed VFX, crash cam, score cashout presentation | Judged on footage |
-| **R6 — Content grammar** | Prove arena variety | 3 more parks, each a different instrument | Each teaches a different routing idea |
-| **R7 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, boards, **The Gauntlet** | — |
-| **R8 — Party / creator** | Exploit what already exists | split-screen, Call Your Shot, replays, dailies | — |
+| **R1 — Stunt grammar** | One jump becomes endlessly expressive | `tricks.js`, `facets.js`, score tuning, HUD, result | A jump with 6+ facets scores an order of magnitude above a clean single flip | **done** — 2 facets ×1.5 → 11 facets ×42 |
+| **R2 — Air control** | Rush-like airborne mastery | per-axis aero (the CoP fix), air-control layer, `input.js` | A newcomer recovers most jumps; an expert lands a triple with one 0.2 s touch | **done** — per-axis CoP; eight air verbs collapsed to one stick |
+| **R3 — Stunt Park 2.0** | The Yard | line analyzer, rebuilt `stunt-park.js` | No orphans, ≥15 surfaces reachable from 3+, a 5-surface chain off the deck | **done** — 21/21, 16 from 3+, chain of 9 |
+| **R4 — Flow** | Eliminate downtime | respawn, restart, timer, result pacing | Timer expires → back in the air in under 3 s, one input | **done** — 1.20 s |
+| **R5 — Instruments** | Cars are techniques, not tiers | `cars.js` → 8 vehicles, per-car geometry/inertia/CoP/damping, ungate the roster | No car Pareto-dominated; every car best at something; every car changes measured behaviour | **done** — 8 cars, 7 axes, 0 dominated |
+| **R6 — Named gaps** | The cheapest depth in the plan | analyzer → `gaps.js`, discovery tracking, HUD callout, profile | Every arena ships named gaps derived from its own reachability graph | **done** — 12 named in The Yard, discovery tracked |
+| **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, speed VFX, crash cam, cashout, damage | Judged on footage, against the acceptance clip | |
+| **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | |
+| **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |
+| **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
+| **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
 
-**Build 2 = R1 + R2 + R3 + R4**, plus the minimum audible pass. Nothing else.
+**Build 2 = R1–R4** + minimum audio. **Build 3 = R5 + R6.**
 
 ### Build 2 — what shipped
 
-`npm run gate` runs all twelve measurable criteria. The three that mattered:
+`npm run gate` runs the measurable criteria. The three that mattered:
 
 - **The R2 blocker resolved.** Stability and trick authority are the same dial
   only if you insist on one centre of pressure. Splitting it per axis — side
   force behind the CoM to weathercock in yaw, vertical force almost at it so
-  pitch stays free — buys both. A hands-off jump lands clean *and* a firm hold
-  on any surface turns the car all the way over. `npm run probe:axes`.
+  pitch stays free — buys both. `npm run probe:axes`.
 - **Facets, and what they cost.** A jump doing two things banks 1,049. The
   same launch doing eleven banks 70,644 — a 67x span across one ramp. And the
   row that says everything: that 70,644 flight crashed and paid 175.
 - **The park was measurably a scatter.** 1 of 15 ramps landed you anywhere
-  authored; fourteen could only put you back on the deck. The Yard is 24 of 24,
-  with a nine-ramp chain that never touches the ground. `npm run lines`.
-
-Audio is synthesised rather than sampled — engine, wind, scrub, impacts and a
-cash-out that climbs with the facet count. No files, no licensing, and it is
-driven straight off the simulation, so the engine is telling the truth about
-the car.
+  authored. The Yard is 21 of 21, with a nine-ramp chain that never touches
+  the ground. `npm run lines`.
 
 ### Build 2's acceptance test
 
 > Give somebody one car, one arena, five minutes and no progression. Do they
 > immediately hit restart when the timer expires?
 
-**This cannot be self-assessed.** The build can instrument it — time-to-restart,
-session length, landing rate per session, facet counts per jump, how often the
-purity ladder is climbed — and those numbers will say whether people are
-*improving*. Whether they *want another go* is a human verdict on a human in a
-chair.
+**This cannot be self-assessed.** The build can instrument time-to-restart,
+session length, landing rate and facet counts, and those say whether people are
+*improving*. Whether they *want another go* is a human verdict.
 
 ---
 

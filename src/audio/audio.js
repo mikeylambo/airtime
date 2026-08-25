@@ -193,6 +193,19 @@ export class Audio {
   }
 
   coin() { this._tone({ gain: 0.1, from: 1180, to: 1760, decay: 0.09, type: 'triangle' }); }
+  /**
+   * Crossing a named gap. A discovery gets a rising three-note figure; a gap
+   * you already know gets the first note only, so the arena tells you which
+   * kind of thing just happened without the HUD having to.
+   */
+  gap(first = false) {
+    if (!this.ctx) return;
+    const notes = first ? [523.25, 659.25, 987.77] : [523.25];
+    notes.forEach((f, i) => setTimeout(() => this._tone({
+      gain: first ? 0.13 : 0.09, from: f, to: f * 1.01, decay: first ? 0.5 : 0.22, type: 'triangle',
+    }), i * 105));
+  }
+
   nearMiss() { this._hit({ gain: 0.2, freq: 1800, type: 'bandpass', q: 3, decay: 0.28 }); }
   honk() { this._tone({ gain: 0.12, from: 420, to: 400, decay: 0.28, type: 'square' }); }
   countdown(go) { this._tone({ gain: 0.28, from: go ? 880 : 440, to: go ? 1320 : 440, decay: go ? 0.5 : 0.14, type: 'square' }); }

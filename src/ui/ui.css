@@ -228,3 +228,20 @@ table.brk tr.crash td { color: #7a4453; }
 .reel-score { font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; line-height: 1.05; margin-top: .2rem; }
 .reel-info { font-size: .68rem; letter-spacing: .16em; color: var(--dim); }
 .reel-foot { position: absolute; left: 2.4rem; bottom: 2rem; }
+
+
+/* ── Named gaps (R6) ─────────────────────────────────────────────────────
+   Sits just under the landing cash-out. A gap is a place, not a trick, so it
+   reads as a label on the world rather than another line of scoring. */
+.hud-gap {
+  position: absolute; left: 50%; top: 58%; transform: translate(-50%, 0) scale(0.96);
+  text-align: center; opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+  font: 500 0.72rem/1.5 var(--mono); letter-spacing: .28em; text-transform: uppercase;
+}
+.hud-gap.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.hud-gap b { display: block; color: var(--dim); font-weight: 500; font-size: .62rem; letter-spacing: .34em; }
+.hud-gap span { display: block; color: var(--ink); font-size: 1.05rem; letter-spacing: .2em; margin-top: .2rem; }
+.hud-gap u { display: block; text-decoration: none; color: var(--accent); font-size: .78rem; margin-top: .15rem; }
+.hud-gap.first span { color: #ffd166; text-shadow: 0 0 22px rgba(255, 209, 102, .55); }
+.hud-gap.first b { color: #ffd166; }

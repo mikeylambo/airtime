@@ -16,6 +16,7 @@ import { buildArena, targetAt } from './arena-body.js';
 import { Player } from './player.js';
 import { SLOTS } from './panels.js';
 import { resolveTrick } from './tricks.js';
+import { matchGap } from '../arena/gaps.js';
 import { Round, RUN_STATE } from './round.js';
 import { Telemetry } from './telemetry.js';
 import { Traffic } from './traffic.js';
@@ -40,6 +41,9 @@ export class Sim {
   constructor(setup = null, arenaId = 'park', opts = {}) {
     this.setup = Array.isArray(setup) ? setup[0] : setup;
     this.arenaId = arenaId;
+    // Gaps discovered this session. The profile holds the permanent record;
+    // this is what makes the first crossing of a run read as a discovery.
+    this.gapsKnown = new Set(opts.gapsKnown || []);
     this.world = createWorld();
 
     const { park } = buildArena(this.world, arenaId);
@@ -289,6 +293,23 @@ export class Sim {
     let result = resolveTrick(snap, landing, tierMult, p.run.nextCombo);
     result.player = p.index;
     if (this.mode.onLanded) result = this.mode.onLanded(p, result, this) || result;
+
+    // A named gap pays only if you actually completed the flight. Crashing
+    // across one is a story, not a score.
+    if (result.landed && landing.from && landing.landedAt) {
+      const gap = matchGap(this.arenaId, landing.from, landing.landedAt);
+      if (gap) {
+        const first = !this.gapsKnown.has(gap.id);
+        this.gapsKnown.add(gap.id);
+        if (!p.run.gaps) p.run.gaps = [];
+        p.run.gaps.push({ id: gap.id, name: gap.name, first });
+        const bonus = first ? TUNING.GAPS.FIRST_BONUS : TUNING.GAPS.BONUS;
+        result.gap = { id: gap.id, name: gap.name, first, bonus };
+        result.payout += bonus;
+        result.total += bonus;
+        this.events.push({ type: 'gap', player: p.index, gap: result.gap });
+      }
+    }
 
     p.run.addLanding(result);
     p.lastResult = result;

@@ -14,8 +14,11 @@ import { LICENCES, evaluate } from '../src/game/licences.js';
 import { loopActions, loopEdges } from '../src/loop-demo.js';
 
 const DT = 1 / TUNING.SIM.HZ;
+// VECTOR, not a favourite: this probe measures the loop, and the loop should
+// be measured on the car the tuning file describes rather than on whichever
+// instrument happens to suit the scripted driver.
 const profile = {
-  car: 'dart', livery: 'stock',
+  car: 'vector', livery: 'stock',
   tune: { weight: .5, suspension: .5, thrust: .5, aero: .5 },
   parts: { doors: 'stock', hood: 'stock', trunk: 'stock', spoiler: 'stock' },
 };

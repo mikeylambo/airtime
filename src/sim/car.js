@@ -45,7 +45,10 @@ export class Car {
     if (C.CCD) desc.setCcdEnabled(true);
     this.body = world.createRigidBody(desc);
 
-    const col = RAPIER.ColliderDesc.cuboid(C.HALF.x, C.HALF.y, C.HALF.z)
+    const half = setup ? setup.half : C.HALF;
+    const wheelPos = setup ? setup.wheel
+      : { halfTrack: W.HALF_TRACK, frontZ: W.AXLE_FRONT_Z, rearZ: W.AXLE_REAR_Z };
+    const col = RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z)
       .setFriction(C.FRICTION)
       .setRestitution(C.RESTITUTION)
       .setCollisionGroups(GROUP_CAR);
@@ -53,13 +56,18 @@ export class Car {
     // response is a feel number, not a consequence of the collider shape.
     const m = mass;
     const I = {
-      x: (m / 3) * (C.HALF.y ** 2 + C.HALF.z ** 2) * inertia.x,
-      y: (m / 3) * (C.HALF.x ** 2 + C.HALF.z ** 2) * inertia.y,
-      z: (m / 3) * (C.HALF.x ** 2 + C.HALF.y ** 2) * inertia.z,
+      x: (m / 3) * (half.y ** 2 + half.z ** 2) * inertia.x,
+      y: (m / 3) * (half.x ** 2 + half.z ** 2) * inertia.y,
+      z: (m / 3) * (half.x ** 2 + half.y ** 2) * inertia.z,
     };
     col.setMassProperties(m, C.COM, I, { x: 0, y: 0, z: 0, w: 1 });
     this.collider = world.createCollider(col, this.body);
     this.sideFriction = setup ? setup.sideFriction : W.SIDE_FRICTION;
+    // A car that is loose *everywhere* does not drift, it understeers in a
+    // straight line — the chassis never rotates away from its own velocity.
+    // Slip needs a front that bites and a rear that does not, so grip is per
+    // axle. DRIFTER is the only car that leans on it hard.
+    this.sideFrictionRear = setup ? setup.sideFrictionRear : W.SIDE_FRICTION;
 
     // ── Raycast vehicle ───────────────────────────────────────────────────
     this.vehicle = world.createVehicleController(this.body);
@@ -69,10 +77,10 @@ export class Car {
     const dir = v3(0, -1, 0);
     const axle = v3(-1, 0, 0);
     const pts = [
-      v3(-W.HALF_TRACK, W.CONNECT_Y, W.AXLE_FRONT_Z),
-      v3(W.HALF_TRACK, W.CONNECT_Y, W.AXLE_FRONT_Z),
-      v3(-W.HALF_TRACK, W.CONNECT_Y, W.AXLE_REAR_Z),
-      v3(W.HALF_TRACK, W.CONNECT_Y, W.AXLE_REAR_Z),
+      v3(-wheelPos.halfTrack, W.CONNECT_Y, wheelPos.frontZ),
+      v3(wheelPos.halfTrack, W.CONNECT_Y, wheelPos.frontZ),
+      v3(-wheelPos.halfTrack, W.CONNECT_Y, wheelPos.rearZ),
+      v3(wheelPos.halfTrack, W.CONNECT_Y, wheelPos.rearZ),
     ];
     for (const p of pts) this.vehicle.addWheel(p, dir, axle, W.SUSPENSION_REST, W.RADIUS);
     for (let i = 0; i < 4; i++) {
@@ -82,7 +90,7 @@ export class Car {
       this.vehicle.setWheelMaxSuspensionTravel(i, W.MAX_SUSPENSION_TRAVEL);
       this.vehicle.setWheelMaxSuspensionForce(i, setup ? setup.maxSuspensionForce : W.MAX_SUSPENSION_FORCE);
       this.vehicle.setWheelFrictionSlip(i, W.FRICTION_SLIP);
-      this.vehicle.setWheelSideFrictionStiffness(i, this.sideFriction);
+      this.vehicle.setWheelSideFrictionStiffness(i, i < 2 ? this.sideFriction : this.sideFrictionRear);
     }
 
     this.steer = 0;          // current steering column angle, radians
@@ -172,11 +180,11 @@ export class Car {
     // ── Handbrake: drop the rear grip, that's the whole drift (§4) ──────────
     if (actions.handbrake) {
       for (const i of REAR) {
-        this.vehicle.setWheelSideFrictionStiffness(i, this.sideFriction * D.HANDBRAKE_SIDE_FRICTION);
+        this.vehicle.setWheelSideFrictionStiffness(i, this.sideFrictionRear * D.HANDBRAKE_SIDE_FRICTION);
         this.vehicle.setWheelBrake(i, D.HANDBRAKE_FORCE);
       }
     } else {
-      for (const i of REAR) this.vehicle.setWheelSideFrictionStiffness(i, this.sideFriction);
+      for (const i of REAR) this.vehicle.setWheelSideFrictionStiffness(i, this.sideFrictionRear);
     }
 
     this.vehicle.updateVehicle(dt, RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC, WHEEL_RAY_GROUPS);

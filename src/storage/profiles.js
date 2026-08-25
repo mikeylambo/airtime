@@ -18,8 +18,9 @@ const blank = (i) => ({
   best: {},              // `${arena}:${mode}` -> score
   medals: {},            // `${arena}:${mode}` -> 'bronze'|'silver'|'gold'|'platinum'
   licences: {},          // testId -> 'bronze'|'silver'|'gold'
-  unlocked: { cars: ['dart'], arenas: ['park'], parts: [], liveries: ['stock'] },
-  car: 'dart',
+  unlocked: { cars: 'all', arenas: ['park'], parts: [], liveries: ['stock'] },
+  gaps: [],           // named gaps discovered, ever (R6)
+  car: 'vector',
   livery: 'stock',
   tune: { weight: 0.5, suspension: 0.5, thrust: 0.5, aero: 0.5 },
   parts: { doors: 'stock', hood: 'stock', trunk: 'stock', spoiler: 'stock' },

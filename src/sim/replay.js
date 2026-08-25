@@ -51,7 +51,7 @@ export class Recorder {
   constructor({ arena, setup, seed = TUNING.SIM.SEED, profile = null, players = 1, mode = 'stunt' }) {
     this.meta = {
       arena, seed, mode, players,
-      car: setup?.car?.id || 'dart',
+      car: setup?.car?.id || 'vector',
       livery: setup?.livery?.id || 'stock',
       tune: profile?.tune ? { ...profile.tune } : null,
       parts: profile?.parts ? { ...profile.parts } : null,

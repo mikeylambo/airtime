@@ -146,12 +146,19 @@ export function describePark() {
     // straight has to reach the yard, and a solid ring means the very first
     // thing every run does is ride the perimeter instead of driving.
     const split = i === 0;
-    const halves = split ? [-38, 38] : [0];
+    // The corridor has to be wider than "technically a gap". At +/-38 with a
+    // 16 m half-width the two faces reached in to x = +/-22, and a car leaving
+    // spawn with any steering on it clipped the inner end of one and simply
+    // stopped there — upright, on full throttle, run over. Six of the eight
+    // cars did it. A vertical ramp end-face on the spawn line is a trap, not a
+    // feature, so the corridor is now 76 m wide and nothing on the way out of
+    // spawn is within reach of it.
+    const halves = split ? [-52, 52] : [0];
     halves.forEach((off, k) => {
       const c = Math.cos(inward(p.x, p.z)), sn = Math.sin(inward(p.x, p.z));
       ramps.push(ramp('wedge', p.x + c * off, p.z - sn * off, {
         id: split ? `bank_0${k ? 'b' : 'a'}` : `bank_${i}`,
-        height: 16, length: 34, halfWidth: split ? 16 : 30,
+        height: 16, length: 34, halfWidth: split ? 14 : 30,
         // Inward, not outward. With the extra PI these fired *away* from the
         // park and every one of them was a deck-only ramp.
         yaw: inward(p.x, p.z),
