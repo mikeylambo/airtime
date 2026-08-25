@@ -8,6 +8,61 @@ speed, launch, improvise a physical stunt, layer stunt properties, recover, land
 watch the score explode, immediately spot the next line. Everything below serves
 that sentence.
 
+## How we are treating the reference
+
+We are treating Rush 2049 Stunt Mode **as if it were the base game we are
+modding** — except we build every underlying system ourselves rather than
+touching Rush's code or assets.
+
+Practically that means:
+
+- **Systems, rules and feel are the brief.** Trick taxonomies, simultaneous-icon
+  scoring, wing purity bonuses, cumulative-score unlocks, the shape of a run —
+  these are game mechanics, and reimplementing them from scratch is exactly what
+  we are doing.
+- **Nothing of theirs ships.** No code, no assets, no art, no audio, no car
+  models, no names, no logos, no UI lifted frame-for-frame.
+- **Arena layouts are the one place the line actually bites.** Recreating Rush
+  Stunt 1's geometry object-for-object would be both the riskiest thing on this
+  list and the least interesting. We take its *design principles* — compact
+  interconnected network, a central vertical feature, perimeter banking that
+  returns you to the middle, elevation you can transfer between — and author our
+  own park against them. R3's gate is a reachability graph, not a resemblance.
+- **Our originality is what we build above the frame.** State-based replay,
+  physically simulated bodywork, the cinematic director, per-axis air control.
+  None of that existed in 1999.
+
+## Systems inventory
+
+What "modding the base game" means concretely: the reference's stunt systems,
+and where each one stands here.
+
+| Reference system | AIRTIME | Where |
+|---|---|---|
+| Stunt arena as skatepark-for-cars | 2 arenas, both the wrong *shape* — scatters, not networks | R3 |
+| Deployable wings for air control | Five hinged aero bodies. Better substrate, worse interface | R2 |
+| Flips / rolls / spins | Integrated from real angular velocity, named afterwards | **have** |
+| Twist (multi-axis simultaneous) | Not distinguished — the data is there, the facet is not | R1 |
+| Wheelie / endo / two-wheel | Missing. Per-wheel contact exists; only the count is used | R1 |
+| Simultaneous-stunt icon display | Missing entirely | R1 |
+| Multiplier escalation by icon count | **Missing — this is the big one** | R1 |
+| Wing-purity bonuses (sparing / none) | Missing, but `burstsThisJump` + pose seconds already tracked | R1 |
+| Land it or lose it | Have, and more sophisticated: bounce merge, settle window, four grades | **have** |
+| Coins | Have | — |
+| Speed pads | Missing | R3 |
+| Cumulative stunt score unlocks arenas | Missing; medal-based unlocks exist instead | R7 |
+| Obstacle Course as mastery exam | Missing → **The Gauntlet** | R7 |
+| Timed run | Have | — |
+| Split-screen | Have, with per-viewport camera restraint | — |
+| *(no equivalent)* | State-based replay theater | **ours** |
+| *(no equivalent)* | Physically simulated bodywork | **ours** |
+| *(no equivalent)* | Cinematic camera director | **ours** |
+| *(no equivalent)* | Garage setups that change the rigid body | **ours** |
+
+Read down the R1 column: **the reframe is mostly one missing system.** Rush's
+scoring rewarded doing several different things at once, violently. Ours rewards
+doing one thing well. That single gap is most of the distance between the two.
+
 ---
 
 ## What Build 1 got right, and keeps
