@@ -103,8 +103,8 @@ export function computeFacets(f) {
 }
 
 const POSE_NAME = {
-  DOOR_L: 'LEFT DOOR', DOOR_R: 'RIGHT DOOR', HOOD: 'HOOD UP',
-  TRUNK: 'TAIL FLAP', SPOILER: 'WING OUT',
+  DOOR_L: 'LEFT AERO', DOOR_R: 'RIGHT AERO', HOOD: 'SPLITTER OUT',
+  TRUNK: 'DIFFUSER OUT', SPOILER: 'WING OUT',
 };
 
 /**

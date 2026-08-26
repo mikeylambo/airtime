@@ -73,7 +73,13 @@ export class Hud {
     };
 
     this.slots = ['DOOR_L', 'DOOR_R', 'HOOD', 'TRUNK', 'SPOILER'];
-    this.labels = { DOOR_L: 'L·DOOR', DOOR_R: 'R·DOOR', HOOD: 'HOOD', TRUNK: 'TAIL', SPOILER: 'WING' };
+    // Aero surfaces, not bodywork. R2 collapsed eight panel verbs into one
+    // stick and the panels became actuators rather than controls — this is what
+    // that already was, finally saying so. "L·DOOR" reads like a bug report;
+    // an aero system is what the player is actually flying.
+    this.labels = {
+      DOOR_L: 'L·AERO', DOOR_R: 'R·AERO', HOOD: 'SPLITTER', TRUNK: 'DIFFUSER', SPOILER: 'WING',
+    };
     this.el.parts.innerHTML = this.slots
       .map((s) => `<div class="part" data-slot="${s}"><b>${this.labels[s]}</b><i></i></div>`).join('');
     this.partEls = Object.fromEntries(

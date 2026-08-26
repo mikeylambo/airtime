@@ -197,6 +197,38 @@ export class ArtDirector {
   }
 
   /** Neon draws a glowing wireframe over each solid; the others hide them. */
+  /**
+   * Throw away a mesh's cached wireframe so it can be rebuilt.
+   *
+   * Edges are built once from the geometry and cached on the mesh, which is
+   * right for a world that is built and then left alone. The car is not that:
+   * its hull is regenerated whenever the player changes car, and without this
+   * the neon pass would keep drawing the *previous* silhouette over the new
+   * one — a ghost of the car you used to drive.
+   */
+  invalidateEdges(mesh) {
+    const line = mesh.userData.__edge;
+    if (!line) return;
+    mesh.remove(line);
+    line.geometry.dispose();
+    line.material.dispose();
+    this.edges = this.edges.filter((e) => e !== line);
+    mesh.userData.__edge = null;
+  }
+
+  /** Rebuild the wireframe for meshes whose geometry has just been replaced. */
+  restyle(meshes) {
+    if (!this.style) return;
+    const list = meshes || this.registry.map((r) => r.mesh);
+    for (const mesh of list) {
+      const entry = this.registry.find((r) => r.mesh === mesh);
+      if (!entry) continue;
+      this.invalidateEdges(mesh);
+      this._material(mesh, entry.role);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, entry.role);
+    }
+  }
+
   _edgesFor(mesh, role) {
     if (role === 'wheel' || role === 'traffic' || !mesh.geometry) return;
     if (mesh.isInstancedMesh) return;      // one wireframe per instance is not worth it

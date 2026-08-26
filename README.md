@@ -123,6 +123,35 @@ thrust burst, both doors as an air brake, the wing), because our bodywork also
 *creates* rotation and charging for that would make the trick generator the
 thing that costs you.
 
+### The car (RC)
+
+The car was a box for four builds, because the physics was the thing that
+needed proving. It is now a wedge exotic — and the wedge language is the
+*cheapest* car we could possibly draw. It is all straight lines and flat
+planes, and curvature is the expensive thing.
+
+It also happens to be what our looks want. The neon style works by drawing
+edges, and an angular body generates clean ones; a curved body gives either no
+edges under smooth shading or a mess of triangulation seams.
+
+Nothing is authored per car. [src/render/wedge.js](src/render/wedge.js) lofts
+the body, glasshouse and engine cover from cross-sections whose every
+proportion comes from the physics — half-extents, wheelbase, track. So NEEDLE
+comes out a long low arrow and STUB a short brick, for exactly the reasons they
+behave that way. `npm run shots:car` puts them side by side, because a
+silhouette is the one thing here that cannot be gated.
+
+Two places where the drawing deliberately disagrees with the simulation, both
+for the same reason — the collider is a crash volume, not a shape:
+
+- The **hull overhangs the collider** at both ends and hangs well below it. The
+  car rests on its wheels; a body drawn to the collider floats half a metre off
+  the road on stilts.
+- The **aero surfaces are drawn smaller** than the areas the physics uses. Those
+  areas are what make one surface roll the car and two brake it, and
+  `npm run probe:aero` gates all six of those claims — but at full size a
+  1.7 m hood plate hinged above the deck is most of what you see.
+
 ### Cars are instruments, not tiers (R5)
 
 Eight vehicles, and the law is that **no car is Level 8 and therefore better

@@ -242,6 +242,22 @@ boost economy. That resolves the tension left open in Build 2.
 
 Eight instruments. Vector, Dart, Anvil, Needle, Stub, Drifter, Grip, Prototype.
 
+**They are exotics**, and the fantasy is the contradiction: precision objects
+being used completely incorrectly. Not luxury as such — *exotic performance
+machines*, expensive enough that launching one 150 feet into the air feels
+slightly irresponsible. Original marques, no licences: the wedge design
+language is fifty years old and shared across a dozen manufacturers, and that
+is what we use; no specific car's proportions or lamp signature is reproduced,
+which is the same clean-room discipline as everything else here.
+
+The tonal rule, verbatim: **the cars take themselves extremely seriously, the
+game absolutely does not.**
+
+And the panels are an **aero system**, not bodywork. R2 collapsed eight panel
+verbs into one stick and the panels became actuators rather than controls —
+active aero is what that already was, finally saying so. Splitter, diffuser,
+wing, and side surfaces; "L·DOOR" read like a bug report.
+
 **The law:** *no car is Level 8 and therefore better than Level 2.* A car is a
 different way to play, never a stronger one. Cars are therefore **never gated
 behind medals** — unlocking one is unlocking a technique, not a tier. "The best
@@ -265,6 +281,23 @@ Bronze/Silver/Gold/Platinum score thresholds per arena, plus challenge sets
 "beat the Vector ghost", "discover every named gap"). Rewards are cars,
 liveries, arena variants, tuning parts, advanced trials — and eventually
 **The Gauntlet**.
+
+### The shape is a readout of the physics
+
+Car bodies are generated (`src/render/wedge.js`), never authored. Every
+proportion comes from numbers the simulation already holds — chassis
+half-extents, wheelbase, track — so the silhouettes come out true: NEEDLE is a
+long arrow because it is one, and PROTOTYPE is narrow because narrowness is
+literally why it rolls. A player can read a car's behaviour off its stance
+before driving it, and eight cars cost one generator plus eight parameter sets
+we already had rather than eight modelling jobs.
+
+The visual hull deliberately does **not** match the collider: it overhangs at
+both ends and hangs far below, because the car rests on its wheels and a body
+drawn to the collider floats half a metre off the road on stilts. The aero
+surfaces are likewise drawn smaller than the areas the physics uses — those
+areas are gated by `probe:aero` and cannot move, but at full size they draw as
+scaffolding over a low body.
 
 ### Named gaps
 
@@ -312,6 +345,7 @@ capture exactly that, unedited, in one take, the game is real.
 | **R4 — Flow** | Eliminate downtime | respawn, restart, timer, result pacing | Timer expires → back in the air in under 3 s, one input | **done** — 1.20 s |
 | **R5 — Instruments** | Cars are techniques, not tiers | `cars.js` → 8 vehicles, per-car geometry/inertia/CoP/damping, ungate the roster | No car Pareto-dominated; every car best at something; every car changes measured behaviour | **done** — 8 cars, 7 axes, 0 dominated |
 | **R6 — Named gaps** | The cheapest depth in the plan | analyzer → `gaps.js`, discovery tracking, HUD callout, profile | Every arena ships named gaps derived from its own reachability graph | **done** — 12 named in The Yard, discovery tracked |
+| **RC — The wedge** | The car stops being a box | `render/wedge.js`, `car-view.js`, aero naming | Silhouettes differ per car and are derived, not authored | **done** — one generator, eight parameter sets, no per-car art |
 | **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, particles, speed lines, shake | Judged on footage — but the handoff, the duck and the emission rules are measured | **done** — soundscape flips in 133 ms, a 60k stick ducks the bed to 0.22 |
 | **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | |
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |

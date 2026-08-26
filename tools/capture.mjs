@@ -25,7 +25,8 @@ import ffmpegPath from 'ffmpeg-static';
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DIST = join(ROOT, 'dist');
 const OUT = join(ROOT, 'capture');
-const FRAMES = join(OUT, 'frames');
+// Kept only to sweep up after older runs that wrote frames to disk.
+const LEGACY_FRAMES = join(OUT, 'frames');
 
 const argv = process.argv.slice(2);
 const flag = (n, d) => {
@@ -88,23 +89,94 @@ function serve(dir) {
 
 const pad = (n) => String(n).padStart(4, '0');
 
-async function encode(id, caption, frameCount) {
+/**
+ * An ffmpeg process fed frames as they are rendered.
+ *
+ * The old path wrote every frame to disk as a PNG and handed ffmpeg the pile
+ * afterwards. At 480 frames of 1280x720 that is most of a gigabyte per clip,
+ * and a run that dies mid-render — which happens, the renderer tab crashes on
+ * the heaviest scenes — left all of it behind. Enough crashed runs and the
+ * machine has no disk left, which is exactly how this session ended up unable
+ * to run a shell command.
+ *
+ * Piping into stdin keeps the determinism that made frame-by-frame capture
+ * worth doing in the first place (the sim is stepped at a fixed dt regardless
+ * of how fast the machine is going) and costs one frame of disk instead of
+ * five hundred.
+ */
+function openEncoder(id) {
   const mp4 = join(OUT, `${id}.mp4`);
-  const args = [
-    '-y', '-framerate', String(FPS), '-i', join(FRAMES, '%04d.png'),
+  const proc = spawn(ffmpegPath, [
+    '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', 'pipe:0',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '20',
     '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4,
-  ];
-  const r = spawnSync(ffmpegPath, args, { encoding: 'utf8' });
-  if (r.status !== 0) {
-    console.error(r.stderr?.split('\n').slice(-12).join('\n'));
-    throw new Error(`ffmpeg failed for ${id}`);
-  }
-  // A poster frame from about a third in — mid-flight.
-  const poster = Math.min(frameCount - 1, Math.round(frameCount * 0.62));
-  spawnSync(ffmpegPath, ['-y', '-i', join(FRAMES, pad(poster)) + '.png',
-    join(OUT, `${id}.png`)], { encoding: 'utf8' });
-  return mp4;
+  ], { stdio: ['pipe', 'ignore', 'pipe'] });
+  const err = [];
+  let killed = false;
+  proc.stderr.on('data', (d) => { err.push(d.toString()); if (err.length > 40) err.shift(); });
+  const done = new Promise((res, rej) => {
+    proc.on('close', (code) => {
+      // A deliberate kill is not a failure. Rejecting here left an unhandled
+      // rejection that killed the whole run over one bad clip — the opposite
+      // of what the retry is for.
+      if (killed) return res(null);
+      if (code === 0) return res(mp4);
+      console.error(err.join('').split('\n').slice(-12).join('\n'));
+      rej(new Error(`ffmpeg failed for ${id}`));
+    });
+  });
+  return {
+    mp4,
+    write: (buf) => new Promise((res) => {
+      // Respect backpressure: ffmpeg encodes slower than the renderer produces
+      // frames on an easy scene, and ignoring this buffers the whole clip in
+      // memory instead of on disk, which is not an improvement.
+      if (proc.stdin.write(buf)) res(); else proc.stdin.once('drain', res);
+    }),
+    finish: () => { proc.stdin.end(); return done; },
+    kill: () => { killed = true; try { proc.stdin.destroy(); proc.kill('SIGKILL'); } catch { /* already gone */ } },
+  };
+}
+
+/** A poster frame straight from a buffer, no intermediate file. */
+async function poster(id, buf) {
+  await writeFile(join(OUT, `${id}.png`), buf);
+}
+
+/**
+ * A fresh browser per clip.
+ *
+ * A single long-lived page reliably died partway through the fourth clip —
+ * "Target closed" mid-screenshot, every run, on whichever clip happened to be
+ * fourth. Under software GL a page that has torn down and rebuilt an entire
+ * arena several times eventually loses its context and never gets it back, and
+ * nothing in this tool was going to fix that from inside the page.
+ *
+ * Launching per clip costs a few seconds of startup each and makes the whole
+ * set reproducible in one command, which is the point of having the tool. It
+ * also means one bad clip can no longer take the other eight with it.
+ */
+async function openRenderer(port) {
+  const browser = await puppeteer.launch({
+    headless: !HEADFUL,
+    args: [
+      '--no-sandbox', '--hide-scrollbars', '--mute-audio',
+      '--enable-unsafe-swiftshader',
+      `--window-size=${WIDTH},${HEIGHT}`,
+      ...(HEADFUL ? [] : ['--use-gl=angle', '--use-angle=swiftshader']),
+    ],
+    defaultViewport: { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 },
+  });
+  const page = await browser.newPage();
+  page.on('pageerror', (e) => console.error('  page error:', e.message));
+  await page.goto(`http://127.0.0.1:${port}/?capture=1`, { waitUntil: 'load' });
+  await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 60000 });
+  const renderer = await page.evaluate(() => {
+    const gl = window.AIRTIME.game.renderer.getContext();
+    const d = gl.getExtension('WEBGL_debug_renderer_info');
+    return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown';
+  });
+  return { browser, page, renderer };
 }
 
 (async () => {
@@ -117,66 +189,78 @@ async function encode(id, caption, frameCount) {
   const { server, port } = await serve(DIST);
   await mkdir(OUT, { recursive: true });
 
-  const browser = await puppeteer.launch({
-    headless: !HEADFUL,
-    args: [
-      '--no-sandbox', '--hide-scrollbars', '--mute-audio',
-      '--enable-unsafe-swiftshader',
-      `--window-size=${WIDTH},${HEIGHT}`,
-      ...(HEADFUL ? [] : ['--use-gl=angle', '--use-angle=swiftshader']),
-    ],
-    defaultViewport: { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 },
-  });
-
-  const page = await browser.newPage();
-  page.on('pageerror', (e) => console.error('  page error:', e.message));
-  await page.goto(`http://127.0.0.1:${port}/?capture=1`, { waitUntil: 'load' });
-  await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 60000 });
-
-  const renderer = await page.evaluate(() => {
-    const gl = window.AIRTIME.game.renderer.getContext();
-    const d = gl.getExtension('WEBGL_debug_renderer_info');
-    return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown';
-  });
-  console.log(`renderer: ${renderer}`);
   console.log(`clips: ${WIDTH}x${HEIGHT} @ ${FPS}fps, ${SECONDS}s each\n`);
 
   const made = [];
+  let announced = false;
+
+  const failed = [];
 
   for (const clip of CLIPS) {
     if (ONLY && !clip.id.includes(ONLY)) continue;
     const total = FPS * (clip.seconds || SECONDS);
-    await rm(FRAMES, { recursive: true, force: true });
-    await mkdir(FRAMES, { recursive: true });
+    const posterAt = Math.min(total - 1, Math.round(total * 0.62));
 
-    await page.evaluate(async (c, fps) => {
-      document.getElementById('boot')?.classList.add('gone');
-      document.getElementById('screens').style.display = 'none';
-      document.getElementById('hud').style.display = c.hud ? '' : 'none';
-      if ((c.players || 1) > 1) document.getElementById('splithud').classList.remove('hidden');
-      await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null, players: c.players || 1 });
-    }, clip, FPS);
+    // One retry, on a completely fresh browser. A lost GL context is not
+    // something the next attempt inherits, so a retry is worth having; two
+    // failures in a row means the clip itself is broken, and the run should
+    // report that and keep going rather than lose the other eight.
+    let mp4 = null, lastErr = null;
+    for (let attempt = 0; attempt < 2 && !mp4; attempt++) {
+      let browser = null, enc = null;
+      const t0 = Date.now();
+      try {
+        // Inside the try: a browser that fails to launch is exactly the kind of
+        // failure the retry exists for, and outside it took the run down.
+        const r = await openRenderer(port);
+        browser = r.browser;
+        const page = r.page;
+        if (!announced) { console.log(`renderer: ${r.renderer}\n`); announced = true; }
+        enc = openEncoder(clip.id);
+        await page.evaluate(async (c, fps) => {
+          document.getElementById('boot')?.classList.add('gone');
+          document.getElementById('screens').style.display = 'none';
+          document.getElementById('hud').style.display = c.hud ? '' : 'none';
+          if ((c.players || 1) > 1) document.getElementById('splithud').classList.remove('hidden');
+          await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null, players: c.players || 1 });
+        }, clip, FPS);
 
-    const t0 = Date.now();
-    for (let f = 0; f < total; f++) {
-      await page.evaluate(() => window.AIRTIME.captureStep());
-      await page.screenshot({ path: join(FRAMES, `${pad(f)}.png`), optimizeForSpeed: true });
-      if (f % 60 === 0) {
-        const rate = (f + 1) / ((Date.now() - t0) / 1000);
-        process.stdout.write(`\r  ${clip.id}  ${f}/${total} frames  (${rate.toFixed(1)} fps)   `);
+        for (let f = 0; f < total; f++) {
+          await page.evaluate(() => window.AIRTIME.captureStep());
+          const buf = await page.screenshot({ optimizeForSpeed: true });
+          await enc.write(buf);
+          if (f === posterAt) await poster(clip.id, buf);
+          if (f % 60 === 0) {
+            const rate = (f + 1) / ((Date.now() - t0) / 1000);
+            const tag = attempt ? `${clip.id} (retry)` : clip.id;
+            process.stdout.write(`\r  ${tag}  ${f}/${total} frames  (${rate.toFixed(1)} fps)   `);
+          }
+        }
+        const secs = ((Date.now() - t0) / 1000).toFixed(0);
+        process.stdout.write(`\r  ${clip.id}  ${total}/${total} frames in ${secs}s — encoding…      `);
+        mp4 = await enc.finish();
+        console.log(`\r  ${clip.id}  -> ${mp4.replace(ROOT + '/', '')}                    `);
+      } catch (e) {
+        // Never leave a half-written mp4 and a live ffmpeg behind.
+        enc?.kill();
+        lastErr = e;
+        const why = String(e.message || e).split('\n')[0];
+        console.log(`\r  ${clip.id}  ${attempt ? 'failed twice' : 'lost the renderer, retrying'} — ${why}          `);
+      } finally {
+        await browser?.close().catch(() => {});
       }
     }
-    const secs = ((Date.now() - t0) / 1000).toFixed(0);
-    process.stdout.write(`\r  ${clip.id}  ${total}/${total} frames in ${secs}s — encoding…      `);
-    const mp4 = await encode(clip.id, clip.caption, total);
-    console.log(`\r  ${clip.id}  -> ${mp4.replace(ROOT + '/', '')}                    `);
-    made.push({ ...clip, mp4 });
+
+    if (mp4) made.push({ ...clip, mp4 });
+    else failed.push({ id: clip.id, why: String(lastErr?.message || lastErr).split('\n')[0] });
   }
 
-  await rm(FRAMES, { recursive: true, force: true });
-  await browser.close();
   server.close();
 
   await writeFile(join(OUT, 'clips.json'), JSON.stringify(made, null, 2));
+  if (failed.length) {
+    console.log(`\n  ${failed.length} clip(s) did NOT render:`);
+    for (const f of failed) console.log(`    · ${f.id} — ${f.why}`);
+  }
   console.log(`\n${made.length} clips in capture/`);
 })();

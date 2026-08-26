@@ -18,6 +18,7 @@
     "probe:traffic": "node tools/probe-traffic.mjs",
     "probe:score": "node tools/probe-score.mjs",
     "shots": "node tools/shots.mjs",
+    "shots:car": "node tools/car-shots.mjs",
     "probe:modes": "node tools/probe-modes.mjs",
     "gate:verbose": "node tools/gate-a.mjs --verbose",
     "probe:facets": "node tools/probe-facets.mjs",
