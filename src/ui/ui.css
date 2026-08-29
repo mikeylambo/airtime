@@ -1,16 +1,22 @@
 /* AIRTIME — all UI chrome. The 3D scene renders underneath everything here. */
 
+/* AFTERGLOW tokens (mirrors src/render/theme.js — the CSS copy of the same
+   palette; change them together). UI inherits VOID + player colour +
+   WHITE-HOT; BLUE is the UI primary, PINK is heat, the payout punches
+   white-hot. */
 :root {
-  --ink: #eaf2f8;
-  --dim: #8fa3b4;
-  --faint: #5d7186;
-  --accent: #59d0ff;
-  --hot: #ff9f1c;
-  --good: #39f0a0;
-  --bad: #ff5470;
-  --bg: #0b0f14;
-  --panel: rgba(8, 13, 20, 0.82);
-  --line: rgba(89, 208, 255, 0.22);
+  --ink: #f4f4ff;              /* WHITE-HOT */
+  --dim: #8f93ad;
+  --faint: #5a5e78;
+  --accent: #2e9aff;           /* BLUE — UI primary */
+  --hot: #ff6ec7;              /* PINK — heat, boost, crash */
+  --white-hot: #f4f4ff;
+  --good: #39ff88;             /* GREEN — perfect landing */
+  --bad: #ff6ec7;
+  --p1: #ff2e9a;               /* MAGENTA — player 1, the default accent */
+  --bg: #0a0a12;               /* VOID */
+  --panel: rgba(10, 10, 18, 0.82);
+  --line: rgba(46, 154, 255, 0.22);
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --t: 0.26s;
 }
@@ -43,7 +49,7 @@ body { font-family: var(--mono); color: var(--ink); -webkit-font-smoothing: anti
 
 h1.logo {
   margin: 0; font-size: clamp(3rem, 12vw, 8rem); letter-spacing: .2em; font-weight: 800; line-height: .95;
-  background: linear-gradient(180deg, #fff 8%, var(--accent) 58%, #2b6f92 100%);
+  background: linear-gradient(180deg, #fff 8%, var(--p1) 58%, #6e1246 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .eyebrow { color: var(--faint); letter-spacing: .32em; font-size: .68rem; text-transform: uppercase; }
@@ -61,7 +67,7 @@ h2.title { margin: 0; font-size: clamp(1.6rem, 4vw, 2.6rem); letter-spacing: .16
 .list .row em { font-style: normal; font-size: .68rem; color: var(--faint); letter-spacing: .1em; }
 .list .row.selected {
   color: var(--ink); border-left-color: var(--accent);
-  background: linear-gradient(90deg, rgba(89,208,255,.14), transparent 70%);
+  background: linear-gradient(90deg, rgba(46,154,255,.14), transparent 70%);
   padding-left: 1.4rem;
 }
 .list .row.selected em { color: var(--accent); }
@@ -116,12 +122,12 @@ table.brk tr.crash td { color: #7a4453; }
 .hud-score b { font-size: 2.1rem; color: var(--ink); }
 .hud-clock.urgent b { color: var(--bad); }
 .hud-combo b { color: var(--faint); }
-.hud-combo.live b { color: var(--hot); text-shadow: 0 0 20px rgba(255,159,28,.5); }
+.hud-combo.live b { color: var(--hot); text-shadow: 0 0 20px rgba(255,110,199,.5); }
 
 .hud-air { left: 50%; top: 6.6rem; transform: translateX(-50%); text-align: center; }
-.airtime { font-size: 2.3rem; font-weight: 700; line-height: 1; color: #46586a; transition: color .18s; }
+.airtime { font-size: 2.3rem; font-weight: 700; line-height: 1; color: #464a6a; transition: color .18s; }
 .airtime span { font-size: 1rem; margin-left: .08rem; }
-.hud-air.up .airtime { color: var(--accent); text-shadow: 0 0 26px rgba(89,208,255,.55); }
+.hud-air.up .airtime { color: var(--accent); text-shadow: 0 0 26px rgba(46,154,255,.55); }
 .air-sub { font-size: .54rem; letter-spacing: .3em; color: var(--faint); margin-top: .24rem; }
 .bank { margin-top: .5rem; font-size: .62rem; letter-spacing: .2em; color: var(--faint); opacity: 0; transition: opacity .2s; }
 .hud-air.banking .bank { opacity: 1; }
@@ -135,39 +141,45 @@ table.brk tr.crash td { color: #7a4453; }
 .hud-landing.big span { font-size: 3rem; text-shadow: 0 0 40px currentColor; }
 
 .hud-ticker { right: 2.2rem; top: 50%; transform: translateY(-50%); display: grid; gap: .28rem; justify-items: end; }
+/* The ticker punches in WHITE-HOT and decays to the player colour (AFTERGLOW). */
 .trick {
   display: flex; gap: .7rem; align-items: baseline; font-size: .7rem; letter-spacing: .16em;
-  color: var(--accent); background: var(--panel); padding: .3rem .7rem; border-right: 2px solid var(--accent);
-  animation: slideIn .22s cubic-bezier(.2,.7,.3,1);
+  color: var(--p1); background: var(--panel); padding: .3rem .7rem; border-right: 2px solid var(--p1);
+  animation: slideIn .22s cubic-bezier(.2,.7,.3,1), punch .55s ease-out;
 }
 .trick b { color: var(--ink); font-size: .78rem; }
-.trick.lost { color: #6b3040; border-right-color: #6b3040; }
+.trick.lost { color: #6b3050; border-right-color: #6b3050; animation: slideIn .22s cubic-bezier(.2,.7,.3,1); }
 @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } }
+@keyframes punch {
+  from { color: var(--white-hot); border-right-color: var(--white-hot);
+         text-shadow: 0 0 18px rgba(244,244,255,.8); }
+}
 
 .hud-left { left: 2.2rem; bottom: 2rem; }
 .boost-label { font-size: .56rem; letter-spacing: .32em; color: var(--faint); margin-bottom: .32rem; }
 .boost-label em { font-style: normal; color: var(--hot); margin-left: .6rem; letter-spacing: .18em; }
-.boost-track { position: relative; width: 264px; height: 15px; background: #131c25; border: 1px solid #2a3d4d; border-radius: 2px; overflow: hidden; }
-.boost-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #1d7fa8, var(--accent)); transition: width .05s linear; }
-.boost-fill.burning { background: linear-gradient(90deg, var(--hot), #ffe066); }
+.boost-track { position: relative; width: 264px; height: 15px; background: #12121e; border: 1px solid #2a2a44; border-radius: 2px; overflow: hidden; }
+.boost-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #17548c, var(--accent)); transition: width .05s linear; }
+.boost-fill.burning { background: linear-gradient(90deg, var(--hot), var(--white-hot)); }
 .boost-thrust { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .85; }
 .speed { margin-top: .5rem; display: flex; align-items: baseline; gap: .3rem; }
 .speed-n { font-size: 2.3rem; font-weight: 700; line-height: 1; }
 .speed-u { font-size: .56rem; letter-spacing: .26em; color: var(--faint); }
 
 .hud-parts { right: 2.2rem; bottom: 2rem; display: flex; flex-direction: column; gap: .28rem; align-items: flex-end; }
-.part { display: flex; align-items: center; gap: .5rem; font-size: .58rem; letter-spacing: .18em; color: #566878; }
+.part { display: flex; align-items: center; gap: .5rem; font-size: .58rem; letter-spacing: .18em; color: #565a78; }
 .part b { font-weight: 500; }
-.part i { display: block; width: 46px; height: 4px; background: #2a3d4d; border-radius: 2px; transform: scaleX(0); transform-origin: right center; }
-.part.on { color: var(--accent); }
-.part.on i { background: var(--accent); box-shadow: 0 0 12px rgba(89,208,255,.7); }
-.part.gone { color: #6b3040; text-decoration: line-through; }
+.part i { display: block; width: 46px; height: 4px; background: #2a2a44; border-radius: 2px; transform: scaleX(0); transform-origin: right center; }
+.part.on { color: var(--p1); }
+.part.on i { background: var(--p1); box-shadow: 0 0 12px rgba(255,46,154,.7); }
+.part.gone { color: #6b3050; text-decoration: line-through; }
 
 .hud-landing { left: 50%; top: 28%; transform: translate(-50%, -10px); text-align: center; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
 .hud-landing.show { opacity: 1; transform: translate(-50%, 0); }
 .hud-landing span { display: block; font-size: 2rem; font-weight: 800; letter-spacing: .1em; }
 .hud-landing em { display: block; font-style: normal; font-size: .64rem; letter-spacing: .2em; color: var(--dim); margin-top: .3rem; }
-.hud-landing u { display: block; text-decoration: none; font-size: 1.5rem; font-weight: 700; color: var(--hot); margin-top: .4rem; }
+/* The payout is the score punch: WHITE-HOT, per the token table. */
+.hud-landing u { display: block; text-decoration: none; font-size: 1.5rem; font-weight: 700; color: var(--white-hot); text-shadow: 0 0 22px rgba(244,244,255,.6); margin-top: .4rem; }
 
 .hud-countdown { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.85); font-size: 7rem; font-weight: 800; opacity: 0; transition: opacity .18s, transform .18s; }
 .hud-countdown.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -190,7 +202,7 @@ table.brk tr.crash td { color: #7a4453; }
 .th-cam .k { color: var(--faint); letter-spacing: .26em; margin-right: .5rem; }
 .th-cam b { color: var(--accent); font-weight: 600; }
 .th-foot { position: absolute; left: 2.2rem; right: 2.2rem; bottom: 1.8rem; }
-.scrub { height: 3px; background: #1b2733; border-radius: 2px; overflow: hidden; margin-bottom: .8rem; }
+.scrub { height: 3px; background: #1b1b33; border-radius: 2px; overflow: hidden; margin-bottom: .8rem; }
 .scrub-fill { height: 100%; width: 0%; background: var(--accent); }
 .th-foot .hint { margin-top: .2rem; }
 
@@ -202,20 +214,23 @@ table.brk tr.crash td { color: #7a4453; }
 .wall-clip b { display: block; font-size: .82rem; color: var(--hot); }
 .wall-clip em { display: block; font-style: normal; font-size: .56rem; letter-spacing: .12em; color: var(--faint); margin-top: .15rem; }
 
-/* ── Split-screen HUD (§9) ─────────────────────────────────────────────── */
+/* ── Split-screen HUD (§9) ─────────────────────────────────────────────────
+   Each viewport owns its player's accent end-to-end: --pc is set per panel
+   from theme.js, and everything player-flavoured in the quarter reads it. */
 #splithud { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
 #splithud.hidden { display: none; }
-.vp { position: absolute; }
-.vp::after { content: ''; position: absolute; inset: 0; border: 1px solid rgba(89,208,255,.14); pointer-events: none; }
+.vp { position: absolute; --pc: var(--p1); }
+.vp::after { content: ''; position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--pc) 28%, transparent); pointer-events: none; }
 .vp.dead { filter: grayscale(1) brightness(.6); }
-.vp-tag { position: absolute; top: .6rem; left: .8rem; font-size: .56rem; letter-spacing: .3em; color: var(--faint); }
+.vp-tag { position: absolute; top: .6rem; left: .8rem; font-size: .56rem; letter-spacing: .3em; color: var(--pc); }
 .vp-score { position: absolute; top: .5rem; right: .8rem; text-align: right; }
 .vp-score b { display: block; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .vp-score i { display: block; font-style: normal; font-size: .6rem; letter-spacing: .16em; color: var(--faint); }
-.vp-air { position: absolute; top: .5rem; left: 50%; transform: translateX(-50%); font-size: 1.1rem; font-weight: 700; color: #46586a; }
+.vp-air { position: absolute; top: .5rem; left: 50%; transform: translateX(-50%); font-size: 1.1rem; font-weight: 700; color: #464a6a; }
 .vp-air span { font-size: .6rem; }
-.vp-boost { position: absolute; left: .8rem; bottom: .8rem; width: 34%; height: 7px; background: #131c25; border: 1px solid #2a3d4d; border-radius: 2px; overflow: hidden; }
-.vp-boost > div { height: 100%; width: 0%; background: linear-gradient(90deg, #1d7fa8, var(--accent)); }
+.vp-air.up { color: var(--pc); }
+.vp-boost { position: absolute; left: .8rem; bottom: .8rem; width: 34%; height: 7px; background: #12121e; border: 1px solid #2a2a44; border-radius: 2px; overflow: hidden; }
+.vp-boost > div { height: 100%; width: 0%; background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 45%, #10101c), var(--pc)); }
 .vp-land { position: absolute; left: 50%; top: 34%; transform: translate(-50%, 0); text-align: center; opacity: 0; transition: opacity .18s; }
 .vp-land.show { opacity: 1; }
 .vp-land span { display: block; font-size: 1.1rem; font-weight: 800; letter-spacing: .08em; }
@@ -223,9 +238,11 @@ table.brk tr.crash td { color: #7a4453; }
 .vp-out { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); font-size: 1.4rem; font-weight: 800; letter-spacing: .3em; color: var(--bad); }
 
 /* ── Highlight reel (§9) ───────────────────────────────────────────────── */
-.reel-bar { position: absolute; left: 2.4rem; top: 2rem; }
-.reel-tag { font-size: .58rem; letter-spacing: .34em; color: var(--faint); }
-.reel-score { font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; line-height: 1.05; margin-top: .2rem; }
+/* The chyron carries the player's colour — whoever earned the landing owns
+   the frame (AFTERGLOW "one accent end-to-end"). */
+.reel-bar { position: absolute; left: 2.4rem; top: 2rem; --pc: var(--p1); }
+.reel-tag { font-size: .58rem; letter-spacing: .34em; color: var(--pc); }
+.reel-score { font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; line-height: 1.05; margin-top: .2rem; color: var(--white-hot); }
 .reel-info { font-size: .68rem; letter-spacing: .16em; color: var(--dim); }
 .reel-foot { position: absolute; left: 2.4rem; bottom: 2rem; }
 
@@ -273,6 +290,7 @@ table.brk tr.crash td { color: #7a4453; }
      translating afterwards — the obvious way — throws most of the fan off
      screen entirely, which is exactly what the first version did. */
   transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(-1 * var(--d) * var(--reach)));
+  /* AFTERGLOW §4 recolor: the streaks are ribbon light in the player colour. */
   background: linear-gradient(to bottom,
-    rgba(255,255,255,0) 0%, rgba(255,255,255,.9) 50%, rgba(255,255,255,0) 100%);
+    rgba(255,46,154,0) 0%, rgba(255,110,199,.9) 50%, rgba(255,46,154,0) 100%);
 }

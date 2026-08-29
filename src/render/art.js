@@ -119,17 +119,30 @@ export class ArtDirector {
 
   /**
    * Every mesh declares what it is; the style decides what that looks like.
-   * @param opts { edge } — an edge colour override, e.g. a ramp encoding its
-   *                        grade (AFTERGLOW's "edge colour = how hard this
-   *                        throws you" language).
+   * @param opts { edge, threshold, opacity } — per-mesh trim overrides: edge
+   *   colour (a ramp encoding its grade, a car in its player's colour), the
+   *   crease angle above which a line is drawn (trim archetypes), and how
+   *   bright the trim starts.
    */
   register(mesh, role, opts = {}) {
-    this.registry.push({ mesh, role, edge: opts.edge });
+    this.registry.push({ mesh, role, opts });
     if (this.style) {
       this._material(mesh, role);
-      if (PALETTES[this.style].lines) this._edgesFor(mesh, role, opts.edge);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, role, opts);
     }
     return mesh;
+  }
+
+  /**
+   * Change a registered mesh's trim overrides — a car swap changes both its
+   * player colour and its archetype, and the cached wireframe has to follow.
+   */
+  setEdgeOpts(mesh, opts) {
+    const entry = this.registry.find((r) => r.mesh === mesh);
+    if (!entry) return;
+    entry.opts = { ...entry.opts, ...opts };
+    this.invalidateEdges(mesh);
+    if (this.style && PALETTES[this.style].lines) this._edgesFor(mesh, entry.role, entry.opts);
   }
 
   /**
@@ -224,21 +237,21 @@ export class ArtDirector {
       if (!entry) continue;
       this.invalidateEdges(mesh);
       this._material(mesh, entry.role);
-      if (PALETTES[this.style].lines) this._edgesFor(mesh, entry.role, entry.edge);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, entry.role, entry.opts);
     }
   }
 
-  _edgesFor(mesh, role, override) {
+  _edgesFor(mesh, role, opts = {}) {
     if (role === 'wheel' || role === 'traffic' || !mesh.geometry) return;
     if (mesh.isInstancedMesh) return;      // one wireframe per instance is not worth it
     if (mesh.userData.__edge) return;
     const p = PALETTES[this.style].roles[role];
-    const edge = override ?? (p && p.edge);
+    const edge = opts.edge ?? (p && p.edge);
     if (!edge) return;
     const line = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry, 24),
+      new THREE.EdgesGeometry(mesh.geometry, opts.threshold ?? 24),
       new THREE.LineBasicMaterial({
-        color: edge, transparent: true, opacity: 1,
+        color: edge, transparent: true, opacity: opts.opacity ?? 1,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -250,7 +263,7 @@ export class ArtDirector {
 
   _setEdges(on) {
     // Build for anything registered since last time — arenas come and go.
-    if (on) for (const { mesh, role, edge } of this.registry) this._edgesFor(mesh, role, edge);
+    if (on) for (const { mesh, role, opts } of this.registry) this._edgesFor(mesh, role, opts);
     for (const e of this.edges) e.visible = !!on;
   }
 

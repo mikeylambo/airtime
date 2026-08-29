@@ -8,6 +8,7 @@
 
 import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
+import { playerColorCss } from '../render/theme.js';
 
 const NAMES = ['P1', 'P2', 'P3', 'P4'];
 
@@ -66,6 +67,9 @@ export function buildParty(mgr, game) {
     onEnter: (_c, data) => {
       if (!data) return;
       const { clip, index, count } = data;
+      // The chyron wears the colour of whoever earned the landing (AFTERGLOW).
+      document.querySelector('#screen-reel .reel-bar, .reel-bar')
+        ?.style.setProperty('--pc', playerColorCss(clip.info.player || 0));
       document.getElementById('reel-tag').textContent = `HIGHLIGHT ${index + 1} / ${count}`;
       document.getElementById('reel-score').textContent = (clip.info.total || 0).toLocaleString();
       const who = clip.info.player != null && game.playerCount > 1 ? `${NAMES[clip.info.player]} · ` : '';

@@ -8,12 +8,14 @@
 
 import TUNING from '../TUNING.js';
 
+// AFTERGLOW tokens (mirrors render/theme.js): GREEN is the perfect landing,
+// BLUE the routine one, VIOLET the scruffy save, PINK the crash — heat.
 const QUALITY_COLOR = {
-  perfect: '#39f0a0', clean: '#59d0ff', sloppy: '#ffd166', crash: '#ff5470',
+  perfect: '#39ff88', clean: '#2e9aff', sloppy: '#9a2eff', crash: '#ff6ec7',
 };
 /** Colour ramps with the count — the player should feel the tier before reading it. */
 const FACET_COLOR = (n) =>
-  n >= 9 ? '#ff3df0' : n >= 7 ? '#ff9f1c' : n >= 5 ? '#ffd166' : n >= 3 ? '#59d0ff' : '#8fa3b4';
+  n >= 9 ? '#ff2e9a' : n >= 7 ? '#ff6ec7' : n >= 5 ? '#39ff88' : n >= 3 ? '#2e9aff' : '#8f93ad';
 
 const TIER_LABEL = {
   road: null, rooftop: 'ROOFTOP', billboard: 'BILLBOARD',

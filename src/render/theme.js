@@ -34,6 +34,44 @@ export function playerColor(index, colorblind = false) {
   return set[index % set.length];
 }
 
+/** The same colour as CSS, for the HUD side of "one accent end-to-end". */
+export function playerColorCss(index, colorblind = false) {
+  return `#${playerColor(index, colorblind).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Trim archetypes — the handoff-3 "3 archetypes". Every hull is generated
+ * from physics (render/wedge.js), so the archetype is not a model, it is a
+ * *drawing style for the cut-lines*: which creases light up (edge threshold,
+ * degrees), and how the light is split between body and glasshouse.
+ *
+ *   BLADE    the arrows — full silhouette, every panel line drawn
+ *   BRUTE    the bricks — only the hard creases, heavier and sparser
+ *   PHANTOM  the experiments — body barely traced, the canopy is the light
+ */
+export const TRIM = {
+  blade:   { threshold: 24, body: 1.0,  glass: 0.55 },
+  brute:   { threshold: 40, body: 1.0,  glass: 0.30 },
+  phantom: { threshold: 16, body: 0.5,  glass: 1.0 },
+};
+
+/** Car id → trim archetype, following the roster's own archetype axis. */
+export const TRIM_FOR_CAR = {
+  vector: 'blade', needle: 'blade', dart: 'blade', grip: 'blade',
+  anvil: 'brute', stub: 'brute',
+  proto: 'phantom', drifter: 'phantom',
+};
+
+export function trimFor(carId) {
+  return TRIM[TRIM_FOR_CAR[carId]] || TRIM.blade;
+}
+
+/** Arena dressing constants that are colour decisions (no hex elsewhere). */
+export const DRESSING = {
+  WINDOW: 0x8f9cc9,          // the sparse lit windows of the lightless city
+  WINDOW_FRACTION: 0.18,     // fraction of eligible tower faces that are lit
+};
+
 /**
  * Ramp edge-strips encode the grade — how hard a surface throws you — so a
  * park reads as an instrument in the dark: blue rolls, green launches, pink

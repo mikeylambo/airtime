@@ -797,7 +797,8 @@ class Game {
       // reference compare is enough to know the instrument changed.
       if (this.carViews[i].shownSetup !== p.setup) {
         this.carViews[i].shownSetup = p.setup;
-        this.carViews[i].setChassis(p.setup && p.setup.half, p.setup && p.setup.wheel);
+        this.carViews[i].setChassis(p.setup && p.setup.half, p.setup && p.setup.wheel,
+          p.setup && p.setup.car && p.setup.car.id);
       }
       this.carViews[i].sync(p.car, p.panels);
     }

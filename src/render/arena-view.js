@@ -6,7 +6,8 @@
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { getArena, rampMesh, rampExitAngle } from '../arena/index.js';
-import { rampGradeColor } from './theme.js';
+import { rampGradeColor, THEME, DRESSING } from './theme.js';
+import { makeRng } from '../sim/mathx.js';
 
 const ROLE_FOR_KIND = {
   platform: 'roof', roof: 'roof', billboard: 'billboard',
@@ -112,6 +113,55 @@ export function buildArenaView(scene, art, arenaId = 'park') {
   const cp = new THREE.Vector3();
   const hidden = new THREE.Vector3(0, -500, 0);
 
+  // ── City windows (AFTERGLOW arena dressing) ─────────────────────────────
+  // "A lightless city at night, windows sparse." A handful of lit windows on
+  // the taller towers give the skyline depth without competing with the
+  // billboards, which stay the only *bright* objects — brightness is "land
+  // here" language, and a window is not an invitation.
+  if (arenaId === 'city') {
+    const rng = makeRng(0x71d0);
+    const spots = [];                      // [x, y, z, yaw]
+    for (const s of park.structures) {
+      if (s.kind !== 'roof' || s.half.y < 6) continue;
+      const floors = Math.floor(s.half.y / 2.2);
+      for (let f = 1; f < floors; f++) {
+        for (let side = 0; side < 4; side++) {
+          if (rng() > DRESSING.WINDOW_FRACTION) continue;
+          const y = s.pos.y - s.half.y + f * 2.2 + 1.1;
+          const u = (rng() * 2 - 1) * 0.7;
+          // Sides 0/1 are the ±x faces (pane yawed 90°), 2/3 the ±z faces.
+          spots.push(side === 0 ? [s.pos.x + s.half.x + 0.05, y, s.pos.z + u * s.half.z, Math.PI / 2]
+            : side === 1 ? [s.pos.x - s.half.x - 0.05, y, s.pos.z + u * s.half.z, Math.PI / 2]
+            : side === 2 ? [s.pos.x + u * s.half.x, y, s.pos.z + s.half.z + 0.05, 0]
+            : [s.pos.x + u * s.half.x, y, s.pos.z - s.half.z - 0.05, 0]);
+        }
+      }
+    }
+    const winGeo = new THREE.PlaneGeometry(1.1, 1.5);
+    const windows = new THREE.InstancedMesh(
+      winGeo,
+      new THREE.MeshBasicMaterial({
+        color: DRESSING.WINDOW, transparent: true, opacity: 0.5,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      }),
+      Math.max(1, spots.length)
+    );
+    const wm = new THREE.Matrix4();
+    const wq = new THREE.Quaternion();
+    const ws = new THREE.Vector3(1, 1, 1);
+    const wp = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    spots.forEach(([x, y, z, yaw], i) => {
+      wq.setFromAxisAngle(up, yaw);
+      wp.set(x, y, z);
+      wm.compose(wp, wq, ws);
+      windows.setMatrixAt(i, wm);
+    });
+    windows.count = spots.length;
+    windows.instanceMatrix.needsUpdate = true;
+    group.add(windows);
+  }
+
   // ── Moving targets (§6.2) ───────────────────────────────────────────────
   const moverMeshes = new Map();
   const moverGroup = new THREE.Group();
@@ -153,7 +203,9 @@ export function buildArenaView(scene, art, arenaId = 'park') {
   };
 }
 
+// Tier markers speak THEME: what a target pays maps onto the palette's own
+// value language — blue routine, pink dare, green pool, violet secret.
 export const TIER_COLOR = {
-  road: 0xffffff, rooftop: 0x59d0ff, billboard: 0xffd166,
-  moving: 0xff8c42, pool: 0x2bffd6, secret: 0xff3df0,
+  road: THEME.WHITE_HOT, rooftop: THEME.BLUE, billboard: THEME.PINK,
+  moving: THEME.MAGENTA, pool: THEME.GREEN, secret: THEME.VIOLET,
 };

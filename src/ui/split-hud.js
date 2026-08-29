@@ -8,9 +8,10 @@
 
 import TUNING from '../TUNING.js';
 import { layout } from '../render/viewports.js';
+import { playerColorCss } from '../render/theme.js';
 
 const QUALITY_COLOR = {
-  perfect: '#39f0a0', clean: '#59d0ff', sloppy: '#ffd166', crash: '#ff5470',
+  perfect: '#39ff88', clean: '#2e9aff', sloppy: '#9a2eff', crash: '#ff6ec7',
 };
 const NAMES = ['P1', 'P2', 'P3', 'P4'];
 
@@ -30,6 +31,8 @@ export class SplitHud {
     for (let i = 0; i < n; i++) {
       const el = document.createElement('div');
       el.className = `vp vp-${n}`;
+      // One accent end-to-end (AFTERGLOW): the quarter wears its player's colour.
+      el.style.setProperty('--pc', playerColorCss(i));
       const r = rects[i];
       // CSS y runs down; the viewport rects run up.
       el.style.left = `${r[0] * 100}%`;
@@ -74,9 +77,9 @@ export class SplitHud {
       if (!s) continue;
       p.score.textContent = Math.round(s.score).toLocaleString();
       p.combo.textContent = `x${s.combo.toFixed(2)}`;
-      p.combo.style.color = s.combo > 1 ? 'var(--hot)' : 'var(--faint)';
+      p.combo.style.color = s.combo > 1 ? 'var(--pc)' : 'var(--faint)';
       p.air.innerHTML = `${s.airtime.toFixed(2)}<span>s</span>`;
-      p.air.style.color = s.airborne ? 'var(--accent)' : '#46586a';
+      p.air.classList.toggle('up', s.airborne);
       p.boost.style.width = `${(s.boost / TUNING.BOOST.MAX) * 100}%`;
       p.out.style.display = s.alive ? 'none' : '';
       p.el.classList.toggle('dead', !s.alive);

@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { SLOTS } from '../sim/panels.js';
 import { buildWedgeBody, buildAeroPlate, PANEL_KIND } from './wedge.js';
+import { playerColor, trimFor } from './theme.js';
 
 /**
  * AFTERGLOW's velocity stretch: the trim's vertex shader elongates the
@@ -94,14 +95,20 @@ export function buildCarView(scene, art, index = 0) {
   // in split-screen.
   shape(H, baseWheel, false);
 
-  // Sill blades are body-coloured, not panel-coloured. The deployable surfaces
-  // are the things that need to shout, and giving the sills the same accent
-  // colour just added to the orange mass the car was already drowning in.
-  for (const [mesh, role] of [[body, 'body'], [canopy, 'glass'], [cover, 'glass'],
-                              [blades[0], 'body'], [blades[1], 'body']]) {
+  // Each player owns one accent colour end-to-end (AFTERGLOW): the trim is
+  // drawn in it, and the archetype decides which creases light and how the
+  // light splits between body and glasshouse.
+  const pc = playerColor(index);
+  let trim = trimFor('vector');
+  const trimmed = [
+    [body, 'body', () => trim.body], [canopy, 'glass', () => trim.glass],
+    [cover, 'glass', () => trim.glass], [blades[0], 'body', () => trim.body],
+    [blades[1], 'body', () => trim.body],
+  ];
+  for (const [mesh, role, opacity] of trimmed) {
     mesh.castShadow = true;
     mesh.receiveShadow = role === 'body';
-    root.add(art.register(mesh, role));
+    root.add(art.register(mesh, role, { edge: pc, threshold: trim.threshold, opacity: opacity() }));
   }
 
   // ── Wheels ──────────────────────────────────────────────────────────────
@@ -123,9 +130,9 @@ export function buildCarView(scene, art, index = 0) {
     const rim = new THREE.Mesh(rimGeo);
     tyre.castShadow = true;
     spin.add(art.register(tyre, 'wheel'));
-    // Body-coloured, not panel-coloured: orange means *deployable* on this car,
-    // and orange wheels muddle the one piece of colour language it has.
-    spin.add(art.register(rim, 'body'));
+    // The rim's edge circles are the "wheel rings" of the brief — the tyre
+    // stays dark, the rim traces two rings of player colour.
+    spin.add(art.register(rim, 'body', { edge: pc, opacity: 0.8 }));
     pivot.add(spin);
     root.add(pivot);
     wheels.push({ pivot, spin });
@@ -141,7 +148,9 @@ export function buildCarView(scene, art, index = 0) {
     const mesh = new THREE.Mesh(geo);
     mesh.castShadow = true;
     mesh.name = `${slot}_${index}`;
-    scene.add(art.register(mesh, 'panel'));
+    // Player-coloured, dim at rest: deployment brightens it (see sync) —
+    // steering the air literally lights up.
+    scene.add(art.register(mesh, 'panel', { edge: pc, opacity: 0.3 }));
     panels[slot] = mesh;
   }
 
@@ -151,9 +160,14 @@ export function buildCarView(scene, art, index = 0) {
     /**
      * Re-shape for a given car. Wheels need no help: their local positions come
      * straight out of the vehicle controller, so a change of wheelbase or track
-     * moves them on its own.
+     * moves them on its own. The trim archetype travels with the car id — a
+     * different instrument is a different drawing, not just a different box.
      */
-    setChassis(half, wheel) {
+    setChassis(half, wheel, carId) {
+      trim = trimFor(carId);
+      for (const [mesh, , opacity] of trimmed) {
+        art.setEdgeOpts(mesh, { edge: pc, threshold: trim.threshold, opacity: opacity() });
+      }
       const h = half || H;
       shape(h, wheel || baseWheel);
       // The aero surfaces ride the chassis box, so they scale with it.
@@ -211,6 +225,10 @@ export function buildCarView(scene, art, index = 0) {
         const r = part.body.rotation();
         mesh.position.set(t.x, t.y, t.z);
         mesh.quaternion.set(r.x, r.y, r.z, r.w);
+        // Deployment brightens the trim: the air being steered is drawn in
+        // light, in the player's colour.
+        const pe = mesh.userData.__edge;
+        if (pe) pe.material.opacity = 0.3 + 0.7 * part.deploy;
       }
     },
   };
