@@ -351,6 +351,28 @@ capture exactly that, unedited, in one take, the game is real.
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |
 | **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
 | **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
+| **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
+
+### The 2026-08-29 pivot — AFTERGLOW and the editor
+
+Locked with the user. Three decisions, two documents:
+
+- **AFTERGLOW replaces the art gate** (`airtime-art-direction.md`). Not a
+  fourth style next to the other three — the direction. Dark world, neon
+  earned from motion; smear built from geometry (trail ribbons, velocity
+  stretch, rotation ghosts), never from screen-space blur, because the target
+  machine has no dedicated GPU. Persistent lines stop being a feature idea and
+  become the art direction itself. The old graybox-vs-lowpoly footage question
+  is closed; graybox survives as the diagnostic look only.
+- **The park editor is the v2 pillar** (`airtime-park-editor-v2.md`), after
+  the premium pass — except its piece-list refactor, which lands *now* while
+  arenas are being redressed: every arena becomes a `{piece, position,
+  rotation, params}` list over a lot, so the editor later edits the format the
+  game already loads. Build-then-run (Ultimate Chicken Horse structure) ships
+  with it as the party mode.
+- **§R replay versioning goes first** (`airtime-release-systems.md`). Every
+  clip and board entry re-simulates inputs, so everything persisted carries a
+  simVersion stamp before any physics-adjacent work makes the first orphan.
 
 **Build 2 = R1–R4** + minimum audio. **Build 3 = R5 + R6.** **Build 4 = R7.**
 
