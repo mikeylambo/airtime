@@ -618,6 +618,12 @@ export const TUNING = {
     RIBBON_MIN_DIST: 0.35,     // metres between samples
     RIBBON_WIDTH: 0.22,        // metres, half-width at full strength
     RIBBON_MIN_SPEED: 14,      // m/s before wheels start writing light
+    // Light dissolves as it nears the lens: a 0.2m-wide ribbon two metres
+    // from the camera is a screen-filling slab. probe:dark measured the hero
+    // landing at 79% dark before this; ablation put ALL of the violation on
+    // ribbon mass inside ~12m of the camera, so the fade reaches 14m and the
+    // worst frame comes back at 92% with no width given up.
+    LENS_FADE: 14,             // metres over which trail light fades to nothing
     PANEL_DEPLOY_MIN: 0.5,     // deploy fraction before a panel edge writes
     // Rotation ghosts — the flip made visible.
     GHOST_SPIN: 3.2,           // rad/s of |angvel| that spawns shells

@@ -374,6 +374,35 @@ Locked with the user. Three decisions, two documents:
   clip and board entry re-simulates inputs, so everything persisted carries a
   simVersion stamp before any physics-adjacent work makes the first orphan.
 
+### Build 6 — what the pivot shipped
+
+All three decisions landed in one cycle, and the claims are numbers:
+
+- **§R, and the replay truth fix.** `probe:replay` exposed that clips never
+  actually reproduced their runs — quantised storage vs raw live inputs plus
+  unseeded traffic rerolls measured **428 m** of trajectory drift over 40 s.
+  Fixed (the sim steps on what the recorder writes; rounds reroll under a
+  recorded seed; playback replays the countdown), playback and scrubbing now
+  reproduce a recording to **0.0 m, bit-exact**. A reset-in-place world
+  drifts 238 m (Rapier warm-start caches), which is why a rewind rebuilds.
+- **Arenas are piece lists**, verified byte-identical to their old records —
+  array order feeds solver order, so identity was a determinism claim.
+- **AFTERGLOW, handoffs 1–5.** Trails/ghosts/stretch/splash built from
+  geometry; trim in player colour across three archetypes (BLADE / BRUTE /
+  PHANTOM); THEME-spoken tiers, sparse city windows, the UI recolor. The
+  gate's measurable rows: dark-frame rule **92.2%** worst frame on the hero
+  jump and **95.8%** in a 4-way split with reactive traffic (`probe:dark`,
+  ≥85% required — an early 79% violation was ablated to ribbon mass near the
+  lens and fixed with a 14 m lens fade, not by thinning the ribbons); the
+  colourblind palette holds simulated min pairwise distance **124/120/133**
+  across the three axes with four luminance steps; perf floor on a CPU
+  rasteriser **353 fps solo / 224 fps 4-way** at 1080p (`probe:perf
+  --headful` on a target machine still owed for the formal 60/45 verdict).
+
+**Judged on footage, still open:** rotation-as-ribbons in a 9:16 crop,
+landing tier readable with the HUD hidden, and Reduce Effects reading as the
+same game — the re-rendered clips in `public/clips` are the exhibits.
+
 **Build 2 = R1–R4** + minimum audio. **Build 3 = R5 + R6.** **Build 4 = R7.**
 
 ### Build 2 — what shipped
