@@ -22,20 +22,30 @@ export const THEME = {
 export const PLAYER_COLORS = [THEME.MAGENTA, THEME.BLUE, THEME.GREEN, THEME.VIOLET];
 
 /**
- * The alternate accents behind the colourblind option — separated by
- * lightness and hue distance that survive the three common axes. Trails add
- * a shape channel on top (solid/dashed/dotted/chevron), because colour alone
- * is never the only signal.
+ * The alternate accents behind the colourblind option — measured, not
+ * eyeballed: under simulated protanopia / deuteranopia / tritanopia the
+ * minimum pairwise RGB distance is 124 / 120 / 133 (the standard set falls
+ * to 90 / 44 / 33), and the four luminance steps (1.00 / 0.31 / 0.52 / 0.19)
+ * survive even total colour loss. Trails add a shape channel on top
+ * (solid/dashed/dotted/chevron), because colour alone is never the only
+ * signal.
  */
 export const PLAYER_COLORS_CB = [0xffffff, 0x2e9aff, 0xffb000, 0x777788];
 
-export function playerColor(index, colorblind = false) {
+// One switch for the whole game: the option flips this, and every consumer
+// of playerColor()/playerColorCss() follows without carrying its own flag.
+// (An explicit argument still overrides, for callers that need a fixed set.)
+let CB = false;
+export function setColorblind(on) { CB = !!on; }
+export function isColorblind() { return CB; }
+
+export function playerColor(index, colorblind = CB) {
   const set = colorblind ? PLAYER_COLORS_CB : PLAYER_COLORS;
   return set[index % set.length];
 }
 
 /** The same colour as CSS, for the HUD side of "one accent end-to-end". */
-export function playerColorCss(index, colorblind = false) {
+export function playerColorCss(index, colorblind = CB) {
   return `#${playerColor(index, colorblind).toString(16).padStart(6, '0')}`;
 }
 

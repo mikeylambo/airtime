@@ -41,6 +41,7 @@ import { loadClips, saveClip, wallClips } from './storage/clips.js';
 import { LICENCES, evaluate, licenceRank } from './game/licences.js';
 import { Board, dailyVariant, todayKey } from './game/daily.js';
 import { simVersion } from './sim/version.js';
+import { setColorblind, playerColorCss } from './render/theme.js';
 
 const DT = 1 / TUNING.SIM.HZ;
 
@@ -76,6 +77,10 @@ class Game {
     TUNING.CAMERA.STYLE = this.options.cameraStyle;
     TUNING.HUD.SHOW_TELEMETRY = this.options.showTelemetry;
     TUNING.TRAFFIC.MODE = this.options.traffic;
+    // The colourblind option swaps the whole player palette (release spec
+    // §A), so it is set before anything player-coloured is built.
+    setColorblind(this.options.colorblindTrails);
+    document.documentElement.style.setProperty('--p1', playerColorCss(0));
 
     this.art = new ArtDirector(scene, renderer);
     this.arenaView = buildArenaView(scene, this.art, 'park');
@@ -952,7 +957,15 @@ class Game {
     }
     if (k === 'artStyle') this.art.setStyle(v);
     if (k === 'reduceEffects' && this.trails) this.trails.setOptions({ reduceEffects: v });
-    if (k === 'colorblindTrails' && this.trails) this.trails.setOptions({ colorblind: v });
+    if (k === 'colorblindTrails') {
+      // One switch, whole game: trails, trim, split HUD and the CSS accent
+      // all follow the palette in the same frame.
+      setColorblind(v);
+      if (this.trails) this.trails.setOptions({ colorblind: v });
+      for (const cv of this.carViews) cv.retrim();
+      this.splitHud.recolor();
+      document.documentElement.style.setProperty('--p1', playerColorCss(0));
+    }
     if (this.input) this.input.options = this.options;
     return v;
   }

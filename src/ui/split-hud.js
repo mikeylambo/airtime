@@ -60,6 +60,11 @@ export class SplitHud {
     }
   }
 
+  /** The colourblind option swapped the palette — repaint the quarters. */
+  recolor() {
+    this.panels.forEach((p, i) => p.el.style.setProperty('--pc', playerColorCss(i)));
+  }
+
   showLanding(i, result) {
     const p = this.panels[i];
     if (!p) return;

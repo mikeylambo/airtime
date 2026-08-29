@@ -97,8 +97,9 @@ export function buildCarView(scene, art, index = 0) {
 
   // Each player owns one accent colour end-to-end (AFTERGLOW): the trim is
   // drawn in it, and the archetype decides which creases light and how the
-  // light splits between body and glasshouse.
-  const pc = playerColor(index);
+  // light splits between body and glasshouse. The colour is read at use time,
+  // never cached — the colourblind option swaps the whole palette live.
+  const pc = () => playerColor(index);
   let trim = trimFor('vector');
   const trimmed = [
     [body, 'body', () => trim.body], [canopy, 'glass', () => trim.glass],
@@ -108,7 +109,7 @@ export function buildCarView(scene, art, index = 0) {
   for (const [mesh, role, opacity] of trimmed) {
     mesh.castShadow = true;
     mesh.receiveShadow = role === 'body';
-    root.add(art.register(mesh, role, { edge: pc, threshold: trim.threshold, opacity: opacity() }));
+    root.add(art.register(mesh, role, { edge: pc(), threshold: trim.threshold, opacity: opacity() }));
   }
 
   // ── Wheels ──────────────────────────────────────────────────────────────
@@ -123,6 +124,7 @@ export function buildCarView(scene, art, index = 0) {
   rimGeo.rotateZ(Math.PI / 2);
 
   const wheels = [];
+  const rims = [];
   for (let i = 0; i < 4; i++) {
     const pivot = new THREE.Group();          // steering
     const spin = new THREE.Group();           // rolling
@@ -132,7 +134,8 @@ export function buildCarView(scene, art, index = 0) {
     spin.add(art.register(tyre, 'wheel'));
     // The rim's edge circles are the "wheel rings" of the brief — the tyre
     // stays dark, the rim traces two rings of player colour.
-    spin.add(art.register(rim, 'body', { edge: pc, opacity: 0.8 }));
+    spin.add(art.register(rim, 'body', { edge: pc(), opacity: 0.8 }));
+    rims.push(rim);
     pivot.add(spin);
     root.add(pivot);
     wheels.push({ pivot, spin });
@@ -150,12 +153,21 @@ export function buildCarView(scene, art, index = 0) {
     mesh.name = `${slot}_${index}`;
     // Player-coloured, dim at rest: deployment brightens it (see sync) —
     // steering the air literally lights up.
-    scene.add(art.register(mesh, 'panel', { edge: pc, opacity: 0.3 }));
+    scene.add(art.register(mesh, 'panel', { edge: pc(), opacity: 0.3 }));
     panels[slot] = mesh;
   }
 
+  /** Reapply every player-coloured edge — a palette or archetype change. */
+  function retrim() {
+    for (const [mesh, , opacity] of trimmed) {
+      art.setEdgeOpts(mesh, { edge: pc(), threshold: trim.threshold, opacity: opacity() });
+    }
+    for (const rim of rims) art.setEdgeOpts(rim, { edge: pc(), opacity: 0.8 });
+    for (const slot of SLOTS) art.setEdgeOpts(panels[slot], { edge: pc(), opacity: 0.3 });
+  }
+
   return {
-    root, body, wheels, panels, index,
+    root, body, wheels, panels, index, retrim,
 
     /**
      * Re-shape for a given car. Wheels need no help: their local positions come
@@ -165,9 +177,7 @@ export function buildCarView(scene, art, index = 0) {
      */
     setChassis(half, wheel, carId) {
       trim = trimFor(carId);
-      for (const [mesh, , opacity] of trimmed) {
-        art.setEdgeOpts(mesh, { edge: pc, threshold: trim.threshold, opacity: opacity() });
-      }
+      retrim();
       const h = half || H;
       shape(h, wheel || baseWheel);
       // The aero surfaces ride the chassis box, so they scale with it.

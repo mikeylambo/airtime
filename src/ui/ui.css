@@ -13,7 +13,8 @@
   --white-hot: #f4f4ff;
   --good: #39ff88;             /* GREEN — perfect landing */
   --bad: #ff6ec7;
-  --p1: #ff2e9a;               /* MAGENTA — player 1, the default accent */
+  --p1: #ff2e9a;               /* player 1 accent — swapped live by the colourblind option */
+  --brand: #ff2e9a;            /* MAGENTA — the mark itself, never swapped */
   --bg: #0a0a12;               /* VOID */
   --panel: rgba(10, 10, 18, 0.82);
   --line: rgba(46, 154, 255, 0.22);
@@ -49,7 +50,7 @@ body { font-family: var(--mono); color: var(--ink); -webkit-font-smoothing: anti
 
 h1.logo {
   margin: 0; font-size: clamp(3rem, 12vw, 8rem); letter-spacing: .2em; font-weight: 800; line-height: .95;
-  background: linear-gradient(180deg, #fff 8%, var(--p1) 58%, #6e1246 100%);
+  background: linear-gradient(180deg, #fff 8%, var(--brand) 58%, #6e1246 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .eyebrow { color: var(--faint); letter-spacing: .32em; font-size: .68rem; text-transform: uppercase; }
@@ -171,7 +172,7 @@ table.brk tr.crash td { color: #7a4453; }
 .part b { font-weight: 500; }
 .part i { display: block; width: 46px; height: 4px; background: #2a2a44; border-radius: 2px; transform: scaleX(0); transform-origin: right center; }
 .part.on { color: var(--p1); }
-.part.on i { background: var(--p1); box-shadow: 0 0 12px rgba(255,46,154,.7); }
+.part.on i { background: var(--p1); box-shadow: 0 0 12px color-mix(in srgb, var(--p1) 70%, transparent); }
 .part.gone { color: #6b3050; text-decoration: line-through; }
 
 .hud-landing { left: 50%; top: 28%; transform: translate(-50%, -10px); text-align: center; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
@@ -290,7 +291,8 @@ table.brk tr.crash td { color: #7a4453; }
      translating afterwards — the obvious way — throws most of the fan off
      screen entirely, which is exactly what the first version did. */
   transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(-1 * var(--d) * var(--reach)));
-  /* AFTERGLOW §4 recolor: the streaks are ribbon light in the player colour. */
+  /* AFTERGLOW §4 recolor: the streaks are ribbon light in the player colour
+     (via --p1, so the colourblind palette carries through). */
   background: linear-gradient(to bottom,
-    rgba(255,46,154,0) 0%, rgba(255,110,199,.9) 50%, rgba(255,46,154,0) 100%);
+    transparent 0%, color-mix(in srgb, var(--p1) 90%, transparent) 50%, transparent 100%);
 }
