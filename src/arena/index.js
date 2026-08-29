@@ -23,4 +23,5 @@ export function getArena(id = 'park') {
 }
 
 export { describePark, describeCity };
+export { PIECES, expandPieces, serializeArena, parseArena } from './pieces.js';
 export * from './ramp-geometry.js';
