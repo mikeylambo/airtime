@@ -30,7 +30,8 @@
     "probe:gaps": "node tools/probe-gaps.mjs",
     "probe:audio": "node tools/probe-audio.mjs",
     "probe:fx": "node tools/probe-fx.mjs",
-    "probe:replay": "node tools/probe-replay.mjs"
+    "probe:replay": "node tools/probe-replay.mjs",
+    "probe:perf": "node tools/probe-perf.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

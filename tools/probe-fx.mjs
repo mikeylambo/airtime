@@ -25,7 +25,7 @@ const setupFor = (car) => resolveSetup({
   car, livery: 'stock', tune: { weight: .5, suspension: .5, thrust: .5, aero: .5 },
   parts: { doors: 'stock', hood: 'stock', trunk: 'stock', spoiler: 'stock' },
 });
-const newFx = () => new Fx(new THREE.Scene(), { style: 'neon' });
+const newFx = () => new Fx(new THREE.Scene(), { style: 'afterglow' });
 
 // ── 1. Smoke tracks slip, and only slip ───────────────────────────────────
 function smokeFor(slipAngle, airborne, speed) {

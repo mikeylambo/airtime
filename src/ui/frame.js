@@ -258,6 +258,7 @@ export function buildFrame(mgr, game) {
       { key: 'manualAir', label: 'AIR CONTROL', values: [false, true], names: ['STICK', 'PER-PANEL'] },
       { key: 'invertPitch', label: 'INVERT PITCH', values: [false, true] },
       { key: 'showTelemetry', label: 'DEV TELEMETRY', values: [false, true] },
+      { key: 'reduceEffects', label: 'REDUCE EFFECTS', values: [false, true] },
       { key: 'colorblindTrails', label: 'COLOURBLIND TRAILS', values: [false, true] },
       { key: 'haptics', label: 'HAPTICS', values: [true, false] },
     ].map((r) => ({

@@ -10,11 +10,51 @@
 
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
+import { THEME } from './theme.js';
 
-export const STYLES = ['graybox', 'neon', 'lowpoly'];
+export const STYLES = ['afterglow', 'graybox'];
+
+// The looks the pivot retired still live in old saves.
+const LEGACY = { neon: 'afterglow', lowpoly: 'afterglow' };
 
 const PALETTES = {
+  // AFTERGLOW (airtime-art-direction.md): a dark world where speed and
+  // rotation are the only light sources. VOID/ASPHALT own ≥85% of any frame.
+  //
+  // The fills have to be nearly black. Give the faces any real brightness and
+  // they swallow the one-pixel edges completely and the whole thing reads as
+  // flat plastic rather than drawn light. Neon is *earned*: the bright things
+  // are the car's trim, deployed panels, billboards (they are targets —
+  // brightness is "land here" language) and whatever the trails write.
+  afterglow: {
+    background: THEME.VOID, fog: THEME.VOID, fogNear: 150, fogFar: 840,
+    hemiSky: 0x14142a, hemiGround: THEME.VOID, hemiInt: 0.4,
+    sunColor: 0x8888c8, sunInt: 0.38, ambient: 0x07070f,
+    roles: {
+      deck: { color: 0x0d0d16, rough: 1, emissive: 0x040409 },
+      // Ramps are dark slabs with emissive edge-strips; the edge colour is
+      // overridden per ramp to encode its grade (theme.js rampGradeColor).
+      ramp: { color: THEME.ASPHALT, emissive: 0x0a0a12, edge: THEME.GREEN },
+      // Static geometry gets legibility edges, not decoration — dim enough
+      // to read as architecture, never as reward.
+      roof: { color: THEME.ASPHALT, emissive: 0x08080f, edge: 0x30304a },
+      billboard: { color: 0x1a0a14, emissive: 0x53153a, edge: THEME.PINK },
+      pool: { color: 0x0a1512, emissive: 0x0e2a1e, edge: THEME.GREEN },
+      secret: { color: 0x140a1f, emissive: 0x261040, edge: THEME.VIOLET },
+      leg: { color: THEME.ASPHALT, emissive: 0x0a0a12, edge: 0x26263c },
+      // The car is the hero object: near-black body, emissive cut-lines in
+      // the player colour. (Per-player trim colours land with the trim pass.)
+      body: { color: 0x0c0c14, rough: 0.4, metal: 0.2, emissive: 0x1a0714, edge: THEME.MAGENTA },
+      panel: { color: 0x0e0e18, emissive: 0x2a0b1e, edge: THEME.PINK },
+      wheel: { color: 0x0a0a10, emissive: 0x14061a, edge: THEME.VIOLET },
+      // Traffic is dim; players are bright.
+      traffic: { color: 0x101018, emissive: 0x14141f, edge: 0x3a3a55 },
+      glass: { color: 0x08080f, emissive: 0x0d1420, edge: 0x3d5f8a },
+    },
+    grid: 0x232338, gridOpacity: 0.35, lines: true,
+  },
   // The lit gray box §10 asks for: no colour decisions, just form and light.
+  // Kept as the honest diagnostic for judging physics and framing.
   graybox: {
     background: 0x8a97a4, fog: 0x8a97a4, fogNear: 220, fogFar: 1000,
     hemiSky: 0xbcc9d6, hemiGround: 0x4a5058, hemiInt: 0.85,
@@ -36,53 +76,6 @@ const PALETTES = {
       glass: { color: 0x3b444d, rough: 0.25, metal: 0.5 },
     },
     grid: 0x000000, gridOpacity: 0.13, lines: false,
-  },
-  // Rush 2049's own arcade palette, pushed: black void, glowing edges.
-  //
-  // The fills have to be nearly black. Give the faces any real brightness and
-  // they swallow the one-pixel edges completely and the whole thing reads as
-  // flat blue plastic rather than wireframe.
-  neon: {
-    background: 0x03040a, fog: 0x03040a, fogNear: 140, fogFar: 820,
-    hemiSky: 0x0a1226, hemiGround: 0x03040a, hemiInt: 0.35,
-    sunColor: 0x86f2ff, sunInt: 0.55, ambient: 0x05070f,
-    roles: {
-      deck: { color: 0x02030a, rough: 1, emissive: 0x03060f },
-      ramp: { color: 0x040719, emissive: 0x081026, edge: 0x49e0ff },
-      roof: { color: 0x040617, emissive: 0x070e22, edge: 0x3ad6ff },
-      billboard: { color: 0x0a0418, emissive: 0x180830, edge: 0xff3df0 },
-      pool: { color: 0x02100f, emissive: 0x04201e, edge: 0x2bffd6 },
-      secret: { color: 0x140802, emissive: 0x2c1604, edge: 0xffa521 },
-      leg: { color: 0x03050e, emissive: 0x060a16, edge: 0x2a5f8a },
-      // The car is the hero object; it gets to be brighter than the world.
-      body: { color: 0x140823, emissive: 0x2e0d47, edge: 0xff2bd0 },
-      panel: { color: 0x07222f, emissive: 0x0d4a63, edge: 0x49e0ff },
-      wheel: { color: 0x03040a, emissive: 0x0d0418, edge: 0xa040ff },
-      traffic: { color: 0x0a0416, emissive: 0x18062c, edge: 0xffd166 },
-      glass: { color: 0x02040a, emissive: 0x041420, edge: 0x49e0ff },
-    },
-    grid: 0x2ea8dc, gridOpacity: 0.42, lines: true,
-  },
-  // Flat, saturated, unlit-looking — SSX Tricky by way of a paper model.
-  lowpoly: {
-    background: 0xf2e6cf, fog: 0xf2e6cf, fogNear: 320, fogFar: 1200,
-    hemiSky: 0xffffff, hemiGround: 0xb08a5e, hemiInt: 1.15,
-    sunColor: 0xffffff, sunInt: 1.45, ambient: 0x000000,
-    roles: {
-      deck: { color: 0x86b06a, rough: 1, flat: true },
-      ramp: { color: 0xe86a4b, rough: 1, flat: true },
-      roof: { color: 0x4f7fb5, rough: 1, flat: true },
-      billboard: { color: 0xf2c14e, rough: 1, flat: true },
-      pool: { color: 0x3fb7c9, rough: 1, flat: true },
-      secret: { color: 0xb35bd0, rough: 1, flat: true },
-      leg: { color: 0x6b5545, rough: 1, flat: true },
-      body: { color: 0xf25c54, rough: 1, flat: true },
-      panel: { color: 0x2d3142, rough: 1, flat: true },
-      wheel: { color: 0x2e2b2a, rough: 1, flat: true },
-      traffic: { color: 0x4a6fa5, rough: 1, flat: true },
-      glass: { color: 0x8ecae6, rough: 1, flat: true },
-    },
-    grid: 0x2f4a22, gridOpacity: 0.10, lines: false,
   },
 };
 
@@ -124,12 +117,17 @@ export class ArtDirector {
     this.lights = { hemi, sun, amb };
   }
 
-  /** Every mesh declares what it is; the style decides what that looks like. */
-  register(mesh, role) {
-    this.registry.push({ mesh, role });
+  /**
+   * Every mesh declares what it is; the style decides what that looks like.
+   * @param opts { edge } — an edge colour override, e.g. a ramp encoding its
+   *                        grade (AFTERGLOW's "edge colour = how hard this
+   *                        throws you" language).
+   */
+  register(mesh, role, opts = {}) {
+    this.registry.push({ mesh, role, edge: opts.edge });
     if (this.style) {
       this._material(mesh, role);
-      if (PALETTES[this.style].lines) this._edgesFor(mesh, role);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, role, opts.edge);
     }
     return mesh;
   }
@@ -157,7 +155,7 @@ export class ArtDirector {
     let mat = this.materials.get(key);
     if (!mat) {
       mat = new THREE.MeshStandardMaterial({
-        color: (this.tints && this.tints[role] != null && this.style !== 'neon') ? this.tints[role] : spec.color,
+        color: (this.tints && this.tints[role] != null && this.style !== 'afterglow') ? this.tints[role] : spec.color,
         roughness: spec.rough ?? 0.9,
         metalness: spec.metal ?? 0.0,
         emissive: spec.emissive ?? 0x000000,
@@ -173,7 +171,8 @@ export class ArtDirector {
   }
 
   setStyle(style) {
-    if (!STYLES.includes(style)) return;
+    style = LEGACY[style] || style;        // saved options may name a retired look
+    if (!STYLES.includes(style)) style = STYLES[0];
     this.style = style;
     const p = PALETTES[style];
 
@@ -185,8 +184,8 @@ export class ArtDirector {
     this.lights.sun.color.setHex(p.sunColor);
     this.lights.sun.intensity = p.sunInt;
     this.lights.amb.color.setHex(p.ambient);
-    this.lights.amb.intensity = style === 'neon' ? 1.4 : 0;
-    this.renderer.toneMappingExposure = style === 'neon' ? 1.25 : TUNING.RENDER.EXPOSURE;
+    this.lights.amb.intensity = style === 'afterglow' ? 1.4 : 0;
+    this.renderer.toneMappingExposure = style === 'afterglow' ? 1.25 : TUNING.RENDER.EXPOSURE;
 
     for (const { mesh, role } of this.registry) this._material(mesh, role);
     if (this.grid) {
@@ -196,7 +195,7 @@ export class ArtDirector {
     this._setEdges(p.lines);
   }
 
-  /** Neon draws a glowing wireframe over each solid; the others hide them. */
+  /** AFTERGLOW draws glowing edges over each solid; graybox hides them. */
   /**
    * Throw away a mesh's cached wireframe so it can be rebuilt.
    *
@@ -225,20 +224,21 @@ export class ArtDirector {
       if (!entry) continue;
       this.invalidateEdges(mesh);
       this._material(mesh, entry.role);
-      if (PALETTES[this.style].lines) this._edgesFor(mesh, entry.role);
+      if (PALETTES[this.style].lines) this._edgesFor(mesh, entry.role, entry.edge);
     }
   }
 
-  _edgesFor(mesh, role) {
+  _edgesFor(mesh, role, override) {
     if (role === 'wheel' || role === 'traffic' || !mesh.geometry) return;
     if (mesh.isInstancedMesh) return;      // one wireframe per instance is not worth it
     if (mesh.userData.__edge) return;
-    const p = PALETTES.neon.roles[role];
-    if (!p || !p.edge) return;
+    const p = PALETTES[this.style].roles[role];
+    const edge = override ?? (p && p.edge);
+    if (!edge) return;
     const line = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry, 24),
       new THREE.LineBasicMaterial({
-        color: p.edge, transparent: true, opacity: 1,
+        color: edge, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -250,7 +250,7 @@ export class ArtDirector {
 
   _setEdges(on) {
     // Build for anything registered since last time — arenas come and go.
-    if (on) for (const { mesh, role } of this.registry) this._edgesFor(mesh, role);
+    if (on) for (const { mesh, role, edge } of this.registry) this._edgesFor(mesh, role, edge);
     for (const e of this.edges) e.visible = !!on;
   }
 
@@ -259,7 +259,9 @@ export class ArtDirector {
     this.tints = this.tints || {};
     this.tints[role] = hex;
     const mat = this.materials.get(this._key(role));
-    if (mat && this.style !== 'neon') mat.color.setHex(hex);
+    // In AFTERGLOW the body stays near-black — identity is the trim, and a
+    // bright livery would break the ≥85% dark-frame rule single-handedly.
+    if (mat && this.style !== 'afterglow') mat.color.setHex(hex);
   }
 
   next() {

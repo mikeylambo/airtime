@@ -609,10 +609,45 @@ export const TUNING = {
     LINES_MAX_OPACITY: 0.62,
   },
 
+  // ── AFTERGLOW smear (airtime-art-direction.md: geometry, never blur) ─────
+  // These are rates, lifetimes and thresholds; the colours live in
+  // src/render/theme.js. Everything here is a *response* to motion.
+  TRAILS: {
+    RIBBON_LIFE: 1.5,          // seconds a trail ribbon takes to fade
+    RIBBON_POINTS: 44,         // ring buffer per emitter
+    RIBBON_MIN_DIST: 0.35,     // metres between samples
+    RIBBON_WIDTH: 0.22,        // metres, half-width at full strength
+    RIBBON_MIN_SPEED: 14,      // m/s before wheels start writing light
+    PANEL_DEPLOY_MIN: 0.5,     // deploy fraction before a panel edge writes
+    // Rotation ghosts — the flip made visible.
+    GHOST_SPIN: 3.2,           // rad/s of |angvel| that spawns shells
+    GHOST_EVERY: 0.11,         // seconds between shells while spinning
+    GHOST_LIFE: 0.42,          // seconds a shell takes to fade
+    GHOST_MAX: 3,              // live shells per player
+    // Velocity stretch on the emissive trim.
+    STRETCH_FROM: 26,          // m/s where the trim starts to smear
+    STRETCH_FULL: 62,          // m/s of full elongation
+    STRETCH_MAX: 1.35,         // metres of elongation at full speed
+    // Landing splash. The white-hot core obeys the photosensitivity rule:
+    // no flash longer than SPLASH_FLASH seconds, ever (release spec §A).
+    SPLASH_FLASH: 0.12,
+    SPLASH_LIFE: 0.55,         // the expanding ring outline, not a flash
+    SPLASH_RADIUS: 9,          // metres at full expansion, scaled by tier
+    DECAL_LIFE: 90,            // seconds a Perfect's burn mark survives
+    // Persistent lines — the art direction itself: the arena accumulates
+    // everyone's flights over a round.
+    LINE_LIFE: 75,             // seconds an arc glows after it is flown
+    LINE_MIN_SCORE: 400,       // landings below this leave no mark
+    LINE_OPACITY: 0.55,
+    // Reduce Effects (release spec §A): caps, not a different game.
+    REDUCED_RIBBON_POINTS: 18,
+    REDUCED_SPLASH_SCALE: 0.4,
+  },
+
   RENDER: {
-    // Default look. All three ship and cycle at runtime (Options / B key);
+    // Default look. AFTERGLOW is the direction (airtime-art-direction.md);
     // graybox stays the honest one for judging physics and framing.
-    STYLE: 'neon',              // 'graybox' | 'neon' | 'lowpoly'
+    STYLE: 'afterglow',         // 'afterglow' | 'graybox'
     SHADOWS: true,
     SHADOW_MAP: 2048,
     PIXEL_RATIO_CAP: 2,

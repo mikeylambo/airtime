@@ -16,6 +16,35 @@ import TUNING from '../TUNING.js';
 import { SLOTS } from '../sim/panels.js';
 import { buildWedgeBody, buildAeroPlate, PANEL_KIND } from './wedge.js';
 
+/**
+ * AFTERGLOW's velocity stretch: the trim's vertex shader elongates the
+ * trailing side of the silhouette along velocity — fake blur that reads
+ * better than real blur, and costs a dot product (integrated-GPU rule).
+ * Patched onto the edge line's material, which the art director rebuilds
+ * whenever the hull changes, so the caller re-checks every frame.
+ */
+function stretchUniforms(mat) {
+  if (mat.userData.uVel) return mat.userData;
+  const uVel = { value: new THREE.Vector3() };
+  const uStretch = { value: 0 };
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uVel = uVel;
+    shader.uniforms.uStretch = uStretch;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>',
+        '#include <common>\nuniform vec3 uVel;\nuniform float uStretch;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float sw = max(0.0, -dot(uVel, normalize(transformed + vec3(0.0, 0.0, 1e-5))));
+        transformed -= uVel * uStretch * sw;`);
+  };
+  mat.needsUpdate = true;
+  mat.userData.uVel = uVel;
+  mat.userData.uStretch = uStretch;
+  return mat.userData;
+}
+
+const _invQ = new THREE.Quaternion();      // scratch — sync runs every frame
+
 export function buildCarView(scene, art, index = 0) {
   const C = TUNING.CAR;
   const H = C.HALF;
@@ -148,6 +177,23 @@ export function buildCarView(scene, art, index = 0) {
       const p = car.position, q = car.rotation;
       root.position.set(p.x, p.y, p.z);
       root.quaternion.set(q.x, q.y, q.z, q.w);
+
+      // Velocity stretch on the trim (AFTERGLOW). The edge line is rebuilt on
+      // hull or style changes, so the patch is idempotent and re-checked here.
+      const edge = body.userData.__edge;
+      if (edge) {
+        const u = stretchUniforms(edge.material);
+        const T = TUNING.TRAILS;
+        const v = car.linvel;
+        const speed = Math.hypot(v.x, v.y, v.z);
+        const k = Math.min(1, Math.max(0, (speed - T.STRETCH_FROM) / (T.STRETCH_FULL - T.STRETCH_FROM)));
+        u.uStretch.value = k * T.STRETCH_MAX;
+        if (speed > 1) {
+          // World velocity direction into the trim's local space.
+          u.uVel.value.set(v.x / speed, v.y / speed, v.z / speed)
+            .applyQuaternion(_invQ.copy(root.quaternion).invert());
+        } else u.uStretch.value = 0;
+      }
 
       for (let i = 0; i < 4; i++) {
         const w = car.wheelState(i);

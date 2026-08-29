@@ -9,7 +9,7 @@
  *
  *   npm run shots:car            all four distinctive cars, all three styles
  *   node tools/car-shots.mjs needle
- *   STYLES=neon node tools/car-shots.mjs
+ *   STYLES=afterglow node tools/car-shots.mjs
  */
 import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
@@ -45,7 +45,7 @@ await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 
 await page.evaluate(() => window.AIRTIME.game.selectProfile(0));
 
 const cars = process.argv[2] ? [process.argv[2]] : ['vector', 'needle', 'stub', 'proto'];
-for (const style of (process.env.STYLES || 'neon,graybox,lowpoly').split(',')) {
+for (const style of (process.env.STYLES || 'afterglow,graybox').split(',')) {
   for (const car of cars) {
     await page.evaluate(async (carId, st) => {
       const g = window.AIRTIME.game;
@@ -115,7 +115,7 @@ await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 
 await page.evaluate(() => window.AIRTIME.game.selectProfile(0));
 
 const cars = process.argv[2] ? [process.argv[2]] : ['vector', 'needle', 'stub', 'proto'];
-for (const style of (process.env.STYLES || 'neon,graybox,lowpoly').split(',')) {
+for (const style of (process.env.STYLES || 'afterglow,graybox').split(',')) {
   for (const car of cars) {
     await page.evaluate(async (carId, st) => {
       const g = window.AIRTIME.game;

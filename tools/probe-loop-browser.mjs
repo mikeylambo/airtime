@@ -38,7 +38,7 @@ const arena = process.argv.includes('--city') ? 'city' : 'park';
 const out = await page.evaluate(async (arena) => {
   const g = window.AIRTIME.game;
   const HZ = window.AIRTIME.TUNING.SIM.HZ;
-  await g.beginCapture({ script: 'loop', style: 'neon', fps: 30, start: 0, arena });
+  await g.beginCapture({ script: 'loop', style: 'afterglow', fps: 30, start: 0, arena });
   const hits = [];
   const orig = g.hud.showLanding.bind(g.hud);
   g.hud.showLanding = (r) => {

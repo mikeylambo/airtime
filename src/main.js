@@ -22,6 +22,7 @@ import { ArtDirector, STYLES } from './render/art.js';
 import { buildArenaView } from './render/arena-view.js';
 import { buildCarView } from './render/car-view.js';
 import { Fx } from './render/fx.js';
+import { Trails } from './render/trails.js';
 import { buildTrafficView } from './render/traffic-view.js';
 import { CameraDirector, BEHAVIOR } from './render/camera-rig.js';
 import { Viewports } from './render/viewports.js';
@@ -83,6 +84,12 @@ class Game {
     // R7. Particles are a response to the simulation, so they live next to the
     // car views and are driven from the same snapshot and event stream.
     this.fx = new Fx(scene, this.art);
+    // AFTERGLOW's smear: ribbons, persistent lines, ghosts, splashes.
+    this.trails = new Trails(scene);
+    this.trails.setOptions({
+      reduceEffects: !!this.options?.reduceEffects,
+      colorblind: !!this.options?.colorblindTrails,
+    });
     this._fxRand = (() => { let s = 0x9e3779b9; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
     this.carView = this.carViews[0];
     this.trafficView = buildTrafficView(scene, this.art);
@@ -276,6 +283,7 @@ class Game {
     this.launchSteps = new Array(players).fill(0);
     this.lastLaunchStep = 0;
     this.roundClips = [];
+    this.trails.beginRound();          // a fresh round wipes the painted arena
     this.director.reset(this.sim.snapshot());
     this.director.setOverride(null);
     this.hud.shownScore = 0;
@@ -311,6 +319,8 @@ class Game {
    */
   _fx(e) {
     if (this.fx) this.fx.onEvent(e, this.sim.car, this._fxRand);
+    const who = this.sim.players[e.player || 0];
+    if (this.trails && who) this.trails.onEvent(e, who.car);
   }
 
   /** §6.1 auto-save, and §4's crash cam. */
@@ -795,6 +805,12 @@ class Game {
     this.arenaView.syncMovers(state.movers);
     this.arenaView.syncCoins(this.sim.coinsTaken, state.time);
 
+    // The AFTERGLOW smear runs before the split-screen early-out — trails
+    // live in the scene, so every viewport sees them.
+    this.trails.enabled = this.art.style === 'afterglow';
+    this.trails.setPlayerCount(this.playerCount);
+    this.trails.update(dt, state, this.carViews, this.camera, this._fxRand);
+
     // Outside a run the camera shows the car off (§2.1) instead of chasing it.
     let override = this._captureOverride || null;
     if (this.playback) override = this.playback.behavior;
@@ -934,6 +950,8 @@ class Game {
       else TUNING.TRAFFIC.MODE = v;
     }
     if (k === 'artStyle') this.art.setStyle(v);
+    if (k === 'reduceEffects' && this.trails) this.trails.setOptions({ reduceEffects: v });
+    if (k === 'colorblindTrails' && this.trails) this.trails.setOptions({ colorblind: v });
     if (this.input) this.input.options = this.options;
     return v;
   }

@@ -97,13 +97,11 @@ export class Fx {
   /** Colours follow the art style, so particles never look bolted on. */
   _palette() {
     const style = this.art ? this.art.style : 'graybox';
-    if (style === 'neon') {
-      return { smoke: [0.15, 0.35, 0.6], spark: [1.0, 0.55, 1.0], debris: [0.4, 0.9, 1.0],
-               dust: [0.2, 0.5, 0.8], flame: [0.35, 0.9, 1.0] };
-    }
-    if (style === 'lowpoly') {
-      return { smoke: [0.7, 0.72, 0.75], spark: [1.0, 0.8, 0.3], debris: [0.9, 0.6, 0.35],
-               dust: [0.75, 0.7, 0.6], flame: [1.0, 0.6, 0.2] };
+    if (style === 'afterglow') {
+      // Heat is PINK, impacts are BLUE-white, dust is dim violet — the smear
+      // palette (render/theme.js), scaled down because additive stacks.
+      return { smoke: [0.16, 0.14, 0.30], spark: [1.0, 0.43, 0.78], debris: [0.18, 0.60, 1.0],
+               dust: [0.22, 0.18, 0.38], flame: [1.0, 0.43, 0.78] };
     }
     return { smoke: [0.55, 0.58, 0.62], spark: [1.0, 0.75, 0.35], debris: [0.6, 0.62, 0.66],
              dust: [0.6, 0.58, 0.54], flame: [1.0, 0.55, 0.25] };

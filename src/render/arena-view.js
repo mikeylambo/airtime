@@ -5,7 +5,8 @@
 
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
-import { getArena, rampMesh } from '../arena/index.js';
+import { getArena, rampMesh, rampExitAngle } from '../arena/index.js';
+import { rampGradeColor } from './theme.js';
 
 const ROLE_FOR_KIND = {
   platform: 'roof', roof: 'roof', billboard: 'billboard',
@@ -52,7 +53,9 @@ export function buildArenaView(scene, art, arenaId = 'park') {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = r.id;
-    group.add(art.register(mesh, 'ramp'));
+    // AFTERGLOW: the edge-strip colour encodes the grade — how hard this
+    // surface throws you — so the park reads as an instrument in the dark.
+    group.add(art.register(mesh, 'ramp', { edge: rampGradeColor(rampExitAngle(r)) }));
   }
 
   // ── Structures ──────────────────────────────────────────────────────────
@@ -74,7 +77,12 @@ export function buildArenaView(scene, art, arenaId = 'park') {
     if (t.tagged === false) continue;
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(Math.min(t.half.x, t.half.z) * 0.55, 0.35, 8, 32),
-      new THREE.MeshBasicMaterial({ color: TIER_COLOR[t.tier] || 0xffffff, transparent: true, opacity: 0.5 })
+      // Additive, so a marker reads as light on the target rather than a
+      // plastic hoop floating over it — brightness is "land here" language.
+      new THREE.MeshBasicMaterial({
+        color: TIER_COLOR[t.tier] || 0xffffff, transparent: true, opacity: 0.4,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      })
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(t.aim.x, t.aim.y + 1.2, t.aim.z);
@@ -85,11 +93,13 @@ export function buildArenaView(scene, art, arenaId = 'park') {
   group.userData.markers = markers;
 
   // ── Coins (§3.1) ────────────────────────────────────────────────────────
-  const coinGeo = new THREE.TorusGeometry(1.5, 0.32, 8, 18);
+  // AFTERGLOW: "coins are small floating lights defining the authored lines
+  // through the dark" — a light, not a pickup prop, and small on purpose.
+  const coinGeo = new THREE.TorusGeometry(0.95, 0.2, 8, 18);
   coinGeo.rotateY(Math.PI / 2);
   const coins = new THREE.InstancedMesh(
     coinGeo,
-    new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0x8a5a00, emissiveIntensity: 1, roughness: 0.4 }),
+    new THREE.MeshStandardMaterial({ color: 0xf4e9c8, emissive: 0xbfa25a, emissiveIntensity: 1, roughness: 0.4 }),
     Math.max(1, park.coins.length)
   );
   coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

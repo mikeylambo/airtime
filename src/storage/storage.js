@@ -31,13 +31,14 @@ export const Storage = { read, write, drop, key };
 
 // ── Options (§2 Options screen) ───────────────────────────────────────────
 export const DEFAULT_OPTIONS = {
-  artStyle: 'neon',            // 'graybox' | 'neon' | 'lowpoly'
+  artStyle: 'afterglow',       // 'afterglow' | 'graybox' (legacy names remap)
   cameraStyle: 'cinematic',    // 'cinematic' | 'classic'
   traffic: 'reactive',         // 'reactive' | 'ambient'  (§4)
   musicVolume: 0.7,
   sfxVolume: 0.9,
   haptics: true,
   colorblindTrails: false,
+  reduceEffects: false,        // release spec §A — ships the same day the look does
   showTelemetry: false,
   invertPitch: false,
   manualAir: false,
