@@ -415,7 +415,11 @@ export class Trails {
             // way — hot at the source — so the trail reads as drawn light.
             const half = T.RIBBON_WIDTH * w * (0.15 + 0.85 * Math.sin(Math.PI * ageU));
             ox = (ox / ol) * half; oy = (oy / ol) * half; oz = (oz / ol) * half;
-            const glow = fade * 0.8;
+            // Light dissolves at the lens (additive: black = gone). Without
+            // this a ribbon passing the camera is a screen-filling slab, and
+            // the ≥85% dark rule dies at every close flyby (probe:dark).
+            const lens = Math.min(1, Math.hypot(vx, vy, vz) / T.LENS_FADE);
+            const glow = fade * 0.8 * lens * lens;
             const cr = c.r * glow, cg = c.g * glow, cb = c.b * glow;
             // Two triangles: (p-, p+, q-), (q-, p+, q+)
             const quad = [

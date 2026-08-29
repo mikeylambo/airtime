@@ -88,6 +88,8 @@ export function buildArenaView(scene, art, arenaId = 'park') {
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(t.aim.x, t.aim.y + 1.2, t.aim.z);
     ring.userData.tier = t.tier;
+    // Each marker owns its material: the lens fade below is per ring.
+    ring.material = ring.material.clone();
     markers.add(ring);
   }
   group.add(markers);
@@ -182,6 +184,20 @@ export function buildArenaView(scene, art, arenaId = 'park') {
       }
       coins.count = list.length;
       coins.instanceMatrix.needsUpdate = true;
+    },
+
+    /**
+     * Marker light dissolves at the lens, like the trails: a torus crossed
+     * at arm's length reads as a screen-wide arc, and the camera flies
+     * through these constantly (probe:dark caught it on the hero landing).
+     */
+    fadeMarkers(camPos) {
+      for (const ring of markers.children) {
+        const d = Math.hypot(ring.position.x - camPos.x, ring.position.y - camPos.y,
+          ring.position.z - camPos.z);
+        const k = Math.min(1, Math.max(0, (d - 4) / 14));
+        ring.material.opacity = 0.4 * k;
+      }
     },
 
     syncMovers(list) {

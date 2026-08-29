@@ -810,6 +810,7 @@ class Game {
     this.trafficView.sync(state.traffic);
     this.arenaView.syncMovers(state.movers);
     this.arenaView.syncCoins(this.sim.coinsTaken, state.time);
+    this.arenaView.fadeMarkers(this.camera.position);
 
     // The AFTERGLOW smear runs before the split-screen early-out — trails
     // live in the scene, so every viewport sees them.
