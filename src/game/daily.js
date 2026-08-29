@@ -8,6 +8,7 @@
  */
 
 import { Storage } from '../storage/storage.js';
+import { simCurrent } from '../sim/version.js';
 
 export function todayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -60,7 +61,9 @@ export const LocalBoard = {
   },
   async top(day, arena, mode, n = 10) {
     const all = Storage.read(KEY, {});
-    return (all[`${day}:${arena}:${mode}`] || []).slice(0, n);
+    // §R: scores set under different physics are stored but never shown —
+    // they are not comparable to a run made today.
+    return (all[`${day}:${arena}:${mode}`] || []).filter(simCurrent).slice(0, n);
   },
 };
 

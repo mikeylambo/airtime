@@ -52,8 +52,15 @@ export class Traffic {
 
   get mode() { return TUNING.TRAFFIC.MODE; }
 
-  reset() {
+  /**
+   * Reroll for a new round. With a seed the reroll is *reproducible* — §R:
+   * a replayed clip has to see the same traffic the recording saw, and
+   * continuing the sequence (the old behaviour, still the fallback) can only
+   * ever say "different traffic every restart".
+   */
+  reset(seed) {
     this.nearMisses = 0;
+    if (seed !== undefined) this.rng = makeRng((seed >>> 0) ^ 0x7a1c);
     for (const c of this.cars) { c.t = this.rng(); c.swerve = 0; c.panic = 0; c.rearm = 0; c.seen = new Set(); }
   }
 

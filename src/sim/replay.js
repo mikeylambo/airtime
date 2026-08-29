@@ -13,6 +13,7 @@
  */
 
 import TUNING from '../TUNING.js';
+import { simVersion, SCHEMA_VERSION } from './version.js';
 
 const KEYS = ['throttle', 'brake', 'steer', 'boost', 'handbrake',
   'stickX', 'stickY', 'doorL', 'doorR', 'hood', 'trunk', 'spoiler'];
@@ -47,15 +48,27 @@ export function unpack(row) {
   return a;
 }
 
+/** Hands off the wheel — what the sim sees during a countdown. */
+export function neutralActions() {
+  return unpack(new Array(KEYS.length).fill(0));
+}
+
 export class Recorder {
-  constructor({ arena, setup, seed = TUNING.SIM.SEED, profile = null, players = 1, mode = 'stunt' }) {
+  constructor({ arena, setup, seed = TUNING.SIM.SEED, profile = null, players = 1,
+                mode = 'stunt', duration = undefined }) {
     this.meta = {
-      arena, seed, mode, players,
+      arena, seed, mode, players, duration,
       car: setup?.car?.id || 'vector',
       livery: setup?.livery?.id || 'stock',
       tune: profile?.tune ? { ...profile.tune } : null,
       parts: profile?.parts ? { ...profile.parts } : null,
       hz: TUNING.SIM.HZ,
+      // §R: everything a re-simulation depends on that is not in the stream.
+      // The traffic mode is a player option the sim reads live, and the stamp
+      // is what tells a future build this stream still means the same flight.
+      traffic: TUNING.TRAFFIC.MODE,
+      sim: simVersion(),
+      schema: SCHEMA_VERSION,
       created: Date.now(),
     };
     // One stream per driver: split-screen clips have to replay everybody,
@@ -65,18 +78,29 @@ export class Recorder {
     this.step = 0;
   }
 
+  /**
+   * Record one step — and hand back the *canonical* actions, quantised
+   * exactly as stored. The caller must feed those to the sim, not its raw
+   * ones: playback can only ever replay what was written down, so if the
+   * live sim stepped on un-quantised sticks the recording would be a run
+   * that never quite happened, and every clip would drift from the truth
+   * (§R — measured at hundreds of metres over 40 s before this).
+   */
   record(actions, edges) {
     const A = (i) => (Array.isArray(actions) ? actions[i] || {} : actions);
     const E = (i) => (Array.isArray(edges) ? edges[i] || {} : edges);
+    const canon = [];
     for (let i = 0; i < this.streams.length; i++) {
       const st = this.streams[i];
       const p = pack(A(i));
       if (!same(p, st.last)) { st.frames.push([this.step, p]); st.last = p; }
+      canon.push(unpack(p));
       const e = E(i);
       if (e.thrust) st.edges.push([this.step, 'thrust']);
       if (e.reset) st.edges.push([this.step, 'reset']);
     }
     this.step++;
+    return Array.isArray(actions) ? canon : canon[0];
   }
 
   /**
@@ -90,7 +114,13 @@ export class Recorder {
     const end = Math.min(this.step, toStep + post);
     return {
       id: `clip_${this.meta.created}_${focus}_${fromStep}`,
-      meta: this.meta,
+      // A snapshot, never a live reference: a saved clip must not change when
+      // the recorder (or a later clip) does (§R).
+      meta: {
+        ...this.meta,
+        tune: this.meta.tune ? { ...this.meta.tune } : null,
+        parts: this.meta.parts ? { ...this.meta.parts } : null,
+      },
       start, end, focus,
       // The prefix has to be kept: a deterministic replay runs from step zero,
       // so the frames before the window are what get the car there at all.

@@ -39,6 +39,7 @@ import { Recorder, Player } from './sim/replay.js';
 import { loadClips, saveClip, wallClips } from './storage/clips.js';
 import { LICENCES, evaluate, licenceRank } from './game/licences.js';
 import { Board, dailyVariant, todayKey } from './game/daily.js';
+import { simVersion } from './sim/version.js';
 
 const DT = 1 / TUNING.SIM.HZ;
 
@@ -153,8 +154,10 @@ class Game {
    */
   async useArena(id, opts = {}) {
     // Seed the sim with what this profile has already found, so a gap only
-    // reads as a discovery the first time it is ever crossed.
-    const sim = await Sim.create(this.setup(), id, { gapsKnown: this.profile.gaps || [], ...opts });
+    // reads as a discovery the first time it is ever crossed. Playback passes
+    // its own setup — the clip's car, not whatever the garage says today.
+    const sim = await Sim.create(opts.setup || this.setup(), id,
+      { gapsKnown: this.profile.gaps || [], ...opts });
     if (this.arenaId !== id) {
       this.scene.remove(this.arenaView.group);
       this.art.unregisterUnder(this.arenaView.group);
@@ -256,13 +259,19 @@ class Game {
     this.applyLivery();
     this.inRun = true;
     this.playback = null;
-    this.sim.restartRun(mode.id, opts.duration);
+    // §R: a real run rerolls under an explicit seed so its recording can put
+    // the world back. Any value works — it is written into every clip's meta.
+    this.sim.restartRun(mode.id, opts.duration,
+      opts.seed ?? ((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0));
     this.lastStartMs = performance.now() - t0;
     // §6.1: record every run. A clip costs a few KB, so there is no reason to
     // decide in advance which runs are worth keeping.
     this.recorder = new Recorder({
       arena: arena.id, setup: this.setup(), profile: this.profile,
       players, mode: mode.id,
+      // §R: the reroll seed and round length are what replayStart needs to
+      // put the world back exactly where this recording began.
+      seed: this.sim.roundSeed, duration: this.sim.round.duration,
     });
     this.launchSteps = new Array(players).fill(0);
     this.lastLaunchStep = 0;
@@ -338,12 +347,19 @@ class Game {
       parts: clip.meta.parts || {},
     });
     const players = clip.meta.players || 1;
-    await this.useArena(clip.meta.arena, { players, mode: clip.meta.mode || 'stunt' });
-    this.sim = await Sim.create(setup, clip.meta.arena, { players, mode: clip.meta.mode || 'stunt' });
+    // One world, built once (§R). The old path built it twice — useArena and
+    // then a second Sim.create — and threw the first away.
+    await this.useArena(clip.meta.arena, { players, mode: clip.meta.mode || 'stunt', setup });
     this.setPlayerCount(players);
-    this.sim.run.begin();
+    // The sim reads the traffic option live, so playback pins it to what the
+    // recording saw and stopPlayback puts the player's choice back.
+    if (this._trafficBefore === undefined) this._trafficBefore = TUNING.TRAFFIC.MODE;
+    TUNING.TRAFFIC.MODE = clip.meta.traffic || this._trafficBefore;
+    this.sim.replayStart(clip.meta);
     this.playback = {
       clip, player: new Player(clip), paused: false, behavior, freeCam: null,
+      // What a rewind needs to rebuild the world without re-resolving it.
+      setup, players,
       // The reel follows whoever earned the landing (§9).
       focus: clip.focus || 0,
     };
@@ -374,19 +390,44 @@ class Game {
     const pb = this.playback;
     if (!pb) return;
     const target = Math.max(0, Math.min(step, pb.clip.end));
-    // Re-simulating from zero is the only honest seek for a deterministic
-    // replay, and at a few thousand steps it is instant.
+    // Forward is just more of the same steps; backward re-simulates the
+    // prefix in place. Either way the world is never rebuilt (§R).
+    if (target >= pb.player.step) {
+      while (this.playback && this.playback.player.step < target) this.stepPlayback(DT);
+      return;
+    }
     this.playClipFrom(target);
   }
 
+  /**
+   * Rewind. Re-simulating from zero in a *fresh* world is the only honest
+   * seek: probe-replay measures a rebuilt world reproducing the recording to
+   * 0.0 m and a reset-in-place world drifting by hundreds — Rapier's contact
+   * warm-start caches survive any teleport. So a rewind costs one world
+   * build (no arena view work, no double build), and forward seeks cost
+   * nothing at all.
+   */
   async playClipFrom(step) {
     const pb = this.playback;
-    const clip = pb.clip;
-    await this.playClip(clip, { behavior: pb.behavior, fromStart: true });
-    while (this.playback.player.step < step) this.stepPlayback(DT);
+    if (!pb) return;
+    this.sim = await Sim.create(pb.setup, pb.clip.meta.arena,
+      { players: pb.players, mode: pb.clip.meta.mode || 'stunt' });
+    if (this.playback !== pb) return;      // the theater was left mid-build
+    this.sim.replayStart(pb.clip.meta);
+    pb.player.reset();
+    const target = Math.max(0, Math.min(step, pb.clip.end));
+    while (this.playback === pb && pb.player.step < target) this.stepPlayback(DT);
   }
 
-  stopPlayback() { this.playback = null; this.inRun = false; this.director.freeCam = null; }
+  stopPlayback() {
+    this.playback = null;
+    this.inRun = false;
+    this.director.freeCam = null;
+    if (this._trafficBefore !== undefined) {
+      TUNING.TRAFFIC.MODE = this._trafficBefore;
+      this._trafficBefore = undefined;
+    }
+  }
 
   /** Start the free camera where the current shot already is — never a cut. */
   seedFreeCam() {
@@ -622,6 +663,8 @@ class Game {
         day: todayKey(), arena: this.lastArena.id, mode: this.lastMode.id,
         name: this.profile.name, car: this.profile.car,
         score: summary.score, medal: summary.medal, at: Date.now(),
+        // §R: a score set under different physics is not comparable.
+        sim: simVersion(),
       });
     } catch { /* a board being unavailable must never eat a run */ }
   }
@@ -684,7 +727,11 @@ class Game {
       : this.mode === 'demo'
         ? demoEdges(this.demoT, dt, this.demoLaunchT)
         : this.edges;
-    if (this.recorder && this.inRun && this.sim.run.running) this.recorder.record(actions, edges);
+    // The sim steps on what the recorder wrote down, not on the raw sticks —
+    // otherwise a clip replays a run that never quite happened (§R).
+    if (this.recorder && this.inRun && this.sim.run.running) {
+      actions = this.recorder.record(actions, edges);
+    }
     this.sim.step(dt, actions, edges);
     this.edges = {};
     if (this.mode === 'demo' || this.mode === 'loop' || this.mode === 'split') this.demoT += dt;
@@ -880,7 +927,12 @@ class Game {
     if (k === 'showTelemetry') TUNING.HUD.SHOW_TELEMETRY = v;
     if (k === 'sfxVolume' && this.audio) this.audio.setVolume(v);
     if (k === 'mute' && this.audio) this.audio.setMuted(v);
-    if (k === 'traffic') TUNING.TRAFFIC.MODE = v;
+    // While playback has the traffic mode pinned to the clip's, the player's
+    // new choice lands in the saved slot stopPlayback restores from.
+    if (k === 'traffic') {
+      if (this._trafficBefore !== undefined) this._trafficBefore = v;
+      else TUNING.TRAFFIC.MODE = v;
+    }
     if (k === 'artStyle') this.art.setStyle(v);
     if (this.input) this.input.options = this.options;
     return v;

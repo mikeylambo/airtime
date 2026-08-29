@@ -22,6 +22,7 @@ import { Telemetry } from './telemetry.js';
 import { Traffic } from './traffic.js';
 import { Movers } from './movers.js';
 import { getMode } from './modes.js';
+import { neutralActions } from './replay.js';
 import { TIER } from '../arena/stunt-park.js';
 import { rampSurface } from '../arena/index.js';
 
@@ -122,8 +123,17 @@ export class Sim {
     this.p0.place(pos, heading);
   }
 
-  /** A fresh round: clock, scores and coins all back to the start. */
-  restartRun(mode = 'stunt', duration = undefined) {
+  /**
+   * A fresh round: clock, scores and coins all back to the start.
+   *
+   * §R: a round started with an explicit seed rerolls traffic reproducibly,
+   * and the recorder writes that seed down so a clip can put the world back
+   * exactly. Without a seed the reroll continues the sequence as it always
+   * has — the capture rig and every probe run that way, and their bit-for-bit
+   * agreement must not depend on knowing any of this exists.
+   */
+  restartRun(mode = 'stunt', duration = undefined, seed = undefined) {
+    this.roundSeed = seed === undefined ? null : (seed >>> 0);
     this.mode = getMode(mode);
     this.round = new Round(this.mode.id, duration);
     for (let i = 0; i < this.players.length; i++) {
@@ -139,13 +149,31 @@ export class Sim {
       p.reset();
     }
     this.coinsTaken.clear();
-    this.traffic.reset();
+    this.traffic.reset(this.roundSeed ?? undefined);
     this.movers.reset();
     this.telemetry = new Telemetry();
     this._runEnded = false;
     this.modeState = null;
     if (this.mode.init) this.mode.init(this);
     this.events.push({ type: 'runStart', mode: this.mode.id, players: this.players.length });
+  }
+
+  /**
+   * §R: put the world back where a recording started — the recorded reroll
+   * seed, then the countdown played out hands-off, because the input stream
+   * only begins when the round does.
+   *
+   * Only valid on a *fresh* world. Restarting a used one measures ~240 m of
+   * trajectory divergence over 25 s (probe-replay): Rapier keeps contact and
+   * joint warm-start caches that no amount of teleporting clears, so a
+   * rewind has to rebuild the world, not reset it.
+   */
+  replayStart(meta = {}) {
+    this.restartRun(meta.mode || 'stunt', meta.duration, meta.seed);
+    const dt = 1 / TUNING.SIM.HZ;
+    const neutral = this.players.map(() => neutralActions());
+    while (!this.round.running) this.step(dt, neutral);
+    this.drainEvents();
   }
 
   /**

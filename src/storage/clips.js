@@ -7,6 +7,14 @@
 
 import TUNING from '../TUNING.js';
 import { Storage } from './storage.js';
+import { simCurrent } from '../sim/version.js';
+
+/**
+ * §R: a clip whose stamp no longer matches still *plays* — a diverged
+ * re-simulation is harmless and occasionally funny — but anything that claims
+ * to show a real landing (the garage wall, the reel) must skip it.
+ */
+export const clipStale = (c) => !simCurrent(c);
 
 const key = (slot) => `clips:${slot}`;
 
@@ -32,7 +40,7 @@ export function deleteClip(slot, id) {
 /** §8: "best clips auto-hang in the garage; the trophy case is your own footage." */
 export function wallClips(slot, n = 6) {
   return loadClips(slot)
-    .slice()
+    .filter((c) => !clipStale(c))
     .sort((a, b) => (b.info?.total || 0) - (a.info?.total || 0))
     .slice(0, n);
 }

@@ -11,7 +11,7 @@
 import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
 import { BEHAVIOR } from '../render/camera-rig.js';
-import { deleteClip } from '../storage/clips.js';
+import { deleteClip, clipStale } from '../storage/clips.js';
 
 const CAMERAS = [
   { id: null, label: 'AS IT HAPPENED' },
@@ -47,7 +47,7 @@ export function buildTheater(mgr, game) {
         ? game.replays.map((c) => ({
             label: `${(c.info.total || 0).toLocaleString()}`,
             clip: c,
-            note: `${c.info.quality} · ${c.info.airtime}s · ${c.info.arena} · ${ago(c.meta.created)}`,
+            note: `${clipStale(c) ? 'OLD PHYSICS · ' : ''}${c.info.quality} · ${c.info.airtime}s · ${c.info.arena} · ${ago(c.meta.created)}`,
           }))
         : [{ label: 'NOTHING SAVED YET', locked: true, note: `land over ${TUNING.REPLAY.AUTOSAVE_SCORE} points` }];
       list = makeList(document.getElementById('rep-list'), items, (it) => {
