@@ -130,7 +130,7 @@ needed proving. It is now a wedge exotic — and the wedge language is the
 *cheapest* car we could possibly draw. It is all straight lines and flat
 planes, and curvature is the expensive thing.
 
-It also happens to be what our looks want. The neon style works by drawing
+It also happens to be what our looks want. AFTERGLOW works by drawing emissive
 edges, and an angular body generates clean ones; a curved body gives either no
 edges under smooth shading or a mess of triangulation seams.
 

@@ -163,7 +163,7 @@ export class ArtDirector {
         // Neon draws the wireframe on top; without this the near faces of a
         // ramp hide the edges of everything behind them.
         polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-        flatShading: !!spec.flat || this.style === 'lowpoly',
+        flatShading: !!spec.flat,
       });
       this.materials.set(key, mat);
     }
