@@ -650,15 +650,38 @@ worse than no perf gate; `README.md` carries the procedure.
 **And then it was taken.** 2026-08-30, on the owner's MacBook Pro, with the
 fixed flag and a real driver serving the frames:
 
-> `PASS  60fps solo, ≥45fps 4-way at 1080p on this machine`
+| | avg | fps | p95 | ribbon quads |
+|---|---|---|---|---|
+| solo, full effects | 3.0 ms | 329 | 4.2 ms | 28 |
+| solo, reduce effects | 2.8 ms | 354 | 3.4 ms | 28 |
+| 4-way, full effects | 8.0 ms | 125 | 8.9 ms | 217 |
+| 4-way, reduce effects | 8.7 ms | 115 | 9.7 ms | 113 |
 
-That closes the art brief's last measurable clause. One caveat kept on the
-record: the brief says *"target hardware has no dedicated GPU"*, and Apple
-Silicon's integrated GPU satisfies that on the letter while being a long way
-from the weak end of it. The floor case — an older Intel integrated laptop —
-is still untested, and the honest reading of this pass is "the pipeline is not
-GPU-bound on integrated graphics", not "it clears 60 on every machine that has
-none".
+`PASS  60fps solo, ≥45fps 4-way at 1080p on this machine` — 5.5× the solo bar
+and 2.8× the four-way one.
+
+**And the renderer line is the interesting part of it.** It read `ANGLE (AMD,
+ANGLE Metal Renderer: AMD Radeon Pro 5300M)`. That is a *discrete* GPU. The
+clause this run was taken against says **"target hardware has no dedicated
+GPU"** — so the numbers pass and the machine does not qualify, and the clause
+is not closed. It is the same class of mistake the flag itself was making a
+commit earlier: a verdict issued on hardware nobody checked. The probe now
+prints the renderer precisely so the check is unavoidable, and `--low-power`
+asks a dual-GPU laptop for its integrated adapter, with the printed string as
+the proof it took. The floor case remains genuinely untested.
+
+**Two readings the table supports, and one it does not.** Reduce Effects is
+nearly free on a real GPU — 7% solo, against the 40% it buys on the CPU
+rasteriser — which settles what it is: a photosensitivity setting, not a
+performance lever, and it should never be offered as the answer to a slow
+machine. Four-way it measured *slower* (8.7 ms against 8.0) while drawing half
+the ribbon geometry, 113 quads against 217. That would be worth chasing if it
+were real, and it may not be: the four configurations run back to back, so a
+laptop warming up charges the difference to whichever ran last, and the 0.7 ms
+gap is the same size as this container's own pass-to-pass drift on an identical
+configuration. `--repeat=N` now runs the list N times, reverses the order on
+alternate passes and reports the spread, which is what separates a cost from a
+thermal ramp. Until that runs, it is an observation, not a finding.
 
 ### Build 10 — R10 and R11, and the law that came with them
 

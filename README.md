@@ -57,12 +57,33 @@ node tools/probe-perf.mjs --headful
 
 A window opens, four runs go past (solo and four-way, each at full effects and
 Reduce Effects), and it exits 0 on PASS, 1 on FAIL. `--frames=N` shortens each
-run from the default 240.
+run from the default 240; `--repeat=N` runs the whole list N times, reversing
+the order on alternate passes, and reports how much the machine drifted between
+them; `--low-power` asks a dual-GPU laptop for its integrated adapter.
 
-**Taken 2026-08-30 on a MacBook Pro: PASS** — 60 fps solo and ≥45 fps four-way
-at 1080p. The weak end of "integrated" (an older Intel laptop) is still
-untested, so read it as "not GPU-bound on integrated graphics" rather than as a
-guarantee for every machine without a dedicated card.
+**Taken 2026-08-30: PASS**, on a MacBook Pro through ANGLE/Metal.
+
+| | avg | fps | p95 | ribbon quads |
+|---|---|---|---|---|
+| solo, full effects | 3.0 ms | 329 | 4.2 ms | 28 |
+| solo, reduce effects | 2.8 ms | 354 | 3.4 ms | 28 |
+| 4-way, full effects | 8.0 ms | 125 | 8.9 ms | 217 |
+| 4-way, reduce effects | 8.7 ms | 115 | 9.7 ms | 113 |
+
+5.5× the solo bar and 2.8× the four-way bar. **But the renderer line said
+`AMD Radeon Pro 5300M`, which is a discrete GPU** — so this passes the numbers
+while not being the machine the clause is about. The brief's target is hardware
+with *no* dedicated GPU, and that is still untested. `--low-power` is the cheap
+attempt at it on the same laptop; the printed renderer string is how you know
+whether it took, which is why the probe prints it.
+
+Two things the table says on its own. Reduce Effects is nearly free on a real
+GPU (7% solo) rather than the 40% it buys on a CPU rasteriser — it is a
+photosensitivity setting, not a performance lever, and should not be sold as
+one. And four-way it measured *slower* while drawing half the ribbon geometry,
+which is either a real cost or the laptop warming up over four back-to-back
+runs; the gap is the same size as this container's own pass-to-pass drift, so
+it is not yet a finding. `--repeat=2` is what tells the two apart.
 
 It prints the renderer string it actually got, and **refuses to grade a
 software rasteriser under `--headful`** (exit 2) — which is what you get from

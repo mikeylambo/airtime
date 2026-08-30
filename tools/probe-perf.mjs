@@ -35,6 +35,15 @@ const DIST = join(ROOT, 'dist');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.wasm': 'application/wasm' };
 const HEADFUL = process.argv.includes('--headful');
 const FRAMES = Number((process.argv.find((a) => a.startsWith('--frames=')) || '').split('=')[1] || 240);
+// On a laptop with two GPUs the browser takes the fast one, which is not the
+// machine the bar is written about. This asks macOS/Chromium for the low-power
+// adapter; whether it worked is not assumed, it is read back off the context
+// and printed with everything else.
+const LOWPOWER = process.argv.includes('--low-power');
+// Each configuration is timed back to back, so a laptop that heats up over the
+// four runs charges the difference to whichever ran last. Repeating the whole
+// list makes that visible instead of letting it read as a result.
+const REPEAT = Number((process.argv.find((a) => a.startsWith('--repeat=')) || '').split('=')[1] || 1);
 
 if (!existsSync(join(DIST, 'index.html'))) {
   console.error('no dist/ — run `npm run build` first');
@@ -60,6 +69,7 @@ const browser = await puppeteer.launch({
   args: [
     '--no-sandbox',
     ...(HEADFUL ? [] : ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']),
+    ...(LOWPOWER ? ['--force_low_power_gpu'] : []),
     '--window-size=1920,1080',
   ],
   defaultViewport: { width: 1920, height: 1080 },
@@ -108,11 +118,33 @@ const SOFTWARE = /swiftshader|llvmpipe|software|basic render/i.test(RENDERER);
 console.log(`── probe:perf · 1920×1080 · ${FRAMES} frames each ──`);
 console.log(`   renderer: ${RENDERER}${SOFTWARE ? '  (software rasteriser)' : ''}\n`);
 const out = {};
-for (const [label, cfg] of runs) {
-  const r = await measure(label, cfg);
-  out[label.trim()] = r;
-  console.log(`${label}  avg ${r.avg.toFixed(1).padStart(6)} ms (${(1000 / r.avg).toFixed(0).padStart(3)} fps)` +
-    `  p95 ${r.p95.toFixed(1).padStart(6)} ms  ribbon quads ${r.live}`);
+const passes = [];
+for (let pass = 0; pass < REPEAT; pass++) {
+  // Reversed on every other pass. If a configuration is slower only when it
+  // runs late, that is the machine warming up and not the configuration.
+  const order = pass % 2 ? [...runs].reverse() : runs;
+  if (REPEAT > 1) console.log(`  pass ${pass + 1}/${REPEAT}${pass % 2 ? '  (reversed)' : ''}`);
+  const seen = {};
+  for (const [label, cfg] of order) {
+    const r = await measure(label, cfg);
+    seen[label.trim()] = r;
+    // The last pass is the one the verdict is taken on, so it is the one kept.
+    out[label.trim()] = r;
+    console.log(`${REPEAT > 1 ? '  ' : ''}${label}  avg ${r.avg.toFixed(1).padStart(6)} ms (${(1000 / r.avg).toFixed(0).padStart(3)} fps)` +
+      `  p95 ${r.p95.toFixed(1).padStart(6)} ms  ribbon quads ${r.live}`);
+  }
+  passes.push(seen);
+}
+
+// Same configuration, different pass: how much the machine itself drifted.
+if (REPEAT > 1) {
+  console.log('\n  drift between passes (same configuration, so this is the machine, not the build)');
+  for (const [label] of runs) {
+    const k = label.trim();
+    const ms = passes.map((p) => p[k].avg);
+    const spread = Math.max(...ms) - Math.min(...ms);
+    console.log(`  ${label}  ${ms.map((m) => m.toFixed(1)).join(' → ')} ms   spread ${spread.toFixed(1)} ms`);
+  }
 }
 
 await browser.close();
