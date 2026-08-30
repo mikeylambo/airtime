@@ -18,6 +18,7 @@ import { buildParty } from './party.js';
 import { buildMastery } from './mastery.js';
 import { BOARDS as BOARD_LIST } from '../game/boards.js';
 import { DEFAULT_BINDINGS, BINDING_LABELS, keyLabel } from '../input/input.js';
+import { exportSaveText, saveFilename, importSave, describeImport } from '../storage/savefile.js';
 
 import { LENGTH as GAUNTLET_LENGTH } from '../game/gauntlet.js';
 
@@ -326,6 +327,7 @@ export function buildFrame(mgr, game) {
       { key: 'colorblindTrails', label: 'COLOURBLIND PALETTE', values: [false, true] },
       { key: 'haptics', label: 'HAPTICS', values: [true, false] },
       { key: 'controls', label: 'CONTROLS', values: null },
+      { key: 'save', label: 'SAVE DATA', values: null },
     ].map((r) => ({
       ...r,
       label: r.label,
@@ -346,6 +348,7 @@ export function buildFrame(mgr, game) {
     onMenu: (m) => {
       if (m.back) return mgr.back('main');
       if (m.confirm && optList.item.key === 'controls') return mgr.push('controls');
+      if (m.confirm && optList.item.key === 'save') return mgr.push('savedata');
       if (m.left || m.right) {
         const row = optList.item;
         if (row.key === 'controls') return;
@@ -427,6 +430,69 @@ export function buildFrame(mgr, game) {
         return;
       }
       bindList.handle(m);
+    },
+  });
+
+  // ── Save data (§S) ──────────────────────────────────────────────────────
+  // localStorage is the most fragile place a save has ever lived: a cleared
+  // browser, a private window or a new machine takes it without warning, and a
+  // hundred and forty-eight challenges is a lot of hours to keep somewhere a
+  // "clear browsing data" can erase by accident.
+  let saveList;
+  let saveNote = '';
+  const savePick = (it) => {
+    if (it.key === 'export') {
+      const blob = new Blob([exportSaveText()], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = saveFilename();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoked on the next turn of the loop rather than immediately: some
+      // browsers have not started reading the blob when click() returns.
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      saveNote = `written to ${saveFilename()}`;
+      saveList.setItems(saveItems());
+      return;
+    }
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'application/json,.json';
+    picker.addEventListener('change', async () => {
+      const file = picker.files && picker.files[0];
+      if (!file) return;
+      const r = importSave(await file.text());
+      saveNote = describeImport(r);
+      saveList.setItems(saveItems());
+      // Everything downstream reads storage at construction, so the only
+      // honest thing to do after replacing it wholesale is start again.
+      if (r.ok) setTimeout(() => window.location.reload(), 1200);
+    });
+    picker.click();
+  };
+  const saveItems = () => [
+    { key: 'export', label: 'EXPORT SAVE TO A FILE', note: '' },
+    { key: 'import', label: 'IMPORT SAVE FROM A FILE', note: '' },
+    { key: 'note', label: saveNote ? '' : ' ', note: saveNote, locked: true },
+  ];
+  S('savedata', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow">Options · Save data</div><h2 class="title">SAVE</h2>
+      <p class="blurb">Everything — profiles, medals, challenges, ghosts, boards and
+        settings — as one file. Runs recorded under different physics are left
+        out of an import rather than replayed into nonsense.</p>
+      <div class="list" id="save-list"></div>
+      <div class="hint"><b>A</b> choose · <b>B</b> back</div>
+    </div>`,
+    onEnter: () => {
+      saveNote = '';
+      saveList = makeList(document.getElementById('save-list'), saveItems(), savePick);
+    },
+    onMenu: (m) => {
+      if (m.back) return mgr.back('options');
+      saveList.handle(m);
     },
   });
 

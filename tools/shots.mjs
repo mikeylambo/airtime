@@ -64,6 +64,7 @@ const SHOTS = [
   ['options', null],
   ['controls', null],
   ['photowarn', null],
+  ['savedata', null],
   ['run', 'run'],
   ['city', 'city'],
   // R10: the three arenas that did not exist when these exhibits were last

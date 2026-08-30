@@ -8,6 +8,11 @@
 > letters the briefs reference (§A accessibility, §L font licensing, §M UGC
 > moderation) are known to exist but their text is not; re-issue the full doc
 > when available and replace this file.
+>
+> §A, §L and §S below are written from **what was built** rather than from the
+> original spec, and are marked as such. If the real document turns up they
+> should be checked against it — these are what the build does, not
+> necessarily what was asked for.
 
 ## §R — Replay versioning (implemented in the current build cycle)
 
@@ -53,9 +58,52 @@ deterministic node-side sim and publishes the score *it* computed. The
 existing headless sim makes real anti-cheat nearly free. Requires §R stamps so
 the server knows which sim to run. Lands with the Supabase board adapter.
 
+## §S — Save export and import (built, not from the spec)
+
+Everything the game knows about a player lives in localStorage, which does not
+survive a cleared browser, a private window, a new machine or a domain change,
+and goes without warning. One file, out and back.
+
+The export sweeps the `airtime:` prefix rather than enumerating known keys. An
+enumeration is wrong the first time somebody adds a key and forgets this file,
+and the failure is silent and surfaces as *somebody else's* lost progress. A
+system added later is backed up the day it ships.
+
+Imports carry the §R stamps and act on them: progress is portable across a
+physics change — a medal is a medal — but ghosts are input streams that
+re-simulate, so they are dropped from a stale-sim import and the screen says
+so. A save from a *newer* schema is refused outright rather than written over a
+working profile. `npm run probe:save` drives the round trip and the refusals.
+
+## §A — Accessibility guardrails (built, not from the spec)
+
+The binding rules are quoted in the AFTERGLOW brief; what they resolved to:
+
+- **Reduce Effects** — one switch in `render/theme.js` that every emissive
+  system reads. Caps the sign flash, dims the brake discs, shortens the trails
+  and fades the ghost (it dims, never hides: hiding your opponent is not
+  reducing effects, it is leaving the mode).
+- **Photosensitivity** — the flash cap is a TUNING constant enforced in
+  `render/signs.js`, and a notice is shown once before the first round which
+  offers the switch on the spot. A warning that names a risk and then makes you
+  go and find the setting is a disclaimer, not a guard.
+- **Colourblind palette** — one switch, measured under simulated protanopia,
+  deuteranopia and tritanopia; shape-coded trails as the second channel.
+- **Remapping** — every keyboard verb is named and rebindable by pressing the
+  key. Menu keys deliberately are not: a player who rebinds their way out of
+  the menus cannot reach the screen that would fix it.
+
+## §L — Font and display-face licensing (closed, nothing owed)
+
+The UI uses system font stacks only — `ui-monospace, SF Mono, Menlo, Consolas,
+monospace` — with no `@font-face`, no webfont links and no bundled faces. There
+is nothing to license. (A trademark search on the name "AIRTIME" is a separate
+concern, and not this section.)
+
 ## Referenced but not reconstructed
 
-- **§A** — accessibility guardrails (Reduce Effects, photosensitivity limits,
-  colorblind palette). The binding rules are quoted in the AFTERGLOW brief.
-- **§L** — font/display-face licensing for the UI pass.
+- **§O** — onboarding / attract mode. The title screen has an attract hook;
+  whether the spec asked for more than that is not known.
+- **§D** — distribution: the itch page, watermarked exports.
 - **§M** — UGC moderation for shared parks (report button, takedown path).
+  Not needed until the park editor ships in v2.

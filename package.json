@@ -40,7 +40,8 @@
     "probe:mastery": "node tools/probe-mastery.mjs",
     "probe:menus": "node tools/probe-menus.mjs",
     "lines:city": "node tools/lines.mjs --city",
-    "gaps:city": "node tools/lines.mjs --city --emit-gaps"
+    "gaps:city": "node tools/lines.mjs --city --emit-gaps",
+    "probe:save": "node tools/probe-save.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

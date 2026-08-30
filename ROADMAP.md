@@ -233,7 +233,8 @@ or it does not ship.
 | **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | **built** (R10) — routes in *time*; the best surfaces move |
 | **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | **built** (R10) — the only arena with a *direction* |
 | **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | **built** (R10) — no ground; a miss is a demotion |
-| **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | **a mode** (R9) — twelve chained trials at 90 challenges; becomes an arena in R10 |
+| **The Concourse** | *(not in the original six)* An interior: a roofed transit hall. | **built** (R12) — the only arena with a ceiling |
+| **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | **a mode** (R9) — eighteen chained trials; stays a mode by design |
 
 Traffic settles here: it is an **ingredient of Vertical City**, not a universal
 boost economy. That resolves the tension left open in Build 2.
@@ -351,6 +352,7 @@ capture exactly that, unedited, in one take, the game is real.
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | **done** — 103 challenges, a ghost reproduces its run to 0.0000 m |
 | **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | **done** — five arenas, none Pareto-dominated, each the maximum on some axis |
 | **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | **done** — ten modes, HORSE, run codes, the daily set |
+| **R12 — Arena six** | Finish the content roster | THE CONCOURSE: an interior, where you cannot solve anything by going up | Non-dominated on the seven-lens analysis, and passes `npm run lines` | **done** — six arenas, a new `enclosure` axis, and a clearance check for ceilings |
 | **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
 
 ### The 2026-08-29 pivot — AFTERGLOW and the editor

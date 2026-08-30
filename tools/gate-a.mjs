@@ -40,6 +40,9 @@ const CHECKS = [
   ['R10', 'Skyline is a network', 'lines.mjs', ['--arena', 'sky']],
   ['R10', 'six instruments, each the most something', 'probe-arenas.mjs'],
   ['R11', 'seven lenses, and a run is a string', 'probe-party.mjs'],
+  // §S. A save file fails invisibly: nobody finds out the export was broken
+  // until they have already lost the thing it was there to protect.
+  ['§S', 'the save survives the round trip', 'probe-save.mjs'],
 ];
 
 const verbose = process.argv.includes('--verbose');

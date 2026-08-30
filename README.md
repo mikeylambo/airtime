@@ -35,6 +35,8 @@ npm run dev
 | `npm run probe:gaps` | do the named gaps hold up in the real solver |
 | `npm run probe:audio` | the soundscape handoff, the duck, the room |
 | `npm run probe:fx` | particles as a response, and the pool ceiling |
+| `npm run probe:arenas` | are these six instruments, or one arena with six skins? |
+| `npm run probe:save` | §S — does a save survive the round trip |
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
@@ -551,7 +553,7 @@ src/sim/                 headless — no three.js below this line
   airtime tricks run     launch/landing, trick naming, the round
   traffic movers         §4 traffic, §6.2 train / helicopter / billboard
   cars replay telemetry  garage setups, state-based replay, landing rate
-src/arena/               two arenas as data: stunt park, city block
+src/arena/               six arenas as data, one file each
 src/render/              three.js: scene, car, arena, camera director, art
 src/ui/                  screen manager and every §2 screen
 src/game/                licences, daily seed, leaderboard adapter
