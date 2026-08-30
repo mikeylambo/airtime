@@ -102,16 +102,16 @@ export function buildFrame(mgr, game) {
       document.getElementById('main-who').textContent =
         `${game.profile.name} · ${medalCount(game.profile)} medals`;
       const last = `${game.lastMode.label} · ${game.lastArena.label}`;
+      // Seven items, down from eleven. The premium main menu names a
+      // destination and trusts it — the greyed "car, tuning, parts, livery"
+      // subtitles were noise, and five of the old items were really two
+      // rooms: PROGRESS (what to chase) and REPLAYS (recorded runs).
       mainList = makeList(document.getElementById('main-list'), [
         { label: 'PLAY', note: last },
-        { label: 'GARAGE', note: 'car, tuning, parts, livery' },
-        { label: 'REPLAYS', note: `${game.replays.length} saved` },
-        { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
-        { label: 'BOARDS', note: `${BOARD_COUNT} of them` },
-        { label: 'GHOSTS', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved` },
-        { label: 'RUN CODES', note: 'send somebody your run' },
-        { label: 'DAILY LINE', note: game.dailyLabel() },
-        { label: 'LICENCES', note: `${Object.keys(game.profile.licences).length}/${game.licences.length}` },
+        { label: 'GARAGE', note: '' },
+        { label: 'PROGRESS', note: `${game.challengeCount}/${game.challengeTotal}` },
+        { label: 'REPLAYS', note: game.ghost ? `racing ${game.ghost.name}` : '' },
+        { label: 'BOARDS', note: '' },
         // §8: unlocked, not offered. It is not in the menu until it is earned.
         ...(game.gauntletUnlocked
           ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/${GAUNTLET_LENGTH}` }] : []),
@@ -119,13 +119,9 @@ export function buildFrame(mgr, game) {
       ], (it) => {
         if (it.label === 'PLAY') mgr.push('mode');
         else if (it.label === 'GARAGE') mgr.push('garage');
-        else if (it.label === 'REPLAYS') mgr.push('replays');
-        else if (it.label === 'CHALLENGES') mgr.push('challenges');
+        else if (it.label === 'PROGRESS') mgr.push('progresshub');
+        else if (it.label === 'REPLAYS') mgr.push('replayhub');
         else if (it.label === 'BOARDS') mgr.push('boards');
-        else if (it.label === 'GHOSTS') mgr.push('ghosts');
-        else if (it.label === 'RUN CODES') mgr.push('codes');
-        else if (it.label === 'DAILY LINE') mgr.push('boards', { board: 'daily' });
-        else if (it.label === 'LICENCES') mgr.push('licences');
         else if (it.label === 'THE GAUNTLET') mgr.push('gauntlet');
         else if (it.label === 'OPTIONS') mgr.push('options');
       });
@@ -308,6 +304,51 @@ export function buildFrame(mgr, game) {
       });
     },
     onMenu: (m) => { if (m.back) mgr.go('main'); else resultList.handle(m); },
+  });
+
+  // ── Progress hub (§UI: folds challenges, licences and the daily line) ────
+  // These three are the same question — "what should I be chasing?" — so they
+  // are one room now instead of three top-level menu items. back() pops the
+  // stack, so each destination returns here on its own.
+  let progList;
+  const progItems = () => {
+    const p = game.profile;
+    return [
+      { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}`, go: 'challenges' },
+      { label: 'LICENCES', note: `${Object.keys(p.licences).length}/${game.licences.length}`, go: 'licences' },
+      { label: 'DAILY LINE', note: game.dailyLabel(), go: 'daily' },
+    ];
+  };
+  S('progresshub', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow">Your standing</div><h2 class="title">PROGRESS</h2>
+      <div class="list" id="prog-list"></div>
+      <div class="hint"><b>A</b> open · <b>B</b> back</div>
+    </div>`,
+    onEnter: () => {
+      progList = makeList(document.getElementById('prog-list'), progItems(),
+        (it) => (it.go === 'daily' ? mgr.push('boards', { board: 'daily' }) : mgr.push(it.go)));
+    },
+    onMenu: (m) => { if (m.back) mgr.back('main'); else progList.handle(m); },
+  });
+
+  // ── Replays hub (§UI: folds the theater, ghosts and run codes) ───────────
+  let repList;
+  const repItems = () => [
+    { label: 'WATCH', note: `${game.replays.length} saved`, go: 'replays' },
+    { label: 'GHOSTS', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved`, go: 'ghosts' },
+    { label: 'RUN CODES', note: 'paste or share a run', go: 'codes' },
+  ];
+  S('replayhub', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow">Recorded runs</div><h2 class="title">REPLAYS</h2>
+      <div class="list" id="rep-list"></div>
+      <div class="hint"><b>A</b> open · <b>B</b> back</div>
+    </div>`,
+    onEnter: () => {
+      repList = makeList(document.getElementById('rep-list'), repItems(), (it) => mgr.push(it.go));
+    },
+    onMenu: (m) => { if (m.back) mgr.back('main'); else repList.handle(m); },
   });
 
   // ── Options (§2.1) ───────────────────────────────────────────────────────

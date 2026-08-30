@@ -93,12 +93,22 @@ The binding rules are quoted in the AFTERGLOW brief; what they resolved to:
   key. Menu keys deliberately are not: a player who rebinds their way out of
   the menus cannot reach the screen that would fix it.
 
-## §L — Font and display-face licensing (closed, nothing owed)
+## §L — Font and display-face licensing (satisfied; three OFL faces)
 
-The UI uses system font stacks only — `ui-monospace, SF Mono, Menlo, Consolas,
-monospace` — with no `@font-face`, no webfont links and no bundled faces. There
-is nothing to license. (A trademark search on the name "AIRTIME" is a separate
-concern, and not this section.)
+The UI overhaul introduced a real type system — **Anton** (display / wordmark),
+**Barlow Semi Condensed** (UI reading) and **Space Mono** (live data). All
+three are under the **SIL Open Font License 1.1**, which permits embedding,
+commercial use, and self-hosting on a web page without royalty; the only bars
+are selling the fonts standalone and shipping a modified font under a reserved
+name, and the build does neither.
+
+They are **self-hosted**, not loaded from Google's CDN: the latin woff2 subsets
+(164 KB total) live in `public/fonts/` with an `@font-face` sheet, so there is
+no third-party request, no flash of fallback, and the game works offline. Keep
+the OFL text with the fonts if the build is ever redistributed as source.
+
+(This supersedes the earlier note that the UI used system fonts only. A
+trademark search on the name "AIRTIME" is a separate concern, not this section.)
 
 ## Referenced but not reconstructed
 

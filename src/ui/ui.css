@@ -18,13 +18,25 @@
   --bg: #0a0a12;               /* VOID */
   --panel: rgba(10, 10, 18, 0.82);
   --line: rgba(46, 154, 255, 0.22);
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* MARQUEE type system (§UI overhaul). Three roles, never crossed:
+       display — identity: the wordmark, screen titles, frozen hero numbers.
+       ui      — the reading: menu rows, blurbs, hints, cards.
+       data    — live/ticking numerals where fixed width earns its place:
+                 the HUD, breakdown columns, run codes, telemetry.
+     Monospace used to set the entire interface, which is what made it read as
+     a dev console rather than a game. It is the data voice now, and only that. */
+  --f-display: "Anton", "Arial Narrow", system-ui, sans-serif;
+  --f-ui: "Barlow Semi Condensed", system-ui, sans-serif;
+  --f-data: "Space Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --mono: var(--f-data);      /* legacy alias — a few rules still read --mono */
   --t: 0.26s;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
-body { font-family: var(--mono); color: var(--ink); -webkit-font-smoothing: antialiased; }
+body { font-family: var(--f-ui); color: var(--ink); -webkit-font-smoothing: antialiased;
+  font-size: 17px; }
 #view { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 
 /* ── Screen manager (§2.1: <=300ms, eased, never cut) ───────────────────── */
@@ -49,23 +61,29 @@ body { font-family: var(--mono); color: var(--ink); -webkit-font-smoothing: anti
 .pane > * { position: relative; }
 
 h1.logo {
-  margin: 0; font-size: clamp(3rem, 12vw, 8rem); letter-spacing: .2em; font-weight: 800; line-height: .95;
-  background: linear-gradient(180deg, #fff 8%, var(--brand) 58%, #6e1246 100%);
+  margin: 0; font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(3.4rem, 13vw, 8.5rem); letter-spacing: .02em; line-height: .86;
+  background: linear-gradient(180deg, #fff 6%, var(--brand) 56%, #6e1246 116%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.eyebrow { color: var(--faint); letter-spacing: .32em; font-size: .68rem; text-transform: uppercase; }
-h2.title { margin: 0; font-size: clamp(1.6rem, 4vw, 2.6rem); letter-spacing: .16em; font-weight: 700; }
-.blurb { color: var(--dim); font-size: .8rem; max-width: 56ch; line-height: 1.7; }
+.eyebrow { font-family: var(--f-data); color: var(--faint); letter-spacing: .26em;
+  font-size: .66rem; text-transform: uppercase; }
+h2.title { margin: 0; font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.9rem, 4.4vw, 3rem); letter-spacing: .03em; line-height: 1; }
+.blurb { font-family: var(--f-ui); color: var(--dim); font-size: 1rem; max-width: 52ch; line-height: 1.55; }
 
 /* ── Lists ─────────────────────────────────────────────────────────────── */
-.list { display: grid; gap: .1rem; max-width: 470px; }
+.list { display: grid; gap: .12rem; max-width: 500px; }
 .list .row {
-  display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
-  padding: .62rem 1rem; border-left: 2px solid transparent;
-  font-size: .92rem; letter-spacing: .12em; color: var(--dim);
-  transition: all .14s ease;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem;
+  padding: .5rem 1rem; border-left: 2px solid transparent;
+  font-family: var(--f-ui); font-weight: 600; font-size: 1.18rem; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--dim);
+  transition: color .14s ease, background .14s ease, border-color .14s ease, padding .14s ease;
 }
-.list .row em { font-style: normal; font-size: .68rem; color: var(--faint); letter-spacing: .1em; }
+.list .row em { font-family: var(--f-data); font-style: normal; font-weight: 400;
+  font-size: .72rem; color: var(--faint); letter-spacing: .04em; text-transform: none;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list .row.selected {
   color: var(--ink); border-left-color: var(--accent);
   background: linear-gradient(90deg, rgba(46,154,255,.14), transparent 70%);
@@ -75,16 +93,17 @@ h2.title { margin: 0; font-size: clamp(1.6rem, 4vw, 2.6rem); letter-spacing: .16
 .list .row.locked { color: #3a4756; }
 .list .row.locked em { color: #33404e; }
 
-.hint { color: var(--faint); font-size: .64rem; letter-spacing: .2em; margin-top: 1rem; }
-.hint b { color: var(--dim); font-weight: 500; }
+.hint { font-family: var(--f-data); color: var(--faint); font-size: .62rem; letter-spacing: .18em;
+  text-transform: uppercase; margin-top: 1rem; }
+.hint b { color: var(--dim); font-weight: 700; }
 .blink { animation: blink 1.15s steps(2, start) infinite; }
 @keyframes blink { to { opacity: .25; } }
 
 /* ── Tabs / sliders ────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 1.4rem; margin-bottom: .4rem; }
-.tab { font-size: .64rem; letter-spacing: .26em; color: #3f4f5e; }
+.tab { font-family: var(--f-data); font-size: .64rem; letter-spacing: .22em; text-transform: uppercase; color: #3f4f5e; }
 .tab.on { color: var(--accent); border-bottom: 1px solid var(--accent); padding-bottom: .2rem; }
-.slider { color: var(--accent); letter-spacing: -.06em; }
+.slider { font-family: var(--f-data); color: var(--accent); letter-spacing: -.02em; }
 
 /* ── Cards ─────────────────────────────────────────────────────────────── */
 .cards { display: flex; gap: .9rem; flex-wrap: wrap; }
@@ -95,24 +114,32 @@ h2.title { margin: 0; font-size: clamp(1.6rem, 4vw, 2.6rem); letter-spacing: .16
 }
 .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 10px 40px rgba(0,0,0,.5); transform: translateY(-3px); }
 .card.locked { opacity: .38; }
-.card h3 { margin: 0 0 .4rem; font-size: .95rem; letter-spacing: .14em; font-weight: 600; }
-.card p { margin: 0; font-size: .68rem; color: var(--dim); line-height: 1.6; }
-.card .stat { margin-top: .6rem; font-size: .64rem; color: var(--faint); letter-spacing: .1em; }
+.card h3 { margin: 0 0 .45rem; font-family: var(--f-display); font-size: 1.4rem; letter-spacing: .02em;
+  font-weight: 400; text-transform: uppercase; line-height: 1; }
+.card p { margin: 0; font-family: var(--f-ui); font-size: .92rem; color: var(--dim); line-height: 1.45; }
+.card .stat { margin-top: .6rem; font-family: var(--f-data); font-size: .64rem; color: var(--faint);
+  letter-spacing: .06em; }
 
 /* ── Tables (result / breakdown) ───────────────────────────────────────── */
-table.brk { border-collapse: collapse; width: 100%; max-width: 720px; font-size: .74rem; background: rgba(6,10,16,.72); }
-table.brk th, table.brk td { text-align: left; padding: .4rem .7rem; border-bottom: 1px solid rgba(255,255,255,.07); }
-table.brk th { color: var(--faint); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; font-size: .6rem; }
+table.brk { border-collapse: collapse; width: 100%; max-width: 720px; font-family: var(--f-data);
+  font-size: .78rem; background: rgba(6,10,16,.72); }
+table.brk th, table.brk td { text-align: left; padding: .45rem .7rem; border-bottom: 1px solid rgba(255,255,255,.07); }
+table.brk th { color: var(--faint); font-weight: 400; letter-spacing: .16em; text-transform: uppercase; font-size: .58rem; }
 table.brk td.n { text-align: right; font-variant-numeric: tabular-nums; }
 table.brk tr.crash td { color: #7a4453; }
 
-.bigscore { font-size: clamp(2.6rem, 9vw, 5rem); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
-.medal { letter-spacing: .3em; font-size: .78rem; text-transform: uppercase; }
+.bigscore { font-family: var(--f-display); font-weight: 400; font-size: clamp(3.4rem, 11vw, 6.5rem);
+  letter-spacing: .005em; line-height: .82; font-variant-numeric: tabular-nums; }
+.medal { font-family: var(--f-ui); font-weight: 700; letter-spacing: .12em; font-size: .82rem; text-transform: uppercase; }
 .medal.bronze { color: #cd7f4c; } .medal.silver { color: #c8d2dc; }
 .medal.gold { color: #ffd166; } .medal.platinum { color: #7de8ff; }
 
 /* ── HUD ───────────────────────────────────────────────────────────────── */
-#hud { position: fixed; inset: 0; pointer-events: none; z-index: 20; transition: opacity .1s linear; }
+/* The whole HUD is the data voice: every readout ticks, so fixed-width mono
+   keeps the numbers from jittering. The two punch words — the landing tier and
+   the countdown — break out to the display face for impact. */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 20; transition: opacity .1s linear;
+  font-family: var(--f-data); }
 #hud > * { position: absolute; }
 #hud.hidden { display: none; }
 
@@ -177,12 +204,13 @@ table.brk tr.crash td { color: #7a4453; }
 
 .hud-landing { left: 50%; top: 28%; transform: translate(-50%, -10px); text-align: center; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
 .hud-landing.show { opacity: 1; transform: translate(-50%, 0); }
-.hud-landing span { display: block; font-size: 2rem; font-weight: 800; letter-spacing: .1em; }
+.hud-landing span { display: block; font-family: var(--f-display); font-weight: 400; font-size: 2.6rem;
+  letter-spacing: .04em; text-transform: uppercase; }
 .hud-landing em { display: block; font-style: normal; font-size: .64rem; letter-spacing: .2em; color: var(--dim); margin-top: .3rem; }
 /* The payout is the score punch: WHITE-HOT, per the token table. */
 .hud-landing u { display: block; text-decoration: none; font-size: 1.5rem; font-weight: 700; color: var(--white-hot); text-shadow: 0 0 22px rgba(244,244,255,.6); margin-top: .4rem; }
 
-.hud-countdown { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.85); font-size: 7rem; font-weight: 800; opacity: 0; transition: opacity .18s, transform .18s; }
+.hud-countdown { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.85); font-family: var(--f-display); font-size: 8rem; font-weight: 400; letter-spacing: .02em; opacity: 0; transition: opacity .18s, transform .18s; }
 .hud-countdown.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .hud-countdown.go { color: var(--good); }
 
@@ -218,7 +246,7 @@ table.brk tr.crash td { color: #7a4453; }
 /* ── Split-screen HUD (§9) ─────────────────────────────────────────────────
    Each viewport owns its player's accent end-to-end: --pc is set per panel
    from theme.js, and everything player-flavoured in the quarter reads it. */
-#splithud { position: fixed; inset: 0; pointer-events: none; z-index: 21; }
+#splithud { position: fixed; inset: 0; pointer-events: none; z-index: 21; font-family: var(--f-data); }
 #splithud.hidden { display: none; }
 .vp { position: absolute; --pc: var(--p1); }
 .vp::after { content: ''; position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--pc) 28%, transparent); pointer-events: none; }
@@ -241,10 +269,12 @@ table.brk tr.crash td { color: #7a4453; }
 /* ── Highlight reel (§9) ───────────────────────────────────────────────── */
 /* The chyron carries the player's colour — whoever earned the landing owns
    the frame (AFTERGLOW "one accent end-to-end"). */
-.reel-bar { position: absolute; left: 2.4rem; top: 2rem; --pc: var(--p1); }
-.reel-tag { font-size: .58rem; letter-spacing: .34em; color: var(--pc); }
-.reel-score { font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 800; line-height: 1.05; margin-top: .2rem; color: var(--white-hot); }
-.reel-info { font-size: .68rem; letter-spacing: .16em; color: var(--dim); }
+.reel-bar { position: absolute; left: 2.4rem; top: 2rem; --pc: var(--p1); font-family: var(--f-data); }
+.reel-tag { font-size: .58rem; letter-spacing: .34em; text-transform: uppercase; color: var(--pc); }
+.reel-score { font-family: var(--f-display); font-weight: 400; font-size: clamp(3rem, 8vw, 5rem);
+  letter-spacing: .01em; line-height: .9; margin-top: .3rem; color: var(--white-hot);
+  font-variant-numeric: tabular-nums; }
+.reel-info { font-size: .68rem; letter-spacing: .12em; color: var(--dim); }
 .reel-foot { position: absolute; left: 2.4rem; bottom: 2rem; }
 
 

@@ -1,0 +1,11 @@
+/* AIRTIME self-hosted webfonts — latin subset, woff2.
+   Generated from Google Fonts (all three SIL OFL). Do not hand-edit;
+   re-fetch with tools if a weight is added. See index.html <link> removal. */
+
+@font-face{font-family:'Anton';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/anton-400.woff2') format('woff2');}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/barlow-semi-condensed-400.woff2') format('woff2');}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/barlow-semi-condensed-500.woff2') format('woff2');}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/barlow-semi-condensed-600.woff2') format('woff2');}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/barlow-semi-condensed-700.woff2') format('woff2');}
+@font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/space-mono-400.woff2') format('woff2');}
+@font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/space-mono-700.woff2') format('woff2');}

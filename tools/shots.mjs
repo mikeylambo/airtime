@@ -61,6 +61,8 @@ const SHOTS = [
   ['ghosts', null],
   ['codes', null],
   ['gauntlet', null],
+  ['progresshub', null],
+  ['replayhub', null],
   ['options', null],
   ['controls', null],
   ['photowarn', null],
