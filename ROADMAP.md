@@ -637,6 +637,16 @@ in this container that the range matters more than any single number. Still
 several times the 60/45 target, and the formal verdict still needs
 `probe:perf --headful` on a real target machine.
 
+And for two builds that flag would not have delivered one. `--headful` opened
+a real window and then rendered every frame on the CPU regardless, because the
+launch args pinned ANGLE to SwiftShader unconditionally — so the probe printed
+"REAL GPU", graded a software number against the 60/45 bar, and would most
+likely have reported a FAIL for a machine that passes. It now leaves the
+driver alone when headful, reads the renderer string back off the live context
+and prints it, and refuses to issue any verdict at all if a software rasteriser
+served the frames. A perf gate that can quietly measure the wrong machine is
+worse than no perf gate; `README.md` carries the procedure.
+
 ### Build 10 — R10 and R11, and the law that came with them
 
 **Three arenas, and a gate that is not `npm run lines`.** The line analyzer

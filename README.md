@@ -38,6 +38,34 @@ npm run dev
 | `npm run shots` | render a PNG of every screen in the frame |
 | `npm run capture` | render the clips in `capture/` |
 
+### The one check that cannot run in CI
+
+Every gate above is headless and runs anywhere. `probe:perf` is the exception:
+the art brief's bar is **60 fps solo and 45 fps four-way at 1080p on an
+integrated GPU**, and a headless box has no GPU to ask. It falls back to
+SwiftShader, which rasterises on the CPU — a useful pessimistic floor, and not
+an answer to the question.
+
+So the verdict has to be taken on the target machine, with a display:
+
+```bash
+git clone -b <branch> https://github.com/mikeylambo/airtime && cd airtime
+npm install          # pulls Puppeteer's own Chromium; no system browser needed
+npm run build        # probe:perf drives dist/, not the dev server
+node tools/probe-perf.mjs --headful
+```
+
+A window opens, four runs go past (solo and four-way, each at full effects and
+Reduce Effects), and it exits 0 on PASS, 1 on FAIL. `--frames=N` shortens each
+run from the default 240.
+
+It prints the renderer string it actually got, and **refuses to grade a
+software rasteriser under `--headful`** (exit 2) — which is what you get from
+`xvfb-run` on a server, and what makes the difference between a perf verdict
+and a number. Without a display it will not start at all: Puppeteer says
+`Missing X server`. Neither is a bug to work around; both mean *this is not the
+machine the question is about*.
+
 ## Controls
 
 Gamepad first, keyboard mirrors it. The triggers change meaning in the air,
