@@ -222,12 +222,114 @@ ramps reachable from 3+ others           16
 longest chain without touching deck      9
 ```
 
+### Vertical City (R8)
+
+The Yard is centripetal — rings pointing inward, and the job is finding ways
+back out. The city inverts both halves: **its centre is a pit**, not a peak (a
+low plaza with a pool on it), and **altitude is the currency**. Four strata,
+each a network in its own right, because there is a kicker on every roof aimed
+at the next one. Descending is free; ascending costs speed carried from the
+street.
+
+```
+── city: 34 launchable ramps, 48 structures, 13 tagged targets ──
+ramps that only ever land you on deck    0
+ramps nothing can reach                  0
+ramps reachable from 3+ others          27      (The Yard: 16)
+longest chain without touching deck      9
+tagged targets no launch reaches         0
+flights that hold or gain altitude   163/202  (81%)
+```
+
+Two structures carry it. **THE COIL** is a spiral flyover you *drive* —
+sixteen wedges on chords of a 26 m circle, one turn, an eight-degree climb —
+with its exit tangent aimed at the plaza, so the top of the spiral throws you
+at the pool. **THE STACK** is a parking garage with a cantilevered kicker on
+every deck: an altitude selector, where overshooting the top deck means
+landing on the one below rather than on nothing.
+
+`npm run probe:city` measures the three claims a reachability graph cannot,
+because all three are about the simulation: the Coil is a road (a car drives
+it to 27 of 28 m), each rung of the ladder is inside one apex of the one
+below, and the acceptance clip has its furniture — a 46 m skyscraper to leave,
+a three-deck garage to land on, and a helicopter whose near miss pays.
+
+### Mastery (R9)
+
+**Ghosts.** A ghost is not a second car in your world — one that were would be
+shoved by you and would stop being the run it recorded. It is *baked*: §R
+already measured that re-simulating a clip reproduces its run bit-exact, so
+the clip is re-simulated once, in its own world, and what is kept is the
+trajectory. Eight floats a step and no physics at all. The eighth is the
+score, which is what turns a shape on the road into an opponent.
+
+**Seven boards, one idea:** a run is filed everywhere it qualifies. Arena,
+vehicle, stock setup, best single stunt, RAW, daily seed, friends — and the
+player nowhere near the top of the arena board can be first in the world on
+the one they care about. Six are stored; FRIENDS is a *lens*, because a friend
+list is a fact about a client rather than about a score.
+
+**103 challenges, generated rather than listed** — templates run against the
+arenas and the roster, so no challenge asks for a pool in an arena that has no
+pool. Cars are never gated behind them: the ladder hands out arenas, modes and
+eventually The Gauntlet.
+
 ### Audio
 
 Synthesised, not sampled: engine load through a faked gearbox, wind that takes
 over at launch, tyre scrub on slip, landing weight, crash, per-part whooshes,
 and a cash-out that climbs a note per facet. No files and no licensing, driven
 straight off the simulation.
+
+### The premium debts, paid (R7)
+
+Five things the premium pass owed, and the five most tempting things in the
+game to fake — all of them look finished in a screenshot and none survives a
+number, so all five are models a probe drives (`npm run probe:wear`).
+
+**Deformation is physical and lives for one run; scuffing is cosmetic and
+lives for a session.** That split is a §R requirement, not taste: a bent hinge
+rests open, which is a permanently deployed aero surface and a real change to
+how the car flies, so it has to be derived from a run's own inputs. Paint
+costs the simulation nothing, so it can accumulate across runs — session state
+that affected physics would mean a clip recorded in hour three does not
+reproduce in hour one. So *what you can feel resets every run; what you can
+see accumulates*, and in AFTERGLOW "damaged" reads as the car's own light
+going out where it has been hit.
+
+The strain that bends a panel is the same measurement that decides tear-off,
+and only the top of its range counts — a routine hard landing strains a hinge
+at about 12 m/s, and that is not "nearly came off". The first numbers bent
+every panel on every landing and the scripted capture jump stopped landing at
+all, which is how the window was found.
+
+**Props break above a speed and are inert below it.** Kinematic until hit hard
+enough, then dynamic and thrown, with a budget — a bollard that twitches when
+you brush it promises physics it is not running. They are filtered against the
+geometry: a prop standing inside a solid is dropped, because a bollard
+embedded in the Coil is a car being fired into the sky by a traffic cone. The
+Yard gets none: it is a void-space arcade construct and clutter argues with
+that.
+
+**Brake heat is an integral, not a light bulb** — it lags the pedal, keeps
+glowing while you accelerate away, and stacks across a series of small brakes.
+It is work rather than pressure, so it appears at the end of a straight and
+never in a car park, and a brake in mid-air heats nothing.
+
+**Active billboards say the one thing they already mean, louder.** AFTERGLOW's
+rule is that billboards are the only bright objects because brightness is
+"land here" language, so a sign is bright in proportion to how much it
+currently *is* a landing target: aligned, in range, airborne. Landing on one
+punches it to WHITE-HOT for 120 ms, which is the art brief's own
+photosensitivity cap.
+
+**The PA is a room, not an announcer.** A tannoy two hundred metres away,
+band-limited to a telephone, syllabic rather than semantic — from inside a car
+at seventy you know somebody announced something and could not repeat it,
+which is the correct amount of information and the honest version of the
+fiction rather than a placeholder for a voice pack. It never talks over
+itself, owes silence between calls, and is ducked *by* the car rather than the
+other way round.
 
 ### Premium feel (R7)
 
@@ -348,23 +450,26 @@ screenshots.
 
 ## Known gaps
 
-- **The leaderboard is local.** `src/game/daily.js` has the adapter seam;
-  `submit` and `top` are the only two functions a Supabase table would replace.
-  Provisioning a cloud project is the owner's call, not the build's.
+- **The leaderboard is local until it is pointed at a project.** The Supabase
+  adapter and its schema are in the build (`src/game/supabase-board.js`,
+  `supabase/0001_boards.sql`); setting `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` switches to it and nothing else changes. Running
+  the migration against a real project is the owner's call, not the build's —
+  and `supabase/README.md` is honest that an anonymous insert policy cannot
+  stop somebody posting a score they did not earn. The fix for that is already
+  built and is not a policy: a score is a replay, and a replay re-simulates.
 - **Clips carry their whole prefix.** A deterministic replay has to re-simulate
   from step zero, so a landing late in a run stores that run's whole input
   stream — tens of KB, not the few KB an early one costs.
 - **The scoring is not balanced against eight cars.** The facet curve was tuned
   against one, and a car that rolls three times as hard as another banks
-  proportionally more. That is R9's problem, and it needs the boards to exist
-  before it can be judged.
-- **Damage is still only tear-off.** Panels detach; they do not bend, the glass
-  does not break, and the car does not accumulate scuffs across a session.
-- **No PA, no breakable props, no active billboards, no brake glow.** All of
-  them are R7's remit and none of them is in this build.
-- **The city arena has not been reframed.** It is still a procedural grid of
-  towers — the opposite of an instrument — and `npm run lines --city` will say
-  so. It should be rebuilt against the same range logic, not iterated.
+  proportionally more. The boards exist now (R9), so this is judgeable — but
+  judging it needs runs by somebody who is trying, not by a scripted driver.
+- **The glass does not break.** Panels detach and bend, and the car scuffs
+  across a session; the glasshouse is still one unbreakable volume.
+- **Arenas 4–6 do not exist**, so The Gauntlet is twelve chained trials across
+  the two that do rather than the arena the roster describes. It becomes an
+  arena in R10, when there is something worth combining.
 - **The scripted driver is a weak proxy for a player.** It lands what it
   launches but only finds a handful of ramps in a round, so `probe:run` is a
   smoke test that the loop runs end to end, not a measure of what the mode is

@@ -236,6 +236,44 @@ export const PIECES = {
   },
 
   /**
+   * Street furniture — the things that exist to be destroyed (sim/props.js).
+   * A prop is not part of the routing graph: nothing lands on it, nothing
+   * launches off it, and the analyzer never sees it. It is kinematic until
+   * something hits it hard enough, which is what makes a city affordable to
+   * fill with them.
+   */
+  prop: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      out.props.push({
+        id: inst.id, kind: P(p.kind, 'crate'),
+        pos: { x: inst.pos.x, y: P(inst.pos.y, 0) + p.half.y, z: inst.pos.z },
+        half: p.half, mass: p.mass,
+      });
+    },
+  },
+
+  /** A run of them along a line — a street of bollards is one gesture. */
+  propLine: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      const n = Math.max(1, p.n);
+      for (let i = 0; i < n; i++) {
+        const t = n === 1 ? 0 : i / (n - 1);
+        out.props.push({
+          id: `${inst.id}_${i}`, kind: P(p.kind, 'bollard'),
+          pos: {
+            x: inst.pos.x + (p.to.x - inst.pos.x) * t,
+            y: P(inst.pos.y, 0) + p.half.y,
+            z: inst.pos.z + (p.to.z - inst.pos.z) * t,
+          },
+          half: p.half, mass: p.mass,
+        });
+      }
+    },
+  },
+
+  /**
    * A skybridge: the mezzanine road between two podiums, and a landing
    * surface in its own right. Axis-aligned on purpose — target boxes are
    * axis-aligned everywhere in this codebase, so a diagonal bridge would be
@@ -265,7 +303,7 @@ export const PIECES = {
  * @param desc { id, lot: { ground, spawn, coinPrefix }, pieces: [...] }
  */
 export function expandPieces(desc) {
-  const out = { ramps: [], structures: [], targets: [], coins: [], lanes: [], movers: [] };
+  const out = { ramps: [], structures: [], targets: [], coins: [], lanes: [], movers: [], props: [] };
   for (const inst of desc.pieces) {
     const piece = PIECES[inst.piece];
     if (!piece) throw new Error(`unknown piece '${inst.piece}'`);

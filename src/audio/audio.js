@@ -18,6 +18,7 @@
 
 import TUNING from '../TUNING.js';
 import { Mixer } from './mix.js';
+import { PA } from './pa.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -39,6 +40,10 @@ export class Audio {
     // The mix is a pure model (audio/mix.js) so it can be driven and measured
     // in node. Everything below only pushes its numbers onto Web Audio nodes.
     this.mix = new Mixer();
+    // R7: the PA. Also a pure model (audio/pa.js) — what it produces is a
+    // level, a rate and a formant, and everything below only pushes those
+    // onto nodes.
+    this.pa = new PA();
   }
 
   /** Browsers will not start audio without a gesture; call this from one. */
@@ -77,6 +82,7 @@ export class Audio {
     this._buildStress();
     this._buildScrub();
     this._buildCrowd();
+    this._buildPA();
     this._buildMusic();
     this.ready = true;
     if (ctx.state === 'suspended') ctx.resume();
@@ -162,6 +168,43 @@ export class Audio {
     }
     g.connect(this.duck);
     this.crowd = { g };
+  }
+
+  /**
+   * The PA (R7). Not an announcer — a room.
+   *
+   * A tannoy two hundred metres away: noise through a narrow bandpass at a
+   * vowel-ish formant, gated by a syllable envelope, fed through a long
+   * delay so it arrives late and bounces. Syllabic rather than semantic, and
+   * that is the design rather than a placeholder for a voice pack: from
+   * inside a car at seventy you know somebody announced something and you
+   * could not repeat it, which is exactly the right amount of information.
+   */
+  _buildPA() {
+    const ctx = this.ctx;
+    const g = ctx.createGain(); g.gain.value = 0;
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise; src.loop = true; src.playbackRate.value = 0.9;
+    // Telephone band. Everything outside it is what distance removes.
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 300;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 4.5;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3000;
+
+    // The bounce: one long delay with a little feedback is a city block.
+    const delay = ctx.createDelay(1.0);
+    delay.delayTime.value = 0.34;
+    const fb = ctx.createGain(); fb.gain.value = 0.28;
+    const wet = ctx.createGain(); wet.gain.value = 0.5;
+
+    src.connect(hp); hp.connect(bp); bp.connect(lp); lp.connect(g);
+    g.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet);
+    g.connect(this.bus); wet.connect(this.bus);
+    src.start();
+    this.paVoice = { g, bp, gate: g };
   }
 
   /**
@@ -353,16 +396,40 @@ export class Audio {
     this.scrub.g.gain.value = A.SCRUB_GAIN * m.scrub;
     this.scrub.bp.frequency.value = m.scrubFreq;
 
+    // R7 PA: ducked *by* the car, never the other way round — a tannoy that
+    // beats the engine is a menu, not a stadium.
+    const load = Math.min(1, m.engine * 0.6 + m.wind * 0.5 + m.stress * 0.6);
+    const pa = this.pa.update(dt, load);
+    if (this.paVoice) {
+      // The syllable gate: a raised cosine per syllable, so it reads as
+      // speech rather than as a noise burst.
+      const syl = this.pa.speaking
+        ? 0.35 + 0.65 * (0.5 - 0.5 * Math.cos(this.pa.syllable * Math.PI * 2)) : 0;
+      this.paVoice.g.gain.value = pa * syl;
+      this.paVoice.bp.frequency.value = this.pa.formant;
+    }
+
     this.crowd.g.gain.value = A.CROWD_GAIN * m.crowd;
     this.music.g.gain.value = A.MUSIC_GAIN * m.music;
-    this.duck.gain.value = m.duck;
+    // The PA ducks the bed on top of whatever a landing already ducked it by.
+    this.duck.gain.value = m.duck * this.pa.duck;
   }
 
   /**
    * Events that move the bed rather than just firing a one-shot. Routed
    * through the same call as the one-shots so the two cannot drift apart.
    */
-  onEvent(e) { this.mix.onEvent(e); }
+  onEvent(e) {
+    this.mix.onEvent(e);
+    // The PA speaks for things worth announcing, and its own rules decide
+    // whether it takes the call (audio/pa.js).
+    if (e.type === 'gap' && e.gap) this.pa.say(e.gap.first ? 'gap' : 'chain');
+    else if (e.type === 'landed' && e.result) {
+      if (!e.result.landed) this.pa.say('crash');
+      else if (e.result.tier === 'secret') this.pa.say('secret');
+      else if (e.result.total >= TUNING.PA.HUGE) this.pa.say('huge');
+    }
+  }
 
   setMuted(m) {
     this.muted = m;

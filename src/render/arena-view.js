@@ -169,8 +169,56 @@ export function buildArenaView(scene, art, arenaId = 'park') {
   const moverGroup = new THREE.Group();
   group.add(moverGroup);
 
+  // ── Breakable props (R7) ────────────────────────────────────────────────
+  // One instanced mesh for the lot. Seventy-eight bollards as seventy-eight
+  // draw calls is a frame budget spent on street furniture, and the frame
+  // budget belongs to the car.
+  const propGroup = new THREE.Group();
+  group.add(propGroup);
+  const propMeshes = new Map();
+  for (const kind of new Set(park.props.map((p) => p.kind || 'crate'))) {
+    const of = park.props.filter((p) => (p.kind || 'crate') === kind);
+    if (!of.length) continue;
+    const h = of[0].half;
+    const inst = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(h.x * 2, h.y * 2, h.z * 2),
+      new THREE.MeshStandardMaterial({ color: 0x14141d, emissive: 0x0b0b14, roughness: 0.95 }),
+      of.length
+    );
+    inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    inst.frustumCulled = false;
+    // No shadows. Sixty-two boxes in the shadow pass, times four viewports,
+    // to cast a dark shape onto a near-black street: `probe:perf` charged
+    // most of a millisecond for it in the 4-way split and AFTERGLOW cannot
+    // see the result.
+    inst.castShadow = false;
+    propGroup.add(inst);
+    propMeshes.set(kind, { inst, ids: of.map((p) => p.id) });
+  }
+  const pm = new THREE.Matrix4();
+  const pq = new THREE.Quaternion();
+  const pp = new THREE.Vector3();
+  const ps = new THREE.Vector3(1, 1, 1);
+
   return {
     park, group, coins, moverGroup,
+
+    /** Props are kinematic until something hits them; then they are thrown. */
+    syncProps(list) {
+      if (!list || !list.length) return;
+      const byId = new Map(list.map((p) => [p.id, p]));
+      for (const { inst, ids } of propMeshes.values()) {
+        for (let i = 0; i < ids.length; i++) {
+          const p = byId.get(ids[i]);
+          if (!p) continue;
+          pp.set(p.x, p.y, p.z);
+          pq.set(p.qx, p.qy, p.qz, p.qw);
+          pm.compose(pp, pq, ps);
+          inst.setMatrixAt(i, pm);
+        }
+        inst.instanceMatrix.needsUpdate = true;
+      }
+    },
 
     /** Spin the uncollected coins and hide the taken ones. */
     syncCoins(taken, t) {

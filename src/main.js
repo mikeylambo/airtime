@@ -22,6 +22,7 @@ import { ArtDirector, STYLES } from './render/art.js';
 import { buildArenaView } from './render/arena-view.js';
 import { buildCarView } from './render/car-view.js';
 import { buildGhostView } from './render/ghost-view.js';
+import { buildSigns } from './render/signs.js';
 import { Fx } from './render/fx.js';
 import { Trails } from './render/trails.js';
 import { buildTrafficView } from './render/traffic-view.js';
@@ -90,6 +91,7 @@ class Game {
 
     this.art = new ArtDirector(scene, renderer);
     this.arenaView = buildArenaView(scene, this.art, 'park');
+    this.signs = buildSigns(scene, this.arenaView.park);
     const park = this.arenaView.park;
     this.carViews = [buildCarView(scene, this.art, 0)];
     this.ghostView = buildGhostView(scene);
@@ -191,6 +193,9 @@ class Game {
       this.art.unregisterUnder(this.arenaView.group);
       this.arenaView.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       this.arenaView = buildArenaView(this.scene, this.art, id);
+      if (this.signs) this.signs.dispose();
+      this.signs = buildSigns(this.scene, this.arenaView.park);
+      this.audio.pa.setArena(id);
       this.art.setStyle(this.art.style);       // re-material the new meshes
       this.director.park = this.arenaView.park;
       this.viewports.setCount(this.playerCount, this.arenaView.park);
@@ -700,6 +705,19 @@ class Game {
     };
   }
 
+  /** R7: the scuffed paintwork of the car currently being driven. */
+  get wear() { return this.sim && this.sim.players[0] ? this.sim.players[0].wear : null; }
+
+  /**
+   * The garage. Panels and paint both, because that is what a garage is —
+   * and because scuffing has no other way out, which is what makes it worth
+   * accumulating in the first place.
+   */
+  repairCar() {
+    if (this.wear) this.wear.repair();
+    return this.wear;
+  }
+
   grantUnlock(u) {
     const p = this.profile;
     if (u.kind === 'arena' && !p.unlocked.arenas.includes(u.id)) p.unlocked.arenas.push(u.id);
@@ -959,6 +977,9 @@ class Game {
         this.carViews[i].setChassis(p.setup && p.setup.half, p.setup && p.setup.wheel,
           p.setup && p.setup.car && p.setup.car.id);
       }
+      // R7: what the car looks like it has been through, and how hot its
+      // brakes are. Both read models the simulation owns.
+      this.carViews[i].setWear(p.wear, p.brakes);
       this.carViews[i].sync(p.car, p.panels);
     }
     // R9: the ghost is not in this world — it is a baked trajectory being
@@ -976,6 +997,16 @@ class Game {
 
     this.trafficView.sync(state.traffic);
     this.arenaView.syncMovers(state.movers);
+    this.arenaView.syncProps(state.props);
+    // R7 active billboards: brightness is "land here" language, so a sign is
+    // bright in proportion to how much it currently *is* a landing target.
+    if (this.signs) {
+      const p0 = this.sim.players[0];
+      this.signs.update(dt, {
+        position: p0.car.position, velocity: p0.car.linvel,
+        airborne: p0.airtimeTracker.airborne,
+      });
+    }
     this.arenaView.syncCoins(this.sim.coinsTaken, state.time);
     this.arenaView.fadeMarkers(this.camera.position);
 

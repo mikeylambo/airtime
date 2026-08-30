@@ -19,6 +19,7 @@ export function getArena(id = 'park') {
   a.movers = a.movers || [];
   a.lanes = a.lanes || [];
   a.coins = a.coins || [];
+  a.props = a.props || [];
   return a;
 }
 

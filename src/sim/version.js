@@ -12,7 +12,9 @@
 import TUNING from '../TUNING.js';
 
 /** Bump when simulation code changes behaviour without touching TUNING. */
-export const SIM_CODE_VERSION = 1;
+// 2: R8's respawn (elevated ramps, transit ramps skipped) and R7's panel
+//    deformation both change what the same inputs produce.
+export const SIM_CODE_VERSION = 2;
 
 /** Bump when the shape of a persisted record changes. */
 export const SCHEMA_VERSION = 1;
@@ -20,9 +22,14 @@ export const SCHEMA_VERSION = 1;
 // Sections the simulation actually reads. CAMERA/RENDER/FX/AUDIO/UI/HUD/
 // REPLAY/TELEMETRY are presentation; INPUT shapes hands into actions *before*
 // they are recorded, so a recorded stream is immune to it.
+// WEAR and PROPS are in here and BRAKES, SIGNS and PA are not, and the line
+// between them is the whole of §R: a bent hinge rests open, so it changes the
+// aerodynamics; a prop is a body in the world. Brake heat, sign brightness
+// and the tannoy are readouts of a simulation they cannot touch.
 const SIM_SECTIONS = [
   'SIM', 'CAR', 'WHEEL', 'DRIVE', 'BOOST', 'THRUST', 'PANELS', 'AERO',
   'AIRTIME', 'TRAFFIC', 'SCORE', 'MODES', 'GAPS', 'RESPAWN', 'RUN', 'ARENA',
+  'WEAR', 'PROPS',
 ];
 
 // Keys the game mutates at runtime as player options. They do affect the sim,

@@ -21,6 +21,7 @@ import { Round, RUN_STATE } from './round.js';
 import { Telemetry } from './telemetry.js';
 import { Traffic } from './traffic.js';
 import { Movers } from './movers.js';
+import { Props } from './props.js';
 import { getMode } from './modes.js';
 import { neutralActions } from './replay.js';
 import { TIER } from '../arena/stunt-park.js';
@@ -53,6 +54,7 @@ export class Sim {
 
     this.traffic = new Traffic(this.world, park);
     this.movers = new Movers(this.world, park);
+    this.props = new Props(this.world, park);
     this.telemetry = new Telemetry();
     this.events = [];
     this.coinsTaken = new Set();
@@ -152,6 +154,7 @@ export class Sim {
     this.moverNearMisses = 0;
     this.traffic.reset(this.roundSeed ?? undefined);
     this.movers.reset();
+    this.props.reset();
     this.telemetry = new Telemetry();
     this._runEnded = false;
     this.modeState = null;
@@ -200,6 +203,12 @@ export class Sim {
         signal.nearMiss[i] += moverSignal.nearMiss[i];
         this.players[i].boost.creditNearMiss(moverSignal.nearMiss[i]);
       }
+    }
+    // R7 breakables. Above a threshold they wake into dynamic bodies and are
+    // thrown; below it nothing moves at all, because a bollard that twitches
+    // when you brush it promises physics it is not running.
+    for (const b of this.props.update(dt, this.players)) {
+      this.events.push({ type: 'prop', ...b });
     }
     this.trafficSignal = signal;
     for (const p of this.players) p.oncoming = signal.oncoming[p.index];
@@ -365,6 +374,13 @@ export class Sim {
       }
     }
 
+    // R7: paint. A crash scuffs hard, a heavy stick scuffs a little, and a
+    // clean one leaves nothing — the severity is the impact the landing
+    // record already measured.
+    const sev = Math.min(1, (landing.impactVel || 0) / TUNING.FX.LANDING_SHAKE);
+    p.scuff(result.landed ? sev * 0.45 : Math.max(0.5, sev), landing.landedAt
+      ? { x: p.car.linvel.x, y: p.car.linvel.y, z: p.car.linvel.z } : null);
+
     p.run.addLanding(result);
     p.lastResult = result;
     this.events.push({ type: 'landed', player: p.index, landing, result, clipped });
@@ -461,6 +477,7 @@ export class Sim {
       zone: this.modeState && this.modeState.zone ? this.modeState.zone : null,
       traffic: this.traffic.snapshot(),
       movers: this.movers.snapshot(),
+      props: this.props.snapshot(),
       arena: this.arenaId,
       coinsTaken: this.coinsTaken.size,
       nearMisses: this.traffic.nearMisses,

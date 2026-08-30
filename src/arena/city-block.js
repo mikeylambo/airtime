@@ -317,6 +317,34 @@ export function describeCityPieces() {
       { from: { x: span, z: z + 5 }, to: { x: -span, z: z + 5 }, oncoming: true }));
   }
 
+  // ── Street furniture (R7 breakables) ────────────────────────────────────
+  // None of this is in the routing graph — nothing lands on a bollard. It is
+  // there so that a car arriving in a street at sixty leaves evidence, and so
+  // the city has a floor made of things rather than of nothing.
+  for (let i = 0; i < AVE.length; i++) {
+    const x = AVE[i];
+    pieces.push(at('propLine', `bol_${i}`, { x: x - 12, z: -g(2) - 40 }, 0, {
+      to: { x: x - 12, z: g(2) + 40 }, n: 14, kind: 'bollard',
+      half: { x: 0.5, y: 0.75, z: 0.5 }, mass: 30,
+    }));
+  }
+  // Crates stacked against the Stack, and barriers ringing the plaza — the
+  // two places a run most often arrives at speed.
+  // East of the Stack, not in front of it: the southern avenue is the city's
+  // hero run-up and its first landing zone, and a crate parked on it is a
+  // crash rather than a flourish.
+  for (let i = 0; i < 10; i++) {
+    pieces.push(at('prop', `crate_${i}`, { x: 34 + (i % 5) * 12, z: stackZ + 22 + (i > 4 ? 9 : 0) }, 0, {
+      kind: 'crate', half: { x: 1.5, y: 1.5, z: 1.5 }, mass: 40,
+    }));
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    pieces.push(at('prop', `barr_${i}`, { x: Math.sin(a) * 32, z: Math.cos(a) * 32 }, 0, {
+      kind: 'barrier', half: { x: 1.8, y: 0.6, z: 0.4 }, mass: 22,
+    }));
+  }
+
   // ── §6.2 moving targets ─────────────────────────────────────────────────
   pieces.push(at('mover', 'train', { x: RAIL_X, z: 0 }, 0, {
     kind: 'train', tier: 'moving',
@@ -359,6 +387,38 @@ export function describeCityPieces() {
   };
 }
 
+/**
+ * Street furniture stands in the street.
+ *
+ * Bollard lines are authored as lines, and a line that runs the length of the
+ * city passes through whatever the city has built along it — the Coil's ramps,
+ * the plaza's flank, a tower's footprint. Rather than hand-solving four
+ * hundred metres of that, the props are filtered against the geometry that
+ * already exists: a prop standing inside a solid is dropped.
+ *
+ * Conservative on ramps on purpose. A ramp's footprint is a rotated box and
+ * this treats it as the circle that contains it, which throws away a few
+ * props that would have been fine. Over-rejecting street furniture costs
+ * nothing; a bollard embedded in the Coil is a car being fired into the sky
+ * by a traffic cone.
+ */
+function standingClear(prop, arena) {
+  for (const s of arena.structures) {
+    if (Math.abs(prop.pos.x - s.pos.x) > s.half.x + prop.half.x) continue;
+    if (Math.abs(prop.pos.z - s.pos.z) > s.half.z + prop.half.z) continue;
+    if (prop.pos.y - prop.half.y > s.pos.y + s.half.y) continue;   // on the roof
+    return false;
+  }
+  for (const r of arena.ramps) {
+    const reach = r.length / 2 + r.halfWidth + prop.half.x;
+    if (Math.hypot(prop.pos.x - r.pos.x, prop.pos.z - r.pos.z) < reach
+        && Math.abs(prop.pos.y - r.pos.y) < 12) return false;
+  }
+  return true;
+}
+
 export function describeCity() {
-  return expandPieces(describeCityPieces());
+  const arena = expandPieces(describeCityPieces());
+  arena.props = arena.props.filter((p) => standingClear(p, arena));
+  return arena;
 }

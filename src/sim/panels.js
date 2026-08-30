@@ -25,10 +25,13 @@ const SLOT_ACTION = {
 };
 
 export class Panels {
-  constructor(world, car, setup = null) {
+  constructor(world, car, setup = null, wear = null) {
     this.world = world;
     this.car = car;
     this.setup = setup;
+    // R7: a bent panel rests open. Optional, so every probe that builds
+    // Panels directly keeps working with an undamaged car.
+    this.wear = wear;
     this.parts = {};
 
     const P = TUNING.PANELS;
@@ -105,7 +108,8 @@ export class Panels {
     for (const p of this.list) {
       p.deploy = 0;
       p.poseTime = 0;
-      p.joint.configureMotorPosition(0, P.STOW_STIFFNESS, P.STOW_DAMPING);
+      const sag = this.wear ? this.wear.hingeSag(p.slot) * p.cfg.open : 0;
+      p.joint.configureMotorPosition(sag, P.STOW_STIFFNESS, P.STOW_DAMPING);
     }
     this.syncToChassis();
   }
@@ -137,9 +141,21 @@ export class Panels {
       p.deploy = want;
       p.poseTime = want > 0.5 ? p.poseTime + dt : 0;
 
-      const target = p.cfg.open * want;
+      // R7 deformation: a bent hinge cannot rest closed, so "stowed" is a
+      // few degrees open and stays there. This is the whole physical
+      // consequence of damage — the panel is a permanently deployed aero
+      // surface, and the car flies differently because of it.
+      //
+      // By magnitude, not by Math.max: two of the five hinges open through a
+      // *negative* angle (the left door and the wing), so max(sag, open·want)
+      // clamped both of them shut and the car lost half its aero. Both terms
+      // are multiples of cfg.open and therefore share its sign, so "further
+      // open" is simply the larger absolute value.
+      const sag = this.wear ? this.wear.hingeSag(p.slot) * p.cfg.open : 0;
+      const asked = p.cfg.open * want;
+      const target = Math.abs(asked) > Math.abs(sag) ? asked : sag;
       if (want > 0.01) p.joint.configureMotorPosition(target, P.MOTOR_STIFFNESS, P.MOTOR_DAMPING);
-      else p.joint.configureMotorPosition(0, P.STOW_STIFFNESS, P.STOW_DAMPING);
+      else p.joint.configureMotorPosition(sag, P.STOW_STIFFNESS, P.STOW_DAMPING);
     }
   }
 
@@ -178,6 +194,10 @@ export class Panels {
       if (P.TEAROFF_ONLY_WHEN_DEPLOYED && p.deploy < 0.5) continue;
       const pv = p.body.linvel();
       const rel = Math.hypot(pv.x - carVel.x, pv.y - carVel.y, pv.z - carVel.z);
+      // R7: the strain that would have torn the panel off, applied to the
+      // panel that survived it. One measurement, two outcomes — a panel
+      // that nearly came off is bent by nearly the amount that removes one.
+      if (this.wear && rel < P.TEAROFF_IMPACT_SPEED) this.wear.strain(p.slot, rel);
       if (rel < P.TEAROFF_IMPACT_SPEED) continue;
 
       this.world.removeImpulseJoint(p.joint, true);
@@ -201,7 +221,8 @@ export class Panels {
       p.joint.setLimits(p.cfg.limitMin, p.cfg.limitMax);
       p.joint.configureMotorModel(RAPIER.MotorModel.AccelerationBased);
       p.joint.setMotorMaxForce(P.MOTOR_MAX_FORCE);
-      p.joint.configureMotorPosition(0, P.STOW_STIFFNESS, P.STOW_DAMPING);
+      const sag = this.wear ? this.wear.hingeSag(p.slot) * p.cfg.open : 0;
+      p.joint.configureMotorPosition(sag, P.STOW_STIFFNESS, P.STOW_DAMPING);
       p.attached = true;
     }
     this.syncToChassis();

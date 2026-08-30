@@ -16,7 +16,9 @@ import { AirtimeTracker } from './airtime.js';
 import { TrickTracker } from './tricks.js';
 import { AeroAccumulator, applyAngularDrag, addBodyLift } from './aero.js';
 import { Score } from './round.js';
-import { qRot, qAxisAngle, WORLD_UP } from './mathx.js';
+import { qRot, qInvRot, qAxisAngle, WORLD_UP } from './mathx.js';
+import { Wear } from './wear.js';
+import { BrakeHeat } from './brakes.js';
 
 export class Player {
   constructor(world, park, { setup = null, index = 0, round, spawn, movingTargetAt }) {
@@ -27,7 +29,12 @@ export class Player {
 
     this.car = new Car(world, setup);
     this.car.reset(spawn);
-    this.panels = new Panels(world, this.car, setup);
+    // R7: deformation is per-run and physical, scuffing is per-session and
+    // cosmetic (see sim/wear.js — the split is a §R requirement). The Wear
+    // object outlives a run; only its panel half is reset by one.
+    this.wear = new Wear();
+    this.brakes = new BrakeHeat();
+    this.panels = new Panels(world, this.car, setup, this.wear);
     this.panels.syncToChassis();
 
     this.boost = new BoostBar(setup);
@@ -70,6 +77,10 @@ export class Player {
     this.thrust.reset();
     this.airtimeTracker.reset();
     this.tricks.reset();
+    // Deformation lives for one run; scuffing lives for the session and is
+    // only cleared by the garage (sim/wear.js).
+    this.wear.reset();
+    this.brakes.reset();
     this.recover = 0;
     this.stuck = 0;
     this.respawns = 0;
@@ -99,6 +110,11 @@ export class Player {
     });
     this.car.update(dt, actions, this.boosting);
     this.panels.update(dt, actions, airborne);
+    // R7 brake glow: a temperature, integrated from the work the brakes do.
+    // Read-only — it never changes the braking force, which is why BRAKES is
+    // not one of the sections the §R stamp hashes.
+    this.brakes.update(dt, actions.brake || 0, this.car.groundSpeed,
+      !airborne && this.car.wheelsInContact > 0);
 
     this.aero.begin();
     this.aero.addBoxPlates(
@@ -112,11 +128,16 @@ export class Player {
         this.setup.half, A.BODY_LIFT * this.setup.bodyLift, this.setup.cops.lift);
     }
     for (const p of this.panels.list) {
-      if (p.deploy < 0.02) continue;
+      // R7: a bent panel is physically open whether or not it was asked to
+      // be, so the air has to see it. Gating this on the *commanded* deploy
+      // alone was the difference between deformation that changes how the
+      // car flies and deformation that is a picture of damage.
+      const open = Math.max(p.deploy, this.wear.hingeSag(p.slot));
+      if (open < 0.02) continue;
       const target = A.APPLY_TO === 'chassis' ? this.car.body : p.body;
       this.aero.addPlate(
         p.body, p.body.rotation(), p.body.translation(), p.cfg.size,
-        p.cfg.cd, A.PANEL_SCALE * this.panelGain(p.slot) * p.deploy, target
+        p.cfg.cd, A.PANEL_SCALE * this.panelGain(p.slot) * open, target
       );
     }
     this.aero.apply(dt, this.car.body.mass(), TUNING.SIM.GRAVITY);
@@ -172,6 +193,18 @@ export class Player {
     this.recover = 0;
     this.respawns++;
     return { pos, ramp: best ? best.id : null };
+  }
+
+  /**
+   * R7 scuffing: attribute an impact to a region of the bodywork. The
+   * direction is the car's own velocity carried into its own frame — a car
+   * landing flat scuffs its floor, one landing nose-first scuffs its nose,
+   * and nothing has to be told which is which.
+   */
+  scuff(severity, velocity = null) {
+    const v = velocity || this.car.linvel;
+    const local = qInvRot(this.car.rotation, v);
+    return this.wear.scuffFrom(local, severity);
   }
 
   snapshot() {

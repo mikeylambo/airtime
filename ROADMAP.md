@@ -450,9 +450,10 @@ crash vs hard landing                   66 vs 26 particles
 peak live over a 20 s drift             54 of 3,000
 ```
 
-**Still owed by R7:** panel deformation and session-long scuffing, breakable
-props, active billboards, a PA, and brake glow. And the acceptance clip needs
-a skyscraper and a helicopter, so it needs R8 before it can be attempted.
+**Owed by R7 and now paid (Build 9):** panel deformation and session-long
+scuffing, breakable props, active billboards, a PA, and brake glow. The
+acceptance clip's furniture arrived with R8, and its last stage is The
+Gauntlet's twelfth.
 
 ### Build 7 — R8, and the city as an instrument
 
@@ -581,6 +582,60 @@ Three things R9 forced that were not R9:
 And `probe:menus` is new for a reason that has nothing to do with R9: the
 menus are DOM, and a screen whose `onEnter` throws fails no physics probe. It
 opens all 24 in a real browser and fails on any page error.
+
+### Build 9 — R7's debts, and the line §R draws through them
+
+Five things, and the five most tempting in the game to fake: a dent nobody can
+see, a scuff that goes to black in ten minutes, a bollard that twitches, a
+brake light dressed up as a temperature, a tannoy that talks over the engine.
+All five look finished in a screenshot; none survives a number. So all five
+are models `probe:wear` drives, and the interesting part is where the line
+between two of them fell.
+
+**Deformation is physical and lives for one run. Scuffing is cosmetic and
+lives for a session.** That is a §R requirement rather than a preference. A
+bent hinge rests open, which is a permanently deployed aero surface — bend all
+five and the same inputs put the car **109 m** somewhere else after twelve
+seconds — so it has to be derived from the run's own inputs, and it is: the
+strain that bends a panel is the same relative-velocity measurement that
+decides tear-off. Paint costs the simulation nothing, so it can accumulate
+across runs; session state that changed physics would mean a clip recorded in
+hour three does not reproduce in hour one. *What you can feel resets every
+run; what you can see accumulates.* WEAR and PROPS are in the §R hash and
+BRAKES, SIGNS and PA are not, and that list is the same sentence again.
+
+Three of the five were retuned because the probe said so, not because they
+looked wrong:
+
+- **Deformation bent everything.** At the first threshold a routine hard
+  landing (~12 m/s of hinge strain) bent a panel, and the scripted capture
+  jump stopped landing at all. The window is the top of the range, just under
+  tear-off, which is what "a panel that nearly came off" always meant.
+- **Brake heat could not glow.** The first constants settled the discs at
+  **0.04** of capacity under a full stop from 55 m/s, against a glow threshold
+  of 0.22. They now reach about three quarters of capacity on that stop and
+  hold 45% of it a second after the pedal comes up.
+- **Props stood inside buildings.** Bollard lines authored as lines run
+  through whatever the city built along them. They are filtered against the
+  geometry now — 16 of 78 dropped — because a bollard embedded in the Coil is
+  a car being fired into the sky by a traffic cone.
+
+And one that was found the hard way. A ring of cones went into The Yard and
+`probe:audio` went from five hero jumps to **zero launches**: one cone had
+landed on the spawn straight. The Yard gets no props at all now — it is a
+void-space arcade construct and clutter argues with that — and street
+furniture belongs to the arena that has streets.
+
+The other bug this phase found was not R7's. Two of the five hinges open
+through a *negative* angle (the left door and the wing), so the obvious
+`Math.max(sag, commanded)` clamped both of them shut and the car silently lost
+half its aero. `probe:run` caught it as a 3,294-point run scoring zero.
+
+**Perf, after all three phases.** On the CPU rasteriser, solo runs 280–325 fps
+and the 4-way split 102–139 fps at 1080p — down from 353/224, and noisy enough
+in this container that the range matters more than any single number. Still
+several times the 60/45 target, and the formal verdict still needs
+`probe:perf --headful` on a real target machine.
 
 ### Build 2's acceptance test
 

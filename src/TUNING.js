@@ -587,6 +587,90 @@ export const TUNING = {
     HERO_RAMP_ID: 'hero',       // the ramp the Gate A demo jump uses
   },
 
+  // ── Wear (R7's debts): deformation, and session-long scuffing ────────────
+  // The split is a §R requirement. Deformation changes the aerodynamics, so
+  // it is derived from a run's own inputs and lives for one run; scuffing is
+  // paint, so it costs the simulation nothing and lives for a session.
+  WEAR: {
+    // Panel strain, in m/s of panel-vs-chassis relative speed. TEAROFF_IMPACT
+    // _SPEED is where a panel leaves entirely, so BEND_FULL sits just under
+    // it: a panel that nearly came off is nearly ruined.
+    // Measured, not guessed: a routine hard landing on a deployed spoiler
+    // strains the hinge at ~12 m/s, and that is not "nearly came off" — at
+    // BEND_FROM 6 it bent every panel on every landing and the scripted
+    // capture jump stopped landing at all. The window is the top of the
+    // range, just under tear-off, which is what the sentence above always
+    // meant.
+    BEND_FROM: 13.5,
+    BEND_FULL: 17.0,
+    BEND_PER_HIT: 0.45,
+    // How far a bent hinge rests open, as a fraction of that panel's own open
+    // angle. A door that will not shut is a permanently deployed aero
+    // surface, which is the whole physical point of the system.
+    SAG_FRACTION: 0.30,
+
+    SCUFF_MIN: 0.12,        // below this an impact leaves no mark at all
+    SCUFF_GAIN: 0.55,       // of the *remaining* clean paint, per hit
+    SCUFF_DARKEN: 0.72,     // how far a fully scuffed region's trim goes out
+  },
+
+  // ── Brake heat (R7) ──────────────────────────────────────────────────────
+  // A temperature, not a light bulb: it lags the pedal, keeps glowing while
+  // you accelerate away, and stacks across a series of small brakes.
+  BRAKES: {
+    // Measured, not guessed. At the first numbers the discs settled at 0.04
+    // of capacity under a full stop from 55 m/s and never once crossed the
+    // glow threshold — a brake glow that cannot glow. These put a hard stop
+    // from motorway speed at about three quarters of capacity, and leave
+    // nearly half of it a second after the pedal comes up.
+    CAPACITY: 80,           // brake·(m/s)·s to saturate the discs
+    COOL: 0.35,             // per second, proportional to heat above ambient
+    AIRFLOW_COOL: 0.45,     // extra cooling at speed
+    AIRFLOW_FULL: 45,       // m/s at which airflow cooling is at full
+    GLOW_FROM: 0.22,        // below this the discs are dark
+  },
+
+  // ── Breakable props (R7) ─────────────────────────────────────────────────
+  PROPS: {
+    MASS: 26,
+    BREAK_SPEED: 9,         // below this nothing moves, deliberately
+    FULL_SPEED: 40,         // where a hit throws a prop as hard as it goes
+    REACH: 1.4,             // metres of slop around the chassis box
+    BUDGET: 24,             // dynamic bodies at once. The frame rate is a feature
+    THROW: 0.55,
+    LIFT: 6.5,
+  },
+
+  // ── Active billboards (R7) ───────────────────────────────────────────────
+  // Brightness is "land here" language, so a sign is bright in proportion to
+  // how much it currently *is* a landing target for the car looking at it.
+  SIGNS: {
+    IDLE: 0.16,             // the arena's ordinary billboard glow
+    LIVE: 0.85,             // lined up, in range, in the air
+    CONE: 0.55,             // cos of the angle a flight counts as aimed
+    NEAR: 25,
+    FAR: 140,
+    FLASH_TIME: 0.12,       // the art brief's photosensitivity cap, exactly
+    DECAY_TIME: 0.9,
+  },
+
+  // ── The PA (R7) ──────────────────────────────────────────────────────────
+  // Not an announcer: a room. A tannoy two hundred metres away, band-limited
+  // to a telephone, syllabic rather than semantic.
+  PA: {
+    ARENAS: ['city'],       // a stunt park in a void has nobody to announce
+    LEVEL: 0.34,
+    RATE: 5.2,              // syllables per second
+    ATTACK: 0.05,
+    RELEASE: 0.22,
+    COOLDOWN: 4.5,          // seconds of silence it owes after every call
+    CAR_DUCK: 0.6,          // how far a busy car pushes the PA down
+    BED_DUCK: 0.45,         // how far the PA pushes the crowd and music down
+    FORMANT_LOW: 520,
+    FORMANT_HIGH: 1150,
+    HUGE: 18000,           // a stick worth announcing
+  },
+
   // ── Render / art (§11 Art gate) ──────────────────────────────────────────
   // Particles and screen effects (R7). Every one of these is a *response* to
   // something the simulation did, so the numbers are rates and lifetimes

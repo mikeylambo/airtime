@@ -29,6 +29,7 @@ const CHECKS = [
   ['R6', 'the arena has named places in it', 'probe-gaps.mjs'],
   ['R7', 'the soundscape tracks the car', 'probe-audio.mjs'],
   ['R7', 'the effects are a response, not decoration', 'probe-fx.mjs'],
+  ['R7', "the debts are paid, and none is a picture of itself", 'probe-wear.mjs'],
   ['R8', 'the city is a network too', 'lines.mjs', ['--city']],
   ['R8', 'the city has named places in it too', 'probe-gaps.mjs', ['--city']],
   ['R8', 'the city is an instrument, and the clip has its furniture', 'probe-city.mjs'],

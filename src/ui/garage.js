@@ -12,8 +12,9 @@ import { Screen, makeList } from './screens.js';
 import { CARS, PART_VARIANTS, LIVERIES, SLIDERS, findCar, findVariant } from '../sim/cars.js';
 import { medalCount } from '../storage/profiles.js';
 import { wallClips } from '../storage/clips.js';
+import { REGIONS } from '../sim/wear.js';
 
-const TABS = ['CAR', 'TUNE', 'PARTS', 'LIVERY'];
+const TABS = ['CAR', 'TUNE', 'PARTS', 'LIVERY', 'BODY'];
 const bar = (v) => {
   const n = Math.round(v * 12);
   return `<span class="slider">${'█'.repeat(n)}${'░'.repeat(12 - n)}</span>`;
@@ -41,6 +42,17 @@ export function buildGarage(mgr, game) {
         label: s.label, slider: s,
         note: `${s.low} ${bar(p.tune[s.key])} ${s.high}`,
       }));
+    }
+    if (tab === 4) {
+      // R7: the paintwork. Scuffing is the only thing in the game that
+      // accumulates across runs, and the only way to clear it is here —
+      // which is what makes a session visible on the car.
+      const w = game.wear;
+      const rows = REGIONS.map((r) => ({
+        label: r.toUpperCase(), region: r,
+        note: `${bar(w ? w.scuffAt(r) : 0)} ${Math.round((w ? w.scuffAt(r) : 0) * 100)}%`,
+      }));
+      return [...rows, { label: 'RESPRAY', repair: true, note: 'clear every mark' }];
     }
     if (tab === 2) {
       return Object.keys(PART_VARIANTS).map((slot) => {
@@ -101,6 +113,7 @@ export function buildGarage(mgr, game) {
         const p = game.profile;
         if (it.car) p.car = it.car.id;
         else if (it.livery) p.livery = it.livery.id;
+        else if (it.repair) game.repairCar();
         else if (it.slot) cycleVariant(it.slot, 1);
         game.saveProfiles();
         refresh();

@@ -44,6 +44,55 @@ function stretchUniforms(mat) {
   return mat.userData;
 }
 
+/**
+ * R7 scuffing, on the GPU.
+ *
+ * AFTERGLOW draws the car as its own light, so "damaged" has to read as *the
+ * light going out where you hit things* — a dent nobody can see at night is
+ * not a damage model, it is a texture nobody looks at. Six numbers (one per
+ * face of the chassis) darken the trim, blended by the direction each vertex
+ * of the wireframe points, so a scuffed nose fades into clean flanks instead
+ * of ending at a hard line across the middle of the car.
+ *
+ * Patched onto the same edge material the velocity stretch patches, for the
+ * same reason: it costs a dot product and no draw calls.
+ */
+function scuffUniforms(mat) {
+  if (mat.userData.uScuffPos) return mat.userData;
+  const uScuffPos = { value: new THREE.Vector3() };   // +x right, +y roof, +z tail
+  const uScuffNeg = { value: new THREE.Vector3() };   // -x left,  -y floor, -z nose
+  const uScuffDark = { value: 0 };
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader) => {
+    if (prev) prev(shader);
+    shader.uniforms.uScuffPos = uScuffPos;
+    shader.uniforms.uScuffNeg = uScuffNeg;
+    shader.uniforms.uScuffDark = uScuffDark;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform vec3 uScuffPos;
+        uniform vec3 uScuffNeg;
+        uniform float uScuffDark;
+        varying float vScuff;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec3 sd = normalize(position + vec3(0.0, 0.0, 1e-5));
+        vec3 sw = sd * sd;
+        float sAmt =
+            (sd.x > 0.0 ? uScuffPos.x : uScuffNeg.x) * sw.x
+          + (sd.y > 0.0 ? uScuffPos.y : uScuffNeg.y) * sw.y
+          + (sd.z > 0.0 ? uScuffPos.z : uScuffNeg.z) * sw.z;
+        vScuff = 1.0 - sAmt * uScuffDark;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vScuff;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vScuff;');
+  };
+  mat.needsUpdate = true;
+  mat.userData.uScuffPos = uScuffPos;
+  mat.userData.uScuffNeg = uScuffNeg;
+  mat.userData.uScuffDark = uScuffDark;
+  return mat.userData;
+}
+
 const _invQ = new THREE.Quaternion();      // scratch — sync runs every frame
 
 export function buildCarView(scene, art, index = 0) {
@@ -123,6 +172,17 @@ export function buildCarView(scene, art, index = 0) {
   const rimGeo = new THREE.CylinderGeometry(W.RADIUS * 0.70, W.RADIUS * 0.70, 0.26, 10);
   rimGeo.rotateZ(Math.PI / 2);
 
+  // R7 brake glow. Its own additive disc rather than a tint on the rim: the
+  // rim's material is shared across every mesh registered under the `body`
+  // role, so heating it would set the whole car on fire. One material for all
+  // four discs, because all four brakes are the same temperature.
+  const discGeo = new THREE.CircleGeometry(W.RADIUS * 0.62, 14);
+  discGeo.rotateY(Math.PI / 2);
+  const discMat = new THREE.MeshBasicMaterial({
+    color: 0xff2200, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  });
+
   const wheels = [];
   const rims = [];
   for (let i = 0; i < 4; i++) {
@@ -136,9 +196,14 @@ export function buildCarView(scene, art, index = 0) {
     // stays dark, the rim traces two rings of player colour.
     spin.add(art.register(rim, 'body', { edge: pc(), opacity: 0.8 }));
     rims.push(rim);
+    // Inboard of the tyre, so the glow reads through the wheel rather than
+    // over it — which is where a disc actually is.
+    const disc = new THREE.Mesh(discGeo, discMat);
+    disc.position.x = (i % 2 === 0 ? 1 : -1) * 0.14;
+    pivot.add(disc);
     pivot.add(spin);
     root.add(pivot);
-    wheels.push({ pivot, spin });
+    wheels.push({ pivot, spin, disc });
   }
 
   // ── Aero surfaces: separate world-space objects, not children of the car ──
@@ -193,7 +258,28 @@ export function buildCarView(scene, art, index = 0) {
       for (const slot of SLOTS) art.unregisterUnder(panels[slot]);
       for (const g of owned) g.dispose();
       for (const slot of SLOTS) panelGeo[slot].dispose();
-      wheelGeo.dispose(); rimGeo.dispose();
+      wheelGeo.dispose(); rimGeo.dispose(); discGeo.dispose(); discMat.dispose();
+    },
+
+    /**
+     * R7 brake glow, and R7 scuffing. Both are read off models the simulation
+     * owns (sim/brakes.js, sim/wear.js) rather than decided here — the same
+     * rule the particles were held to.
+     */
+    setWear(wear, brakes) {
+      const edge = body.userData.__edge;
+      if (edge && wear) {
+        const u = scuffUniforms(edge.material);
+        u.uScuffPos.value.set(wear.scuffAt('right'), wear.scuffAt('roof'), wear.scuffAt('tail'));
+        u.uScuffNeg.value.set(wear.scuffAt('left'), wear.scuffAt('floor'), wear.scuffAt('nose'));
+        u.uScuffDark.value = TUNING.WEAR.SCUFF_DARKEN;
+      }
+      if (brakes) {
+        const g = brakes.glow;
+        const c = brakes.color;
+        discMat.opacity = g * 0.9;
+        discMat.color.setRGB(c.r, c.g, c.b);
+      }
     },
 
     /** Pull every transform straight from the physics bodies. */

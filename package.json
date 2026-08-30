@@ -34,6 +34,7 @@
     "probe:perf": "node tools/probe-perf.mjs",
     "probe:dark": "node tools/probe-dark.mjs",
     "probe:city": "node tools/probe-city.mjs",
+    "probe:wear": "node tools/probe-wear.mjs",
     "probe:mastery": "node tools/probe-mastery.mjs",
     "probe:menus": "node tools/probe-menus.mjs",
     "lines:city": "node tools/lines.mjs --city",

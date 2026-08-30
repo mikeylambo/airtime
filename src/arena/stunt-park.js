@@ -208,6 +208,14 @@ export function describeParkPieces() {
     pieces.push(at('lane', id, { x: from.x, z: from.z }, 0, { from, to, oncoming }));
   }
 
+  // ── R7 breakables: none, deliberately ───────────────────────────────────
+  // A ring of cones went in here and came straight back out. The Yard is "a
+  // void-space arcade construct" and clutter on its floor argues with that —
+  // but the measurement is what settled it: one cone landed on the spawn
+  // straight, and `probe:audio` went from five hero jumps to zero launches,
+  // because the car was hitting it. Street furniture belongs to the arena
+  // that has streets.
+
   return {
     id: 'park',
     lot: {
