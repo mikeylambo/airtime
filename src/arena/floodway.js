@@ -144,10 +144,16 @@ export function describeFloodPieces() {
       { half: { x: 32, y: 0.9, z: W - 4 }, kind: 'roof' }));
     pieces.push(at('target', `culvert_${k}`, { x, y: t.y + 9.9, z: t.z }, 0,
       { tier: 'rooftop', tagged: true, half: { x: 32, y: 3, z: W - 4 } }));
+    // The piers run *along* the flow, at the outer edge of the roof, because
+    // the culvert is a thing you drive through. Built the other way round —
+    // offset in x, long in z — they were not piers at all, they were two
+    // nine-metre walls across the channel sixty metres apart, and the capture
+    // rig found it before any probe did: the scripted driver went down the top
+    // channel at 119 km/h and stopped dead against one.
     for (const side of [-1, 1]) {
       pieces.push(at('slab', `culvert_${k}_p${side < 0 ? 'a' : 'b'}`,
-        { x: x + side * 31, y: t.y + 4.5, z: t.z }, 0,
-        { half: { x: 1.4, y: 4.5, z: W - 4 }, kind: 'leg' }));
+        { x, y: t.y + 4.5, z: t.z + side * (W - 5.4) }, 0,
+        { half: { x: 32, y: 4.5, z: 1.4 }, kind: 'leg' }));
     }
     pieces.push(kicker(`culvert_up_${k}`, x, t.y + 9.9, t.z + (k % 2 ? 14 : -14),
       t.flow > 0 ? EAST : WEST, { length: 18, halfWidth: 6.5, exitAngle: 0.50 }));

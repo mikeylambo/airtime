@@ -144,7 +144,9 @@ const SHOTS = [
         // anybody's driving, so the car starts where the arena is.
         const VANTAGE = {
           works: { pos: { x: 0, y: 56, z: -12 }, heading: 0 },
-          flood: { pos: { x: -190, y: 26, z: -150 }, heading: -Math.PI / 2 },
+          // Off the centreline, on the row the kickers actually sit on: down
+          // the middle of a channel there is nothing in frame but the floor.
+          flood: { pos: { x: -206, y: 26, z: -166 }, heading: -Math.PI / 2 },
           sky: { pos: { x: 0, y: 78, z: 8 }, heading: 0 },
         }[sp];
         const p0 = g.sim.players[0];

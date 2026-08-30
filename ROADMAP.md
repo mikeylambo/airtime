@@ -698,6 +698,19 @@ Four things the analyzer caught that eyes would not have:
   of the arena. The peak launches at *named neighbours* now, like every other
   pad.
 
+A fifth thing none of the probes caught, and the capture rig did. Floodway's
+culverts are a roof over a channel on two piers, and the piers were built
+offset along the flow and long across it — which does not make a pier, it
+makes a **nine-metre wall sealing the channel**, two of them per terrace, six
+in the arena. Every reachability gate still passed, because ballistic arcs fly
+over a nine-metre wall without noticing it; the line analyzer asks what a
+launch can reach, never what a car can drive through. What noticed was the
+exhibit: the scripted driver went down the top channel at 119 km/h and stopped
+dead, and the twelve-second clip of the arena whose whole idea is long-speed
+lines was eleven seconds of a parked car. The piers run along the flow now.
+The lesson is the cheap one — **a clip is a probe**, and the one measurement
+no headless gate was making was "can you actually drive down it".
+
 And the billboards and masts in all three are sited **from the measurement** —
 the corridors where descending arcs actually cross sign height — because
 placing them by eye put nine of them where nothing could land, which is the

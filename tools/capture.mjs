@@ -65,12 +65,20 @@ const CLIPS = [
   // the spawn films the driver rather than the place. The driving is real;
   // only the starting position is chosen, and it is stated here rather than
   // hidden.
+  //
+  // Chosen by measurement, not by eye: each candidate was run headless through
+  // the same scripted driver and scored on launches, total airtime, mean speed,
+  // seconds spent under 20 km/h, and the share of frames still inside the
+  // arena. The first Floodway vantage threaded the sixteen-metre gap between
+  // the two staggered kicker rows and never launched at all; the first Mega
+  // Works vantage rolled off the plant too slowly and stalled for five of its
+  // twelve seconds. Both read fine as a still and were dead as footage.
   { id: 'works', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'works', seconds: 12, start: 0.6,
-    vantage: { pos: { x: 0, y: 56, z: -12 }, heading: 0, speed: 30 },
+    vantage: { pos: { x: 0, y: 56, z: -12 }, heading: 0, speed: 46 },
     caption: 'R10 Mega Works — off the plant, over the yard: the skip, the jib, the cranes' },
   { id: 'flood', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'flood', seconds: 12, start: 0.6,
-    vantage: { pos: { x: -220, y: 26, z: -150 }, heading: -Math.PI / 2, speed: 34 },
-    caption: 'R10 Floodway — down the top channel, banked walls returning the line' },
+    vantage: { pos: { x: -262, y: 26, z: -166 }, heading: -Math.PI / 2, speed: 34 },
+    caption: 'R10 Floodway — the top channel west to east, kicker to kicker at one hop\'s pitch' },
   { id: 'sky', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'sky', seconds: 12, start: 0.6,
     vantage: { pos: { x: 0, y: 78, z: 10 }, heading: 0, speed: 30 },
     caption: 'R10 Skyline — no ground under any of it; a missed landing is a demotion' },
