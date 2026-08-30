@@ -149,6 +149,7 @@ export class Sim {
       p.reset();
     }
     this.coinsTaken.clear();
+    this.moverNearMisses = 0;
     this.traffic.reset(this.roundSeed ?? undefined);
     this.movers.reset();
     this.telemetry = new Telemetry();
@@ -189,6 +190,8 @@ export class Sim {
     if (E(0).reset) { this.reset(); return; }
 
     const moverSignal = this.movers.update(dt, this.players);
+    this.moverNearMisses = (this.moverNearMisses || 0)
+      + moverSignal.nearMiss.reduce((a, n) => a + n, 0);
     const signal = this.traffic.update(dt, this.players);
     // A helicopter you nearly hit is a near miss like any other, so it lands
     // in the same signal and pays through the same facet.
@@ -272,8 +275,15 @@ export class Sim {
     if (p.airtimeTracker.airborne) {
       p.tricks.update(dt, p.car, p.panels);
       this._collectCoins(p);
+      p.climbBase = null;
     } else {
       p.tricks.updateGround(dt, p.car);
+      // A continuous climb on the wheels. The base resets the moment the car
+      // is airborne, so twenty-eight metres of this means a spiral flyover
+      // rather than a lucky landing on a roof.
+      const y = p.car.position.y;
+      if (p.climbBase === null || y < p.climbBase) p.climbBase = y;
+      if (y - p.climbBase > p.groundClimb) p.groundClimb = y - p.climbBase;
     }
 
     for (const s of SLOTS) {
@@ -328,6 +338,14 @@ export class Sim {
     p.pendingTrick = null;
     let result = resolveTrick(snap, landing, tierMult, p.run.nextCombo);
     result.player = p.index;
+    // Where the flight began and where it ended, carried onto the result.
+    // Modes and challenges both ask "what did you land on", and until now
+    // only the raw landing record knew — which is why Call Your Shot's
+    // multiplier compared `result.target` against a call and never once
+    // matched.
+    result.target = landing.target ?? null;
+    result.from = landing.from || null;
+    result.landedAt = landing.landedAt || null;
     if (this.mode.onLanded) result = this.mode.onLanded(p, result, this) || result;
 
     // A named gap pays only if you actually completed the flight. Crashing
@@ -413,7 +431,16 @@ export class Sim {
     return p.run.summary({
       thrustBursts: t.extend + t.correct + t.dive,
       coins: p.coinsTaken.size,
-      nearMisses: this.traffic.nearMisses,
+      nearMisses: this.traffic.nearMisses + (this.moverNearMisses || 0),
+      // Split out, because "did you pass the helicopter" is a different
+      // question from "did you thread traffic", and R9 asks both.
+      moverNearMisses: this.moverNearMisses || 0,
+      respawns: p.respawns,
+      // The most altitude gained without ever leaving the ground. In The Yard
+      // this is a bank; in Vertical City it is the only way to answer "did
+      // you drive the Coil" without teaching the sim what a Coil is.
+      groundClimb: p.groundClimb || 0,
+      gaps: p.run.gaps || [],
     });
   }
 

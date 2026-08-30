@@ -47,6 +47,11 @@ export class Player {
     this.recover = 0;
     this.stuck = 0;
     this.respawns = 0;
+    // Altitude gained on the wheels, without ever leaving the ground. Reset
+    // by any launch, so a roof reached by jumping never counts — which makes
+    // it exactly the question "did you drive up something".
+    this.groundClimb = 0;
+    this.climbBase = null;
     this.coinsTaken = new Set();
     this.calledTarget = null;      // §9 Call Your Shot
     this.wasDeployed = {};
@@ -67,6 +72,9 @@ export class Player {
     this.tricks.reset();
     this.recover = 0;
     this.stuck = 0;
+    this.respawns = 0;
+    this.groundClimb = 0;
+    this.climbBase = null;
   }
 
   /**

@@ -233,7 +233,7 @@ or it does not ship.
 | **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | — |
 | **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | — |
 | **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | — |
-| **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | — |
+| **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | **a mode** (R9) — twelve chained trials at 90 challenges; becomes an arena in R10 |
 
 Traffic settles here: it is an **ingredient of Vertical City**, not a universal
 boost economy. That resolves the tension left open in Build 2.
@@ -348,7 +348,7 @@ capture exactly that, unedited, in one take, the game is real.
 | **RC — The wedge** | The car stops being a box | `render/wedge.js`, `car-view.js`, aero naming | Silhouettes differ per car and are derived, not authored | **done** — one generator, eight parameter sets, no per-car art |
 | **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, particles, speed lines, shake | Judged on footage — but the handoff, the duck and the emission rules are measured | **done** — soundscape flips in 133 ms, a 60k stick ducks the bed to 0.22 |
 | **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | **done** — 34 ramps, 0 orphans, 27 reachable from 3+, 84% of flights hold altitude |
-| **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |
+| **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | **done** — 103 challenges, a ghost reproduces its run to 0.0000 m |
 | **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
 | **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
 | **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
@@ -515,6 +515,72 @@ whose near miss now *pays*. That last one was a bug the vision exposed: near
 misses lived in `traffic.js` and required speed **over the ground**, which
 disqualifies every moment of a shot whose whole point is that the car is in
 the air.
+
+### Build 8 — R9, and what a ghost turned out to be
+
+The gate was "100–150 challenges; a ghost can be loaded and beaten". Both
+hold, and the interesting half is the ghost.
+
+**A ghost is not a second car in your world.** One that were would be shoved
+by you, would shove you, and would perturb the traffic you are both driving
+through — and the moment it is touched it stops being the run it recorded. So
+a ghost is **baked**: §R already measured that re-simulating a clip reproduces
+its run bit-exact, so the clip is re-simulated once, in its own world, and
+what is kept is the trajectory. After that it is eight floats a step and no
+physics at all, which is why racing one costs a transform a frame on a machine
+with no GPU. `probe:mastery` measures the bake against the run it came from:
+
+```
+a baked ghost is the run it recorded    0.0000 m worst over 7,201 steps
+and it carries the score it had banked  0 worst error
+loading one, in the browser             481 steps in 289 ms
+```
+
+The eighth float is the score. A ghost that is only a shape is scenery; a
+ghost carrying what it had banked *by this moment* is an opponent, and the
+HUD delta against a car you can see is the whole retention loop.
+
+**Seven boards is one idea: a run is filed everywhere it qualifies.** A stock
+VECTOR run on today's seed with every landing RAW lands on five of them at
+once, and the player nowhere near the top of the arena board can be first in
+the world on the one they care about. Six are stored; FRIENDS is a *lens* over
+the arena board, because a friend list is a fact about a client rather than
+about a score. The adapter contract is still exactly two functions, now with a
+board id so a server can index and filter itself — `supabase/0001_boards.sql`
+plus `game/supabase-board.js` is the whole of a real backend, and
+`supabase/README.md` is honest about what an anonymous insert policy cannot
+promise.
+
+**103 challenges, generated rather than listed.** Hand-writing 130 objects is
+130 chances to ask for a pool in an arena that has no pool, so the sets are
+templates run against the arenas and the roster — the same discipline as
+derived gaps. `probe:mastery` checks the two things that actually matter about
+a generated ladder: every challenge applies to something that exists, and
+**none of them completes itself** (a challenge an empty run satisfies gates
+nothing). Cars are never gated: the ladder hands out arenas, modes and
+eventually The Gauntlet.
+
+**The Gauntlet is a mode, not an arena, and that is a scoping decision.** The
+roster describes it as combining everything, and three of six arenas do not
+exist — one built now could only combine the two that do and would be rebuilt
+in R10. So it is twelve chained trials across the arenas that exist, using the
+licence machinery it is already shaped like, unlocked at 90 challenges. Its
+last stage is the acceptance clip, verbatim.
+
+Three things R9 forced that were not R9:
+
+- **Call Your Shot never worked.** Its multiplier compared `result.target`
+  against the call, and the trick result never carried a target — only the raw
+  landing record did. It has presumably never fired.
+- **A landing now carries its own flight** (`rotation`, `from`, `landedAt`), so
+  "land a 900" reads the rotation rather than reading the name off a facet.
+- **`groundClimb`** — the most altitude gained without ever leaving the ground.
+  It is how "did you drive the Coil" is answered without teaching the sim what
+  a Coil is.
+
+And `probe:menus` is new for a reason that has nothing to do with R9: the
+menus are DOM, and a screen whose `onEnter` throws fails no physics probe. It
+opens all 24 in a real browser and fails on any page error.
 
 ### Build 2's acceptance test
 

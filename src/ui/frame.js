@@ -15,6 +15,10 @@ import { buildGarage } from './garage.js';
 import { buildTheater } from './theater.js';
 import { buildProgress } from './progress.js';
 import { buildParty } from './party.js';
+import { buildMastery } from './mastery.js';
+import { BOARDS as BOARD_LIST } from '../game/boards.js';
+
+const BOARD_COUNT = BOARD_LIST.length;
 
 // The modes, and their rules, live with the rules themselves (src/sim/modes.js)
 // so the menu can never describe a mode the simulation does not implement.
@@ -88,15 +92,25 @@ export function buildFrame(mgr, game) {
         { label: 'PLAY', note: last },
         { label: 'GARAGE', note: 'car, tuning, parts, livery' },
         { label: 'REPLAYS', note: `${game.replays.length} saved` },
+        { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
+        { label: 'BOARDS', note: `${BOARD_COUNT} of them` },
+        { label: 'GHOSTS', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved` },
         { label: 'DAILY LINE', note: game.dailyLabel() },
         { label: 'LICENCES', note: `${Object.keys(game.profile.licences).length}/${game.licences.length}` },
+        // §8: unlocked, not offered. It is not in the menu until it is earned.
+        ...(game.gauntletUnlocked
+          ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/12` }] : []),
         { label: 'OPTIONS', note: '' },
       ], (it) => {
         if (it.label === 'PLAY') mgr.push('mode');
         else if (it.label === 'GARAGE') mgr.push('garage');
         else if (it.label === 'REPLAYS') mgr.push('replays');
-        else if (it.label === 'DAILY LINE') mgr.push('board');
+        else if (it.label === 'CHALLENGES') mgr.push('challenges');
+        else if (it.label === 'BOARDS') mgr.push('boards');
+        else if (it.label === 'GHOSTS') mgr.push('ghosts');
+        else if (it.label === 'DAILY LINE') mgr.push('boards', { board: 'daily' });
         else if (it.label === 'LICENCES') mgr.push('licences');
+        else if (it.label === 'THE GAUNTLET') mgr.push('gauntlet');
         else if (it.label === 'OPTIONS') mgr.push('options');
       });
       document.getElementById('daily').innerHTML =
@@ -213,6 +227,7 @@ export function buildFrame(mgr, game) {
       <div class="bigscore" id="res-score">0</div>
       <div class="medal" id="res-medal"></div>
       <table class="brk" id="res-table"></table>
+      <div class="earned" id="res-earned"></div>
       <div class="list" id="res-actions" style="margin-top:1.2rem"></div>
     </div>`,
     onEnter: (_ctx, data) => {
@@ -233,13 +248,32 @@ export function buildFrame(mgr, game) {
                  `<td class="n">${l.total.toLocaleString()}</td></tr>`;
         }).join('') : '<tr><td colspan="6">no landings</td></tr>');
 
+      // R9: what this run bought. Stated, never dwelt on — R4's rule is that
+      // one input separates a finished run from the next one, and a wall of
+      // rewards to acknowledge is exactly the downtime that rule forbids.
+      const earned = document.getElementById('res-earned');
+      const bits = [];
+      for (const c of game.challengesEarned || []) bits.push(`<b>${c.name}</b> ${c.brief}`);
+      for (const u of game.unlocksEarned || []) bits.push(`<b>UNLOCKED</b> ${u.label}`);
+      if (s.ghost) {
+        const d = s.score - s.ghost.score;
+        bits.push(`<b>${d >= 0 ? 'BEAT' : 'LOST TO'} ${s.ghost.name}</b> by ${Math.abs(d).toLocaleString()}`);
+      }
+      for (const pl of game.placings || []) {
+        if (pl.rank && pl.rank <= 3) bits.push(`<b>${pl.board.label}</b> #${pl.rank}`);
+      }
+      earned.innerHTML = bits.length ? bits.map((b) => `<div>${b}</div>`).join('') : '';
+      earned.className = bits.length ? 'earned show' : 'earned';
+
       resultList = makeList(document.getElementById('res-actions'), [
         { label: 'RETRY', note: `${game.lastMode.label} · ${game.lastArena.label}` },
         { label: 'REPLAY THEATER', note: `${game.replays.length} saved this run` },
+        { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
         { label: 'MENU', note: '' },
       ], (it) => {
         if (it.label === 'RETRY') game.startRun(game.lastMode, game.lastArena);
         else if (it.label === 'REPLAY THEATER') mgr.push('replays');
+        else if (it.label === 'CHALLENGES') mgr.push('challenges');
         else mgr.go('main');
       });
     },
@@ -295,6 +329,7 @@ export function buildFrame(mgr, game) {
   buildTheater(mgr, game);
   buildProgress(mgr, game);
   buildParty(mgr, game);
+  buildMastery(mgr, game);
 
   return mgr;
 }

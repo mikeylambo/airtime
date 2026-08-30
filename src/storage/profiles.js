@@ -18,8 +18,14 @@ const blank = (i) => ({
   best: {},              // `${arena}:${mode}` -> score
   medals: {},            // `${arena}:${mode}` -> 'bronze'|'silver'|'gold'|'platinum'
   licences: {},          // testId -> 'bronze'|'silver'|'gold'
-  unlocked: { cars: 'all', arenas: ['park'], parts: [], liveries: ['stock'] },
+  // Cars are never in here as a gate — the roster's law is that unlocking a
+  // car is unlocking a technique, never a tier. What a ladder hands out is
+  // places to drive and reasons to go back (game/challenges.js UNLOCKS).
+  unlocked: { cars: 'all', arenas: ['park'], parts: [], liveries: ['stock'], modes: [], trials: [] },
   gaps: [],           // named gaps discovered, ever (R6)
+  challenges: {},        // R9: challengeId -> when it was completed
+  gauntlet: 0,           // R9: deepest Gauntlet attempt, ever
+  friends: [],           // R9: names whose scores show on the FRIENDS board
   car: 'vector',
   livery: 'stock',
   tune: { weight: 0.5, suspension: 0.5, thrust: 0.5, aero: 0.5 },

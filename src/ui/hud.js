@@ -46,6 +46,7 @@ export class Hud {
       </div>
 
       <div class="hud-ticker"></div>
+      <div class="hud-ghost"></div>
 
       <div class="hud-left">
         <div class="boost-wrap">
@@ -67,6 +68,7 @@ export class Hud {
       clock: q('.clock-v'), score: q('.score-v'), combo: q('.combo-v'),
       comboBox: q('.hud-combo'),
       boostFill: q('.boost-fill'), boostThrust: q('.boost-thrust'), boostNote: q('.boost-note'),
+      ghost: q('.hud-ghost'),
       speed: q('.speed-n'), airtime: q('.airtime'), air: q('.hud-air'), bank: q('.bank b'),
       ticker: q('.hud-ticker'), parts: q('.hud-parts'), landing: q('.hud-landing'),
       gap: q('.hud-gap'), lines: q('.hud-lines'),
@@ -200,6 +202,17 @@ export class Hud {
     this.el.boostThrust.style.left = `${Math.max(0, (state.boost - B.THRUST_COST) / B.MAX) * 100}%`;
     this.el.boostThrust.style.opacity = state.boost >= B.THRUST_COST ? '1' : '0.15';
     this.el.boostNote.textContent = state.oncoming ? 'ONCOMING' : (extra.nearMiss ? 'NEAR MISS' : '');
+
+    // R9: the ghost's delta. This is the one number that turns a translucent
+    // car into an opponent — a shape on the road is scenery until it is
+    // attached to "you are 2,400 up on it right now".
+    const g = extra.ghost;
+    if (g) {
+      const d = Math.round(g.delta);
+      this.el.ghost.innerHTML =
+        `<b>${d >= 0 ? '+' : '−'}${Math.abs(d).toLocaleString()}</b><i>${g.name}</i>`;
+      this.el.ghost.className = `hud-ghost show ${d >= 0 ? 'ahead' : 'behind'}`;
+    } else this.el.ghost.className = 'hud-ghost';
 
     this.el.speed.textContent = Math.round(state.groundSpeed * 3.6);
     this.el.airtime.innerHTML = `${state.airtime.toFixed(2)}<span>s</span>`;

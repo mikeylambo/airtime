@@ -21,6 +21,7 @@ import { createScene } from './render/scene.js';
 import { ArtDirector, STYLES } from './render/art.js';
 import { buildArenaView } from './render/arena-view.js';
 import { buildCarView } from './render/car-view.js';
+import { buildGhostView } from './render/ghost-view.js';
 import { Fx } from './render/fx.js';
 import { Trails } from './render/trails.js';
 import { buildTrafficView } from './render/traffic-view.js';
@@ -39,7 +40,12 @@ import { resolveSetup } from './sim/cars.js';
 import { Recorder, Player } from './sim/replay.js';
 import { loadClips, saveClip, wallClips } from './storage/clips.js';
 import { LICENCES, evaluate, licenceRank } from './game/licences.js';
-import { Board, dailyVariant, todayKey } from './game/daily.js';
+import { Board, dailyVariant, todayKey, useBoard } from './game/daily.js';
+import { submitRun, readBoard, standings, BOARDS } from './game/boards.js';
+import { boardFromEnv } from './game/supabase-board.js';
+import { evaluateRun, completedCount, nextUnlock, unlockedBy, CHALLENGES } from './game/challenges.js';
+import * as Gauntlet from './game/gauntlet.js';
+import { ghostFromRun, bakeGhost, saveGhost, bestGhost, listGhosts } from './game/ghosts.js';
 import { simVersion } from './sim/version.js';
 import { setColorblind, playerColorCss } from './render/theme.js';
 
@@ -86,6 +92,7 @@ class Game {
     this.arenaView = buildArenaView(scene, this.art, 'park');
     const park = this.arenaView.park;
     this.carViews = [buildCarView(scene, this.art, 0)];
+    this.ghostView = buildGhostView(scene);
     // R7. Particles are a response to the simulation, so they live next to the
     // car views and are driven from the same snapshot and event stream.
     this.fx = new Fx(scene, this.art);
@@ -125,11 +132,20 @@ class Game {
     this.hud = new Hud(this.hudRoot);
 
     // ── Frame ─────────────────────────────────────────────────────────────
+    // R9: point the boards at a server if this build was given one. An
+    // offline build is the normal case, not an error case — `boardFromEnv`
+    // returns null and the local adapter stays.
+    const remote = boardFromEnv();
+    if (remote) useBoard(remote);
     this.profiles = loadAll();
     this.profileIndex = activeSlot() ?? 0;
     this.replays = loadClips(this.profileIndex);
     this.lastMode = MODES[0];
     this.lastArena = ARENAS[0];
+    this.ghost = null;             // R9: the baked ghost on the track, if any
+    this.gauntlet = null;
+    this.challengesEarned = [];
+    this.unlocksEarned = [];
     this.arenaId = 'park';
     this.screens = new ScreenManager(this.screenRoot, {});
     buildFrame(this.screens, this);
@@ -581,6 +597,20 @@ class Game {
       return this.screens.go('licresult', { test, result });
     }
 
+    // R9 THE GAUNTLET: each stage is its own short run, so a finished round
+    // is one stage answered. Cleared stages roll straight into the next —
+    // R4's one-input budget applies to an exam as much as to a retry.
+    if (this.gauntlet && !this.gauntlet.done) {
+      const stage = Gauntlet.stageAt(this.gauntlet.index);
+      Gauntlet.resolve(this.gauntlet, this.enrich(summary));
+      Gauntlet.record(this.profile, this.gauntlet);
+      this.challengesEarned = evaluateRun(this.profile, this.enrich(summary), this.runContext());
+      saveAll(this.profiles);
+      const state = this.gauntlet;
+      if (state.done) { this.gauntlet = null; return this.screens.go('gauntletresult', { state, stage, summary }); }
+      return this.screens.go('gauntletnext', { state, cleared: stage, summary });
+    }
+
     // Pass-the-pad: the round is one turn, not the whole game (§9).
     if (this.party && this.party.kind === 'pad') return this.nextTurn(summary);
 
@@ -588,11 +618,118 @@ class Game {
       return this.screens.go('scoreboard', { all: this.allSummaries, kind: 'split' });
     }
 
+    const full = this.enrich(summary);
     recordRun(this.profile, this.lastArena.id, this.lastMode.id, summary);
+    // R9: the run is scored against the ladder, filed on every board it
+    // qualifies for, and kept as a ghost if it is the best one here.
+    const before = completedCount(this.profile);
+    this.challengesEarned = evaluateRun(this.profile, full, this.runContext());
+    this.unlocksEarned = unlockedBy(this.profile)
+      .filter((u) => u.at > before && u.at <= completedCount(this.profile));
+    for (const u of this.unlocksEarned) this.grantUnlock(u);
+    this.keepGhost(summary);
     saveAll(this.profiles);
-    this.submitScore(summary);
-    this.screens.go('result', summary);
+    this.submitScore(summary).then((placings) => { this.placings = placings; });
+    this.screens.go('result', full);
   }
+
+  // ── R9: mastery ──────────────────────────────────────────────────────────
+
+  /** What a challenge or a Gauntlet stage is allowed to ask about. */
+  runContext() {
+    return { arena: this.lastArena.id, mode: this.lastMode.id, car: this.profile.car };
+  }
+
+  /**
+   * A run summary, plus the things only the game layer knows: which ghost was
+   * on the track, how many gaps this profile has ever found, and which car
+   * was driving. The sim deliberately does not know any of them.
+   */
+  enrich(summary) {
+    return {
+      ...summary,
+      car: this.profile.car,
+      arena: this.lastArena.id,
+      gapsKnown: (this.profile.gaps || []).filter((g) => g.startsWith(`${this.lastArena.id}:`)).length,
+      ghost: this.ghost ? { score: this.ghost.score, car: this.ghost.car, name: this.ghost.name } : null,
+      // The Gauntlet is scored across a chain of runs, so its challenges read
+      // the profile's deepest attempt rather than this one round.
+      gauntletDepth: this.profile.gauntlet || 0,
+      sim: simVersion(),
+    };
+  }
+
+  /** Keep the run as a ghost if it beats the one already standing here. */
+  keepGhost(summary) {
+    if (!this.recorder || !summary.score) return null;
+    const record = ghostFromRun(this.recorder, { ...summary, name: this.profile.name }, 0);
+    return saveGhost(this.profileIndex, record);
+  }
+
+  /**
+   * Choose a ghost and bake it. Baking is a few thousand real solver steps,
+   * so it happens *here* — when a ghost is picked — and never at the start of
+   * a run, because R4's 1.20 s between "that ended" and "I am driving" is a
+   * permanent budget rather than an achievement.
+   */
+  async loadGhost(record, onProgress = null) {
+    if (!record) { this.ghost = null; return null; }
+    this.ghostBaking = true;
+    try {
+      this.ghost = await bakeGhost(record, { onProgress });
+      return this.ghost;
+    } catch { this.ghost = null; return null; } finally { this.ghostBaking = false; }
+  }
+
+  clearGhost() { this.ghost = null; }
+  get ghostRecords() { return listGhosts(this.profileIndex); }
+  ghostHere() { return bestGhost(this.profileIndex, this.lastArena.id, this.lastMode.id); }
+
+  /** Where the ghost is right now, and what it had banked by this moment. */
+  ghostState() {
+    if (!this.ghost || !this.sim || this.playback) return null;
+    const t = this.sim.round.elapsed;
+    const pose = this.ghost.at(t, this._ghostPose || (this._ghostPose = {}));
+    return {
+      pose,
+      score: pose.score,
+      delta: (this.sim.players[0].run.score || 0) - pose.score,
+      name: this.ghost.name,
+      car: this.ghost.car,
+      done: pose.done,
+    };
+  }
+
+  grantUnlock(u) {
+    const p = this.profile;
+    if (u.kind === 'arena' && !p.unlocked.arenas.includes(u.id)) p.unlocked.arenas.push(u.id);
+    if (u.kind === 'mode') { p.unlocked.modes = p.unlocked.modes || []; if (!p.unlocked.modes.includes(u.id)) p.unlocked.modes.push(u.id); }
+    if (u.kind === 'trial') { p.unlocked.trials = p.unlocked.trials || []; if (!p.unlocked.trials.includes(u.id)) p.unlocked.trials.push(u.id); }
+  }
+
+  get gauntletUnlocked() {
+    return (this.profile.unlocked.trials || []).includes('gauntlet');
+  }
+
+  /** Start an attempt, or the next stage of one. */
+  async startGauntlet(state = null) {
+    this.gauntlet = state || Gauntlet.begin();
+    return this.playGauntletStage();
+  }
+
+  async playGauntletStage() {
+    const stage = Gauntlet.stageAt(this.gauntlet.index);
+    if (!stage) { this.gauntlet = null; return this.screens.go('main'); }
+    const arena = ARENAS.find((a) => a.id === stage.arena) || ARENAS[0];
+    this.clearGhost();
+    return this.startRun(this.lastMode, arena, { duration: stage.seconds });
+  }
+
+  abandonGauntlet() { this.gauntlet = null; }
+
+  get challengeCount() { return completedCount(this.profile); }
+  get challengeTotal() { return CHALLENGES.length; }
+  nextUnlock() { return nextUnlock(this.profile); }
 
   // ── Pass-the-pad (§9): one controller, 45s turns, scoreboard between ─────
   startPassThePad(count) {
@@ -670,19 +807,36 @@ class Game {
     after();
   }
 
-  /** §8 daily leaderboard. The adapter is local until there is a server. */
+  /**
+   * R9: a run is filed on every board it qualifies for, not on one.
+   * @returns where it landed on each, for the result screen
+   */
   async submitScore(summary) {
-    if (!summary.score) return;
+    if (!summary.score) return [];
     try {
-      await Board.submit({
-        day: todayKey(), arena: this.lastArena.id, mode: this.lastMode.id,
-        name: this.profile.name, car: this.profile.car,
-        score: summary.score, medal: summary.medal, at: Date.now(),
-        // §R: a score set under different physics is not comparable.
-        sim: simVersion(),
+      const v = dailyVariant();
+      return await submitRun(summary, {
+        profile: this.profile,
+        arena: this.lastArena.id,
+        mode: this.lastMode.id,
+        day: todayKey(),
+        // The daily boards are for runs made on the daily *variant*, not for
+        // every run that happens to be made today.
+        daily: v.arena === this.lastArena.id && this.lastMode.id === 'stunt',
       });
-    } catch { /* a board being unavailable must never eat a run */ }
+    } catch { return []; }   // a board being unavailable must never eat a run
   }
+
+  /** The seven, and where this profile stands on each. */
+  boardContext() {
+    return {
+      arena: this.lastArena.id, mode: this.lastMode.id, day: todayKey(),
+      car: this.profile.car, slot: this.profile.slot,
+      friends: this.profile.friends || [],
+    };
+  }
+  readBoard(id, n = 10) { return readBoard(id, this.boardContext(), n); }
+  standings(n = 10) { return standings(this.boardContext(), n); }
 
   // ── Fixed-step simulation ────────────────────────────────────────────────
   stepFixed(dt) {
@@ -807,6 +961,19 @@ class Game {
       }
       this.carViews[i].sync(p.car, p.panels);
     }
+    // R9: the ghost is not in this world — it is a baked trajectory being
+    // read. Nothing about it is stepped here, which is why racing one costs
+    // a transform a frame rather than a second physics world.
+    const g = this.ghostState();
+    this._ghostHud = g && this.inRun ? g : null;
+    if (g) {
+      if (this.ghostView.shownCar !== this.ghost.car) {
+        this.ghostView.shownCar = this.ghost.car;
+        this.ghostView.setChassis(this.ghost.half, this.ghost.wheel);
+      }
+      this.ghostView.sync(g.pose, this.camera.position);
+    } else this.ghostView.hide();
+
     this.trafficView.sync(state.traffic);
     this.arenaView.syncMovers(state.movers);
     this.arenaView.syncCoins(this.sim.coinsTaken, state.time);
@@ -857,6 +1024,9 @@ class Game {
       style: this.art.style,
       telemetry: this.sim.telemetry,
       nearMiss: this._nearMissFlash > 0,
+      // renderFrame already read the ghost this frame; reuse it rather than
+      // interpolating the same trajectory twice.
+      ghost: this._ghostHud || null,
     });
 
     if (this.inRun && this.sim.run.state === RUN_STATE.COUNTDOWN) {

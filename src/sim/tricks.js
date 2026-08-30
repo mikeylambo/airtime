@@ -179,6 +179,14 @@ export function resolveTrick(snap, landing, tierMult, combo = 1) {
     combo,
     airtime: snap.airtime,
     height: snap.height,
+    // The flight itself, and the single number a player means by "a 900": the
+    // most any one axis turned. R9's challenge ladder asks for these, and
+    // recomputing them from facets afterwards would be reading the name off
+    // the thing instead of the thing.
+    flight: snap.flight,
+    rotation: snap.flight
+      ? Math.max(Math.abs(snap.flight.yaw), Math.abs(snap.flight.pitch), Math.abs(snap.flight.roll))
+      : 0,
     payout,
     total: payout + coins,
   };

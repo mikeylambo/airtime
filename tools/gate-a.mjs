@@ -32,6 +32,8 @@ const CHECKS = [
   ['R8', 'the city is a network too', 'lines.mjs', ['--city']],
   ['R8', 'the city has named places in it too', 'probe-gaps.mjs', ['--city']],
   ['R8', 'the city is an instrument, and the clip has its furniture', 'probe-city.mjs'],
+  ['R9', 'ghosts are the runs they recorded, and the ladder holds', 'probe-mastery.mjs'],
+  ['R9', 'every screen opens in a browser', 'probe-menus.mjs'],
 ];
 
 const verbose = process.argv.includes('--verbose');

@@ -1,12 +1,10 @@
 /**
- * Licences, the daily line and the leaderboard (§8).
+ * Licence tests (§8). The boards live in ui/mastery.js since R9.
  */
 
 import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
 import { LICENCES, licenceScore, licenceRank } from '../game/licences.js';
-import { Board, dailyVariant, todayKey } from '../game/daily.js';
-import { medalCount } from '../storage/profiles.js';
 
 const gradeDot = (g) => (g ? `<span class="medal ${g}">${g}</span>` : '—');
 
@@ -50,30 +48,8 @@ export function buildProgress(mgr, game) {
     onMenu: (m) => { if (m.back) mgr.back('main'); else list.handle(m); },
   }));
 
-  // ── Leaderboard (§2: per-arena, daily seed, friends) ────────────────────
-  mgr.register(new Screen('board', {
-    html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow" id="brd-eyebrow">Daily line</div>
-      <h2 class="title">TODAY</h2>
-      <table class="brk" id="brd-table"></table>
-      <div class="blurb" id="brd-note"></div>
-      <div class="hint"><b>B</b> back</div>
-    </div>`,
-    onEnter: async () => {
-      const v = dailyVariant();
-      document.getElementById('brd-eyebrow').textContent =
-        `Daily line · ${v.day} · ${v.arena} · ${v.traffic} traffic`;
-      const rows = await Board.top(v.day, game.lastArena.id, game.lastMode.id, 10);
-      document.getElementById('brd-table').innerHTML =
-        '<tr><th>#</th><th>driver</th><th>car</th><th class="n">score</th></tr>' +
-        (rows.length
-          ? rows.map((r, i) => `<tr><td>${i + 1}</td><td>${r.name}</td><td>${r.car}</td><td class="n">${r.score.toLocaleString()}</td></tr>`).join('')
-          : '<tr><td colspan="4">no runs on this line yet</td></tr>');
-      document.getElementById('brd-note').textContent =
-        `Board: ${Board.name}. The seed is the date, so everybody gets the same variant without a server handing one out.`;
-    },
-    onMenu: (m) => { if (m.back) mgr.back('main'); },
-  }));
+  // The leaderboard screen moved to ui/mastery.js in R9, where it became
+  // seven boards behind one screen. Nothing here needs to know about them.
 
   // ── Licence result ─────────────────────────────────────────────────────
   mgr.register(new Screen('licresult', {

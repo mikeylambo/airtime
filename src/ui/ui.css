@@ -296,3 +296,36 @@ table.brk tr.crash td { color: #7a4453; }
   background: linear-gradient(to bottom,
     transparent 0%, color-mix(in srgb, var(--p1) 90%, transparent) 50%, transparent 100%);
 }
+
+/* ── R9: the ghost's delta ────────────────────────────────────────────────
+   Positioned opposite the ticker and deliberately quiet: the number that
+   matters is the one on the car you can see out of the window, and a
+   scoreboard shouting at you is the opposite of what a ghost is for. */
+.hud-ghost {
+  position: absolute; right: 1.6rem; top: 46%;
+  text-align: right; opacity: 0; transition: opacity .25s ease;
+  pointer-events: none; font-variant-numeric: tabular-nums;
+}
+.hud-ghost.show { opacity: .85; }
+.hud-ghost b {
+  display: block; font-size: 1.5rem; line-height: 1;
+  letter-spacing: .02em; text-shadow: 0 0 12px currentColor;
+}
+.hud-ghost i {
+  display: block; font-style: normal; font-size: .62rem;
+  letter-spacing: .22em; opacity: .55; margin-top: .25rem;
+}
+.hud-ghost.ahead b { color: var(--green, #39ff88); }
+.hud-ghost.behind b { color: var(--pink, #ff6ec7); }
+
+/* ── R9: what a run bought, on the result screen ──────────────────────────
+   Stated and then got out of the way. R4's budget says one input separates a
+   finished run from the next one, so this is a line to glance at, never a
+   reward ceremony to press through. */
+.earned { display: none; margin: .9rem 0 .2rem; max-width: 44rem; }
+.earned.show { display: block; }
+.earned div {
+  font-size: .78rem; letter-spacing: .04em; opacity: .8;
+  padding: .18rem 0; border-left: 2px solid var(--green, #39ff88); padding-left: .7rem;
+}
+.earned b { letter-spacing: .12em; margin-right: .5rem; }

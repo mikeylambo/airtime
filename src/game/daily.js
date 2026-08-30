@@ -43,33 +43,43 @@ export function dailyVariant(seed = dailySeed()) {
 }
 
 // ── Leaderboard adapter ────────────────────────────────────────────────────
+// Two functions, and a board id. R9 files a run onto every board it qualifies
+// for (game/boards.js), so the adapter takes *which* board as well as which
+// key — that is what lets a server index and filter them itself instead of
+// pulling every score down and sorting on the client.
+
 const KEY = 'board';
 
 export const LocalBoard = {
   name: 'local',
-  async submit(entry) {
+
+  async submit(board, key, entry) {
     const all = Storage.read(KEY, {});
-    const k = `${entry.day}:${entry.arena}:${entry.mode}`;
+    const k = `${board}/${key}`;
     const list = all[k] || [];
-    const mine = list.findIndex((e) => e.name === entry.name);
-    if (mine >= 0) { if (entry.score > list[mine].score) list[mine] = entry; }
+    // One row per driver per board. A player who beats their own score
+    // replaces it rather than filling the top ten with themselves.
+    const mine = list.findIndex((e) => e.slot === entry.slot);
+    if (mine >= 0) { if (entry.value > list[mine].value) list[mine] = entry; }
     else list.push(entry);
-    list.sort((a, b) => b.score - a.score);
+    list.sort((a, b) => b.value - a.value);
     all[k] = list.slice(0, 50);
     Storage.write(KEY, all);
     return all[k];
   },
-  async top(day, arena, mode, n = 10) {
+
+  async top(board, key, n = 10) {
     const all = Storage.read(KEY, {});
     // §R: scores set under different physics are stored but never shown —
     // they are not comparable to a run made today.
-    return (all[`${day}:${arena}:${mode}`] || []).filter(simCurrent).slice(0, n);
+    return (all[`${board}/${key}`] || []).filter(simCurrent).slice(0, n);
   },
 };
 
 /**
- * Swap this for a Supabase-backed board when there is a project to point at.
- * Nothing above this line changes.
+ * The adapter the game talks to. `useBoard` swaps in the Supabase one
+ * (game/supabase-board.js) when there is a project to point at; nothing above
+ * this line changes, and nothing else in the game knows the difference.
  */
 export let Board = LocalBoard;
 export function useBoard(adapter) { Board = adapter; }
