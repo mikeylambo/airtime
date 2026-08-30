@@ -40,6 +40,7 @@ export const ARENAS = [
   { id: 'works', label: 'MEGA WORKS', blurb: 'The best surfaces move. Route in time, not just in space.', medals: 8 },
   { id: 'flood', label: 'FLOODWAY', blurb: 'The only arena with a direction. Forgives a bad line, punishes a slow one.', medals: 12 },
   { id: 'sky', label: 'SKYLINE', blurb: 'No ground. A missed landing is not a crash, it is a demotion.', medals: 16 },
+  { id: 'hall', label: 'THE CONCOURSE', blurb: 'It has a ceiling. You cannot solve anything here by going up.', medals: 20 },
 ];
 
 const medalDot = (m) => (m ? `<span class="medal ${m}">${m[0].toUpperCase()}</span>` : '·');

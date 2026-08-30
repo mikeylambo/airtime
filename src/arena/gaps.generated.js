@@ -97,4 +97,22 @@ export const GENERATED_GAPS = [
   {"id":"sky:up_pad_e_1>anchor_leg","name":"EAST LONG PAD HOLD","arena":"sky","from":{"x":80,"y":65.12,"z":-19},"to":{"x":80,"y":57.14,"z":-159.48},"dist":140.5,"airtime":2.85,"apex":83.5,"tier":"structure"},
   {"id":"sky:up_peak_0>up_pad_w_1","name":"NORTHWEST PEAK STEP","arena":"sky","from":{"x":-80,"y":99.12,"z":-142},"to":{"x":-80,"y":32.34,"z":-14.74},"dist":127.3,"airtime":3.62,"apex":108.6,"tier":"ramp"},
 /* ---- end sky ---- */
+/* ---- hall ---- */
+  {"id":"hall:mz_n_2>plat_p_b","name":"NORTHEAST MZ_N_2 LINE","arena":"hall","from":{"x":58,"y":18.26,"z":-128},"to":{"x":58,"y":5,"z":-40.09},"dist":87.9,"airtime":1.7,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:mz_s_0>plat_p_c","name":"SOUTHWEST MZ_S_0 LINE","arena":"hall","from":{"x":-174,"y":18.26,"z":128},"to":{"x":-174,"y":5,"z":40.09},"dist":87.9,"airtime":1.7,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:mz_s_1>plat_p_c","name":"SOUTHWEST MZ_S_1 LINE","arena":"hall","from":{"x":-58,"y":18.26,"z":128},"to":{"x":-58,"y":5,"z":40.09},"dist":87.9,"airtime":1.7,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:mz_s_2>plat_p_c","name":"SOUTHEAST MZ_S_2 LINE","arena":"hall","from":{"x":58,"y":18.26,"z":128},"to":{"x":58,"y":5,"z":40.09},"dist":87.9,"airtime":1.7,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:mz_s_3>plat_p_c","name":"SOUTHEAST MZ_S_3 LINE","arena":"hall","from":{"x":174,"y":18.26,"z":128},"to":{"x":174,"y":5,"z":40.09},"dist":87.9,"airtime":1.7,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:mz_n_3>plat_p_b","name":"NORTHEAST MZ_N_3 LINE","arena":"hall","from":{"x":174,"y":18.26,"z":-128},"to":{"x":174,"y":5.32,"z":-41.31},"dist":86.7,"airtime":1.67,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:gt_n_0>concourse_floor","name":"NORTHWEST GT_N_0 LINE","arena":"hall","from":{"x":-150,"y":22.12,"z":-144},"to":{"x":-150,"y":0,"z":-65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gt_n_1>concourse_floor","name":"NORTH GT_N_1 LINE","arena":"hall","from":{"x":0,"y":22.12,"z":-144},"to":{"x":0,"y":0,"z":-65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gt_n_2>concourse_floor","name":"NORTHEAST GT_N_2 LINE","arena":"hall","from":{"x":150,"y":22.12,"z":-144},"to":{"x":150,"y":0,"z":-65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gt_s_0>concourse_floor","name":"SOUTHWEST GT_S_0 LINE","arena":"hall","from":{"x":-150,"y":22.12,"z":144},"to":{"x":-150,"y":0,"z":65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gt_s_1>concourse_floor","name":"SOUTH GT_S_1 LINE","arena":"hall","from":{"x":0,"y":22.12,"z":144},"to":{"x":0,"y":0,"z":65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gt_s_2>concourse_floor","name":"SOUTHEAST GT_S_2 LINE","arena":"hall","from":{"x":150,"y":22.12,"z":144},"to":{"x":150,"y":0,"z":65.13},"dist":78.9,"airtime":1.67,"apex":22.7,"tier":"road"},
+  {"id":"hall:gr_spine_0>concourse_floor","name":"WEST GR_SPINE_0 LINE","arena":"hall","from":{"x":-212,"y":5.97,"z":13},"to":{"x":-212,"y":0,"z":110.85},"dist":97.9,"airtime":1.75,"apex":11.7,"tier":"road"},
+  {"id":"hall:gr_spine_4>concourse_floor","name":"EAST GR_SPINE_4 LINE","arena":"hall","from":{"x":212,"y":5.97,"z":13},"to":{"x":212,"y":0,"z":110.85},"dist":97.9,"airtime":1.75,"apex":11.7,"tier":"road"},
+  {"id":"hall:mz_n_0>plat_p_b","name":"NORTHWEST MZ_N_0 LINE","arena":"hall","from":{"x":-174,"y":18.26,"z":-128},"to":{"x":-174,"y":7.81,"z":-46.21},"dist":81.8,"airtime":1.57,"apex":20.9,"tier":"rooftop"},
+  {"id":"hall:cross_p_a>concourse_floor","name":"NORTHWEST CROSS_P_A LINE","arena":"hall","from":{"x":-128,"y":10.01,"z":-91},"to":{"x":-128,"y":0,"z":6.69},"dist":97.7,"airtime":1.72,"apex":13.9,"tier":"road"},
+/* ---- end hall ---- */
 ];

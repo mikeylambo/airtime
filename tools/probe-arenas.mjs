@@ -49,7 +49,59 @@ const AXES = [
   ['altitude', 'how far above the deck the arena is, on average'],
   ['exposure', 'share of launches that end on bare deck'],
   ['openness', 'distinct surfaces a launch can reach, on average'],
+  // R12. The Concourse is the only arena with a lid, and none of the six axes
+  // above could see one: `predictArc` casts downward and only while
+  // descending, so a roof is invisible to every measurement in the repo. An
+  // arena whose whole routing idea is "you cannot solve this by going up"
+  // would have scored ordinary on all seven and been the maximum on nothing.
+  ['enclosure', 'share of flights that pass under something'],
 ];
+
+/**
+ * Lids, and what counts as one.
+ *
+ * Structural rather than a raycast, and it excludes `leg` — a column runs
+ * floor to roof, so it is a thing you steer around rather than something
+ * overhead. Only geometry that begins above you is a lid.
+ */
+const isLid = (s) => s.kind !== 'leg';
+
+/** Is anything overhead at this footprint? (the `enclosure` question) */
+function covered(park, x, z, y) {
+  for (const s of park.structures) {
+    if (!isLid(s)) continue;
+    if (s.pos.y - s.half.y <= y + 0.5) continue;
+    if (Math.abs(x - s.pos.x) <= s.half.x && Math.abs(z - s.pos.z) <= s.half.z) return true;
+  }
+  return false;
+}
+
+/**
+ * Did this flight go *through* something? (the clearance question)
+ *
+ * The first version asked whether the apex rose above an overhead slab's
+ * underside, which is wrong in a way that matters: clearing the top of a
+ * hanging sign reads identically to hitting it from below, so the arena's own
+ * x5 target was unreachable by construction. A flight is only a collision if a
+ * sample lands *inside* the solid — which is what a collision is.
+ *
+ * And only on the way *up*. The second version tested the whole arc and
+ * flagged every arena in the roster, Skyline hardest, for the boring reason
+ * that a flight ends inside the pad it lands on: the samples step past the
+ * top surface before the ray finds it. A lid is by definition something you
+ * rise into; anything you meet descending is a landing.
+ */
+function firstSolid(park, samples, apexTime, step) {
+  const upto = Math.max(1, Math.ceil(apexTime / step));
+  for (const p of samples.slice(0, upto)) {
+    for (const s of park.structures) {
+      if (!isLid(s)) continue;
+      if (Math.abs(p.x - s.pos.x) <= s.half.x && Math.abs(p.z - s.pos.z) <= s.half.z
+          && Math.abs(p.y - s.pos.y) <= s.half.y) return s.id;
+    }
+  }
+  return null;
+}
 
 function launchFrom(r, speed) {
   const s = rampSurface(r);
@@ -71,6 +123,8 @@ async function measure(id) {
   let held = 0, real = 0;
   let dirX = 0, dirZ = 0, dirN = 0;
   let deckLandings = 0;
+  let underCover = 0;
+  const roofHits = [];
 
   for (const r of ramps) {
     const hits = new Set();
@@ -99,6 +153,14 @@ async function measure(id) {
       hits.add(on);
       real++;
       if (arc.point.y >= pos.y - 1) held++;
+
+      // Enclosure, and the check that makes it honest. The apex is where a
+      // flight is closest to whatever is over it, so that is where both
+      // questions get asked: is there a lid, and did we just hit it?
+      const apex = arc.samples.reduce((a, b) => (b.y > a.y ? b : a), arc.samples[0] || pos);
+      if (covered(park, apex.x, apex.z, pos.y)) underCover++;
+      const through = firstSolid(park, arc.samples, arc.apexTime, 1 / 40);
+      if (through) roofHits.push(`${r.id}@${speed}→${through}`);
     }
     reach.set(r.id, hits.size);
   }
@@ -128,6 +190,9 @@ async function measure(id) {
     openness: reach.size
       ? [...reach.values()].reduce((a, n) => a + n, 0) / reach.size / SPEEDS.length
       : 0,
+    enclosure: real ? underCover / real : 0,
+    ceiling: park.ceiling || null,
+    roofHits,
   };
 }
 
@@ -171,6 +236,31 @@ const thin = rows.filter((r) => r.gaps < 8);
 check(thin.length === 0, 'and every one has named gaps derived from itself',
   thin.length ? thin.map((r) => `${r.id} has ${r.gaps}`).join(', ')
     : rows.map((r) => `${r.id} ${r.gaps}`).join('  '));
+
+// ── 3b. Nothing launches into a ceiling ────────────────────────────────────
+// The one failure mode an interior arena has and the other five cannot: a
+// launch that apexes into the roof. Every other probe in the repository is
+// structurally blind to it, because a downward raycast cannot see a lid. This
+// is what makes their blindness safe.
+// It gates the arenas that *declare* a lid, because for those the roof is the
+// premise; for the open-air arenas an apex clipping an overhead deck at the
+// top of a synthetic speed sweep is a nuance, not a broken promise. Those are
+// reported rather than failed, and written down rather than swallowed.
+const roofed = rows.filter((r) => r.ceiling);
+const brained = roofed.filter((r) => r.roofHits.length);
+check(brained.length === 0, 'and no interior launches into its own ceiling',
+  brained.length
+    ? brained.map((r) => `${r.id}: ${r.roofHits.slice(0, 4).join(' ')}${r.roofHits.length > 4 ? ` +${r.roofHits.length - 4}` : ''}`).join('; ')
+    : roofed.length ? `${roofed.map((r) => r.id).join(', ')}: every apex clears the roof` : 'no interiors');
+
+const clipping = rows.filter((r) => !r.ceiling && r.roofHits.length);
+if (clipping.length) {
+  console.log('\n  note  open-air arcs that clip overhead geometry at sweep speed (not gated):');
+  for (const r of clipping) {
+    const ramps = [...new Set(r.roofHits.map((h) => h.split('@')[0]))];
+    console.log(`        ${r.id.padEnd(6)} ${ramps.length} ramp${ramps.length > 1 ? 's' : ''}: ${ramps.slice(0, 6).join(' ')}`);
+  }
+}
 
 // ── 4. And enough of an arena to be one ────────────────────────────────────
 const small = rows.filter((r) => r.ramps < 15);

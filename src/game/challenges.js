@@ -32,7 +32,7 @@ import { MODES } from '../sim/modes.js';
 
 const ARENA_LABEL = {
   park: 'The Yard', city: 'Vertical City', works: 'Mega Works',
-  flood: 'Floodway', sky: 'Skyline',
+  flood: 'Floodway', sky: 'Skyline', hall: 'The Concourse',
 };
 const TIER_LABEL = {
   road: 'the road', rooftop: 'a rooftop', billboard: 'a billboard',
@@ -298,6 +298,15 @@ const signature = [
     test: (r) => (r.bestChain || 0) >= 8,
   }),
   make('SIGNATURE', {
+    id: 'sig_hall', arena: 'hall',
+    name: 'NEVER LOOKED UP',
+    brief: 'Bank 40,000 without once touching the gallery or the catwalks.',
+    teaches: 'The Concourse has a ceiling. Height is not the answer here.',
+    tier: 0,
+    test: (r) => (r.total || 0) >= 40000
+      && !(r.landings || []).some((l) => l.landed && /^(mezz|gantry)_/.test(l.targetId || '')),
+  }),
+  make('SIGNATURE', {
     id: 'sig_sky', arena: 'sky',
     name: 'NEVER CAME DOWN',
     brief: 'Finish a round of ten jumps without a single respawn.',
@@ -449,7 +458,8 @@ export const UNLOCKS = [
   { at: 44, id: 'flood', kind: 'arena', label: 'FLOODWAY' },
   { at: 54, id: 'shot', kind: 'mode', label: 'CALL YOUR SHOT' },
   { at: 66, id: 'sky', kind: 'arena', label: 'SKYLINE' },
-  { at: 78, id: 'combo', kind: 'mode', label: 'COMBO RUN' },
+  { at: 78, id: 'hall', kind: 'arena', label: 'THE CONCOURSE' },
+  { at: 84, id: 'combo', kind: 'mode', label: 'COMBO RUN' },
   { at: 90, id: 'survival', kind: 'mode', label: 'SURVIVAL' },
   { at: 102, id: 'party', kind: 'mode', label: 'PARTY STUNTS' },
   { at: 118, id: 'gauntlet', kind: 'trial', label: 'THE GAUNTLET' },

@@ -10,8 +10,12 @@ import { describeCity } from './city-block.js';
 import { describeWorks } from './mega-works.js';
 import { describeFlood } from './floodway.js';
 import { describeSky } from './skyline.js';
+import { describeConcourse } from './concourse.js';
 
-const BUILDERS = { park: describePark, city: describeCity, works: describeWorks, flood: describeFlood, sky: describeSky };
+const BUILDERS = {
+  park: describePark, city: describeCity, works: describeWorks,
+  flood: describeFlood, sky: describeSky, hall: describeConcourse,
+};
 
 export const ARENA_IDS = Object.keys(BUILDERS);
 
@@ -26,6 +30,6 @@ export function getArena(id = 'park') {
   return a;
 }
 
-export { describePark, describeCity, describeWorks, describeFlood, describeSky };
+export { describePark, describeCity, describeWorks, describeFlood, describeSky, describeConcourse };
 export { PIECES, expandPieces, serializeArena, parseArena } from './pieces.js';
 export * from './ramp-geometry.js';

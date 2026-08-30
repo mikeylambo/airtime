@@ -343,6 +343,10 @@ export function expandPieces(desc) {
     id: desc.id,
     ground: desc.lot.ground,
     spawn: desc.lot.spawn,
+    // Only interiors declare one. It is what tells probe:arenas that a roof
+    // over this arena is a rule rather than an accident, and that launching
+    // into it is a defect rather than a nuance.
+    ceiling: desc.lot.ceiling ?? null,
     ...out,
   };
 }
