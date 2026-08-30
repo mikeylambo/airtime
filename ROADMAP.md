@@ -647,6 +647,19 @@ and prints it, and refuses to issue any verdict at all if a software rasteriser
 served the frames. A perf gate that can quietly measure the wrong machine is
 worse than no perf gate; `README.md` carries the procedure.
 
+**And then it was taken.** 2026-08-30, on the owner's MacBook Pro, with the
+fixed flag and a real driver serving the frames:
+
+> `PASS  60fps solo, ≥45fps 4-way at 1080p on this machine`
+
+That closes the art brief's last measurable clause. One caveat kept on the
+record: the brief says *"target hardware has no dedicated GPU"*, and Apple
+Silicon's integrated GPU satisfies that on the letter while being a long way
+from the weak end of it. The floor case — an older Intel integrated laptop —
+is still untested, and the honest reading of this pass is "the pipeline is not
+GPU-bound on integrated graphics", not "it clears 60 on every machine that has
+none".
+
 ### Build 10 — R10 and R11, and the law that came with them
 
 **Three arenas, and a gate that is not `npm run lines`.** The line analyzer

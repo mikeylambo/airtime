@@ -59,6 +59,11 @@ A window opens, four runs go past (solo and four-way, each at full effects and
 Reduce Effects), and it exits 0 on PASS, 1 on FAIL. `--frames=N` shortens each
 run from the default 240.
 
+**Taken 2026-08-30 on a MacBook Pro: PASS** — 60 fps solo and ≥45 fps four-way
+at 1080p. The weak end of "integrated" (an older Intel laptop) is still
+untested, so read it as "not GPU-bound on integrated graphics" rather than as a
+guarantee for every machine without a dedicated card.
+
 It prints the renderer string it actually got, and **refuses to grade a
 software rasteriser under `--headful`** (exit 2) — which is what you get from
 `xvfb-run` on a server, and what makes the difference between a perf verdict
