@@ -53,10 +53,11 @@ await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 
  * and anything the direction calls *light* (trails, trim, splash, coins,
  * billboards) well above.
  */
-async function measure(label, { script, players, seconds }) {
-  return page.evaluate(async ({ script, players, seconds }) => {
+async function measure(label, { script, players, seconds, reduce = false }) {
+  return page.evaluate(async ({ script, players, seconds, reduce }) => {
     const A = window.AIRTIME;
     const g = A.game;
+    A.setOption('reduceEffects', reduce);
     await g.beginCapture({ script, players, style: 'afterglow', fps: 30, start: 2 });
     const src = g.renderer.domElement;
     const w = 320, h = 180;
@@ -79,8 +80,9 @@ async function measure(label, { script, players, seconds }) {
       if (frac < worst) { worst = frac; worstT = g.demoT; }
     }
     g.endCapture();
+    A.setOption('reduceEffects', false);
     return { worst, worstT, mean: sum / n };
-  }, { script, players, seconds });
+  }, { script, players, seconds, reduce });
 }
 
 const runs = [
@@ -90,16 +92,38 @@ const runs = [
 
 console.log('── the ≥85% dark-frame rule, measured per frame (luma < 40/255) ──');
 let ok = true;
+const full = {};
 for (const [label, cfg] of runs) {
   const r = await measure(label, cfg);
+  full[label] = r;
   const pass = r.worst >= 0.85;
   ok = ok && pass;
   console.log(`${label}  worst frame ${(r.worst * 100).toFixed(1)}% dark (t=${r.worstT.toFixed(1)}s) · mean ${(r.mean * 100).toFixed(1)}%  ${pass ? 'ok' : 'UNDER'}`);
 }
 
+// ── §A: Reduce Effects can never make the picture brighter ─────────────────
+// The accessibility toggle is binding, and the honest end-to-end statement of
+// it is not "the trails are shorter" — it is that every frame is at least as
+// dark as it was. Three emissive systems shipped ignoring the switch (the
+// signs, the brake discs, the ghost) and nothing here could see it, because
+// nothing here ever turned the switch on.
+console.log('\n── the same frames with Reduce Effects on ──');
+for (const [label, cfg] of runs) {
+  const r = await measure(label, { ...cfg, reduce: true });
+  const f = full[label];
+  // A tolerance, because the two passes are separate captures of a
+  // deterministic script through a rasteriser that is not bit-identical
+  // frame to frame; brighter by a fifth of a percent is noise, brighter by
+  // more is a system that ignored the switch.
+  const pass = r.worst >= f.worst - 0.002 && r.worst >= 0.85;
+  ok = ok && pass;
+  console.log(`${label}  worst frame ${(r.worst * 100).toFixed(1)}% dark · mean ${(r.mean * 100).toFixed(1)}%  ` +
+    `${pass ? 'ok' : 'BRIGHTER THAN FULL EFFECTS'}`);
+}
+
 await browser.close();
 server.close();
 console.log(ok
-  ? '\nPASS  the dark owns the frame; the light is earned'
+  ? '\nPASS  the dark owns the frame, and Reduce Effects never spends more light'
   : '\nFAIL  a frame went brighter than the direction allows');
 process.exit(ok ? 0 : 1);

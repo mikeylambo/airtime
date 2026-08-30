@@ -21,7 +21,7 @@
 
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
-import { THEME, playerColor } from './theme.js';
+import { THEME, playerColor, isReduced, setReduceEffects } from './theme.js';
 import { SLOTS } from '../sim/panels.js';
 
 const MAX_PLAYERS = 4;
@@ -44,7 +44,6 @@ export class Trails {
   constructor(scene) {
     this.scene = scene;
     this.enabled = true;
-    this.reduceEffects = false;
     this.colorblind = false;
     this.players = 1;
     const T = TUNING.TRAILS;
@@ -136,9 +135,14 @@ export class Trails {
   setPlayerCount(n) { this.players = Math.min(n, MAX_PLAYERS); }
 
   setOptions({ reduceEffects, colorblind }) {
-    if (reduceEffects !== undefined) this.reduceEffects = reduceEffects;
+    // Reduce Effects is a whole-game switch (render/theme.js), not a trails
+    // flag — three later systems ignored it by keeping their own copy. This
+    // stays as a pass-through so every existing caller keeps working.
+    if (reduceEffects !== undefined) setReduceEffects(reduceEffects);
     if (colorblind !== undefined) this.colorblind = colorblind;
   }
+
+  get reduceEffects() { return isReduced(); }
 
   /** A fresh round wipes the painted arena. */
   beginRound() {

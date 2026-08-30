@@ -33,6 +33,7 @@ import { Wear, REGIONS, regionOf } from '../src/sim/wear.js';
 import { BrakeHeat } from '../src/sim/brakes.js';
 import { PA } from '../src/audio/pa.js';
 import { signBrightness } from '../src/render/signs.js';
+import { setReduceEffects, isReduced } from '../src/render/theme.js';
 import { SLOTS } from '../src/sim/panels.js';
 import { getArena } from '../src/arena/index.js';
 
@@ -227,6 +228,10 @@ console.log('\n── R7\'s debts ───────────────�
   }
   check(fast.heat > slow.heat * 4, 'and it is work, not pedal pressure',
     `at 60 m/s ${fast.heat.toFixed(2)} vs at 8 m/s ${slow.heat.toFixed(2)}`);
+
+  check(B.REDUCED_GLOW < 1 && B.REDUCED_GLOW > 0,
+    'REDUCE EFFECTS: the discs dim rather than go out',
+    `${(B.REDUCED_GLOW * 100).toFixed(0)}% — a brake glow is a readout, not decoration`);
 }
 
 // ── 5. Active billboards ───────────────────────────────────────────────────
@@ -254,6 +259,20 @@ console.log('\n── R7\'s debts ───────────────�
   check(hit.level === 1 && hit.flash > 0 && cooled.level <= S.LIVE,
     'landing on one punches it, briefly',
     `flash capped at ${(S.FLASH_TIME * 1000).toFixed(0)} ms — the art brief's photosensitivity number`);
+
+  // §A: Reduce Effects is binding, and every emissive system has to answer to
+  // it. The signs, the brake discs and the ghost each ignored it when they
+  // shipped, because each carried the flag itself or not at all.
+  setReduceEffects(true);
+  const rAimed = at({ x: 0, y: 20, z: 60 }, { x: 0, y: 4, z: -40 }, true);
+  const rHit = signBrightness(sign, null, 0.0);
+  setReduceEffects(false);
+  check(rAimed < aimed && rHit.level < 1,
+    'REDUCE EFFECTS: a sign dims, and stops punching to white',
+    `lined up ${aimed.toFixed(2)} -> ${rAimed.toFixed(2)}, hit ${(1).toFixed(2)} -> ${rHit.level.toFixed(2)}`);
+  check(rAimed > S.IDLE,
+    'and still says "land here", because that is information',
+    `${rAimed.toFixed(2)} against an idle ${S.IDLE}`);
 }
 
 // ── 6. The PA ──────────────────────────────────────────────────────────────

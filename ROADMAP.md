@@ -735,6 +735,63 @@ The daily set is three challenges chosen by the date, the same three for
 everybody, drawn from the ladder that already exists — a daily asking for
 something the game does not otherwise ask for is a second game.
 
+### Build 11 — the accessibility switch, and the exhibits
+
+Two debts, both created by shipping something.
+
+**Reduce Effects was covering one system out of four.** The art brief makes it
+binding — "must exist same day the look ships" — and it did, for the trails.
+Then the signs, the brake discs and the ghost arrived, and every one of them
+ignored it, because each carried the flag itself or did not ask at all. That
+is the failure mode of a per-consumer flag: a system added later opts out by
+forgetting.
+
+So it is a switch in `render/theme.js` now, next to the colourblind one, for
+the same stated reason — every consumer follows without carrying a copy. What
+each system does with it is a judgement rather than a blanket kill:
+
+- **Signs dim and stop punching to white**, but still say "land here". That is
+  gameplay information; brightness is the arena's own language for it.
+- **Brake discs dim to 35%** rather than going out. A glowing brake is a
+  readout of something the car is doing.
+- **The ghost dims and never disappears.** Hiding it would not be reducing
+  effects, it would be leaving the mode.
+
+And the end-to-end claim, which is the one that matters and which nothing
+could previously see because no probe ever turned the switch on: **Reduce
+Effects can never make the picture brighter.** `probe:dark` now shoots both
+scenarios twice.
+
+```
+── the ≥85% dark-frame rule, measured per frame (luma < 40/255) ──
+hero jump (art-gate clip)     worst frame 92.1% dark · mean 96.8%  ok
+4-way split, reactive traffic  worst frame 95.8% dark · mean 97.6%  ok
+
+── the same frames with Reduce Effects on ──
+hero jump (art-gate clip)     worst frame 92.1% dark · mean 96.9%  ok
+4-way split, reactive traffic  worst frame 95.9% dark · mean 97.5%  ok
+```
+
+**The exhibits were three builds stale.** They were rendered at `79cc7d3`,
+before R8 — so every city clip showed an arena that no longer exists, no
+exhibit showed a sign, a brake glow, a prop, a ghost or a single R9 screen,
+and `shots.mjs` still pointed at a `board` screen that became `boards` (seven
+tabs) two builds ago.
+
+Re-rendered, with four additions: a clip each for Mega Works, Floodway and
+Skyline, and **an accessibility clip** — the same hero jump, same seed, same
+camera, with Reduce Effects on, because "reads as the same game" is a footage
+question and there was no footage of it. The screens gained the mastery layer
+(challenges, the seven boards, ghosts, run codes, The Gauntlet).
+
+One honest note about how the arena shots are made: they are **placed, not
+driven**. The scripted driver finds the hero jump in The Yard and flails
+everywhere else — in Skyline it never gets off the deck, because the way up is
+a spiral it has no idea how to take — so a driven shot of those arenas is a
+photograph of the driver's limitations. A screenshot is a camera position, not
+a claim about anybody's driving. The *clips* are still driven, and they are
+honest about what the driver can do.
+
 ### Build 2's acceptance test
 
 > Give somebody one car, one arena, five minutes and no progression. Do they

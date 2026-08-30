@@ -53,10 +53,23 @@ const SHOTS = [
   ['garage', null],
   ['licences', null],
   ['replays', null],
-  ['board', null],
+  // R9's mastery layer and R11's creator screens. `board` became `boards` —
+  // one screen with seven tabs — so the old shot pointed at a screen that no
+  // longer exists.
+  ['challenges', null],
+  ['boards', null],
+  ['ghosts', null],
+  ['codes', null],
+  ['gauntlet', null],
   ['options', null],
   ['run', 'run'],
   ['city', 'city'],
+  // R10: the three arenas that did not exist when these exhibits were last
+  // rendered. Each is shot from a run rather than from a menu, because what
+  // is being exhibited is a routing idea rather than a skybox.
+  ['works', 'works'],
+  ['flood', 'flood'],
+  ['sky', 'sky'],
   ['party', null],
   ['split3', 'split3'],
   ['split4', 'split4'],
@@ -71,7 +84,9 @@ const SHOTS = [
     if (b.status !== 0) { console.error(b.stdout, b.stderr); process.exit(1); }
   }
   const { server, port } = await serve(DIST);
-  await rm(OUT, { recursive: true, force: true });
+  // Only wipe on a full pass. `--only` exists to re-shoot one screen, and
+  // deleting the other twenty-five to do it makes it useless for that.
+  if (!ONLY) await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
 
   const browser = await puppeteer.launch({
@@ -87,7 +102,19 @@ const SHOTS = [
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
   await page.waitForFunction('window.AIRTIME && window.AIRTIME.ready', { timeout: 60000 });
   // Pick a profile so the menus have somebody to talk about.
-  await page.evaluate(() => window.AIRTIME.game.selectProfile(0));
+  await page.evaluate(() => {
+    const g = window.AIRTIME.game;
+    g.selectProfile(0);
+    // These screens exhibit the *roster*, so the rig shows all of it. A shot
+    // of the arena select with five rows greyed out documents a fresh save,
+    // not the game.
+    const p = g.profile;
+    p.unlocked.arenas = window.AIRTIME.ARENAS.map((a) => a.id);
+    p.unlocked.modes = window.AIRTIME.MODES.map((m) => m.id);
+    p.unlocked.trials = ['gauntlet'];
+    p.gauntlet = 7;
+    g.saveProfiles();
+  });
 
   for (const [name, special] of SHOTS) {
     if (ONLY && name !== ONLY) continue;
@@ -103,6 +130,34 @@ const SHOTS = [
         // Drive down the avenue far enough to be inside the block grid.
         for (let i = 0; i < 420; i++) {
           g.sim.step(1 / window.AIRTIME.TUNING.SIM.HZ, { ...g.input.actions, throttle: 1 }, {});
+          g.sim.drainEvents();
+        }
+        return true;
+      } else if (sp === 'works' || sp === 'flood' || sp === 'sky') {
+        await g.startRun(g.lastMode, window.AIRTIME.ARENAS.find((a) => a.id === sp));
+        g.sim.run.begin();
+        // Placed, not driven. The scripted driver finds the hero jump in The
+        // Yard and flails everywhere else — in Skyline it never gets off the
+        // deck, because the way up is a spiral it has no idea how to take —
+        // so a driven shot of these arenas is a photograph of the driver's
+        // limitations. A screenshot is a camera position, not a claim about
+        // anybody's driving, so the car starts where the arena is.
+        const VANTAGE = {
+          works: { pos: { x: 0, y: 56, z: -12 }, heading: 0 },
+          flood: { pos: { x: -190, y: 26, z: -150 }, heading: -Math.PI / 2 },
+          sky: { pos: { x: 0, y: 78, z: 8 }, heading: 0 },
+        }[sp];
+        const p0 = g.sim.players[0];
+        p0.place(VANTAGE.pos, VANTAGE.heading);
+        const HZ = window.AIRTIME.TUNING.SIM.HZ;
+        const f = p0.car.forward;
+        p0.car.body.setLinvel({ x: f.x * 26, y: 0, z: f.z * 26 }, true);
+        // A moment of driving so the camera settles behind the car rather
+        // than snapping to a teleport — and only a moment, because ninety
+        // frames was enough to reach the next kicker and launch, which framed
+        // Floodway as an empty sky.
+        for (let i = 0; i < 40; i++) {
+          g.sim.step(1 / HZ, { ...g.input.actions, throttle: 1 }, {});
           g.sim.drainEvents();
         }
         return true;

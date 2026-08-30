@@ -17,12 +17,15 @@
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { buildWedgeBody } from './wedge.js';
-import { THEME } from './theme.js';
+import { THEME, isReduced } from './theme.js';
 
 /** Far enough away and it is a distraction; close enough and it is the race. */
 const FADE_NEAR = 6;
 const FADE_FAR = 26;
 const BASE_OPACITY = 0.42;
+// Reduce Effects dims it, and never removes it: the ghost is the opponent, so
+// hiding it would not be reducing effects, it would be leaving the mode.
+const REDUCED_OPACITY = 0.20;
 
 export function buildGhostView(scene) {
   const root = new THREE.Group();
@@ -81,11 +84,12 @@ export function buildGhostView(scene) {
       // Dissolve at the lens, like the trails and the target markers: a
       // wireframe car crossed at arm's length fills the screen with white
       // lines, and probe:dark counts every one of them.
+      const base = isReduced() ? REDUCED_OPACITY : BASE_OPACITY;
       if (camPos) {
         const d = Math.hypot(pose.x - camPos.x, pose.y - camPos.y, pose.z - camPos.z);
         const k = Math.min(1, Math.max(0, (d - FADE_NEAR) / (FADE_FAR - FADE_NEAR)));
-        mat.opacity = BASE_OPACITY * k;
-      }
+        mat.opacity = base * k;
+      } else mat.opacity = base;
     },
 
     hide() { root.visible = false; },

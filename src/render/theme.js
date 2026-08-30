@@ -39,6 +39,22 @@ let CB = false;
 export function setColorblind(on) { CB = !!on; }
 export function isColorblind() { return CB; }
 
+/**
+ * Reduce Effects — one switch for the whole game (§A, and binding).
+ *
+ * The art brief makes this non-negotiable: "must exist same day the look
+ * ships." It shipped with AFTERGLOW covering the trails, and then three more
+ * emissive systems arrived — the signs, the brake discs, the ghost — and every
+ * one of them ignored it, because each carried the flag itself or not at all.
+ *
+ * So it is a switch here, next to the colourblind one, for the same reason:
+ * every consumer follows without carrying its own copy, and a system added
+ * later cannot quietly opt out by forgetting to ask.
+ */
+let REDUCED = false;
+export function setReduceEffects(on) { REDUCED = !!on; }
+export function isReduced() { return REDUCED; }
+
 export function playerColor(index, colorblind = CB) {
   const set = colorblind ? PLAYER_COLORS_CB : PLAYER_COLORS;
   return set[index % set.length];

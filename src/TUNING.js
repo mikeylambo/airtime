@@ -651,6 +651,9 @@ export const TUNING = {
     AIRFLOW_COOL: 0.45,     // extra cooling at speed
     AIRFLOW_FULL: 45,       // m/s at which airflow cooling is at full
     GLOW_FROM: 0.22,        // below this the discs are dark
+    // Reduce Effects: dimmed rather than killed. A brake disc is a readout of
+    // something the car is doing, and removing it removes information.
+    REDUCED_GLOW: 0.35,
   },
 
   // ── Breakable props (R7) ─────────────────────────────────────────────────
@@ -675,6 +678,11 @@ export const TUNING = {
     FAR: 140,
     FLASH_TIME: 0.12,       // the art brief's photosensitivity cap, exactly
     DECAY_TIME: 0.9,
+    // Reduce Effects (§A): a sign still says "land here" — that is gameplay
+    // information, not decoration — but it stops being the brightest object
+    // in the arena and it stops punching to white.
+    REDUCED_LIVE: 0.40,
+    REDUCED_FLASH: 0.45,
   },
 
   // ── The PA (R7) ──────────────────────────────────────────────────────────

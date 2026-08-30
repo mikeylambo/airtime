@@ -25,7 +25,7 @@
 
 import * as THREE from 'three';
 import TUNING from '../TUNING.js';
-import { THEME } from './theme.js';
+import { THEME, isReduced } from './theme.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -42,9 +42,13 @@ export function signBrightness(sign, car, hit = null) {
   // object in the arena for as long as the flash lasts, and photosensitivity
   // caps that at 120 ms of full white (the art brief's own number).
   if (hit !== null && hit < S.FLASH_TIME) {
-    return { level: 1, flash: 1 - hit / S.FLASH_TIME };
+    const f = 1 - hit / S.FLASH_TIME;
+    return isReduced()
+      ? { level: S.REDUCED_FLASH, flash: f * S.REDUCED_FLASH }
+      : { level: 1, flash: f };
   }
 
+  const live = isReduced() ? S.REDUCED_LIVE : S.LIVE;
   let level = S.IDLE;
   if (car && car.airborne) {
     const dx = sign.aim.x - car.position.x;
@@ -59,7 +63,7 @@ export function signBrightness(sign, car, hit = null) {
       if (align > S.CONE) {
         const a = (align - S.CONE) / (1 - S.CONE);
         const near = 1 - clamp01((dist - S.NEAR) / (S.FAR - S.NEAR));
-        level = S.IDLE + (S.LIVE - S.IDLE) * clamp01(a * a * near);
+        level = S.IDLE + (live - S.IDLE) * clamp01(a * a * near);
       }
     }
   }

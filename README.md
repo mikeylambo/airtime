@@ -325,6 +325,22 @@ over at launch, tyre scrub on slip, landing weight, crash, per-part whooshes,
 and a cash-out that climbs a note per facet. No files and no licensing, driven
 straight off the simulation.
 
+### Reduce Effects (§A)
+
+One switch, whole game — `render/theme.js`, next to the colourblind one, for
+the same reason: every consumer follows without carrying its own copy. It
+shipped covering the trails, and then three later emissive systems ignored it
+because each carried the flag itself or never asked.
+
+What each system does with it is a judgement rather than a blanket kill.
+**Signs** dim and stop punching to white but still say "land here" — that is
+gameplay information. **Brake discs** dim to 35% rather than going out; a
+glowing brake is a readout. **The ghost** dims and never disappears, because
+hiding it would be leaving the mode rather than reducing effects.
+
+`npm run probe:dark` shoots both scenarios twice and holds the end-to-end
+claim: with Reduce Effects on, no frame is ever brighter.
+
 ### The premium debts, paid (R7)
 
 Five things the premium pass owed, and the five most tempting things in the

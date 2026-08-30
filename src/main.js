@@ -51,7 +51,7 @@ import { encodeRun, decodeRun } from './game/codes.js';
 import { dailySet } from './game/daily.js';
 import { ghostFromRun, bakeGhost, saveGhost, bestGhost, listGhosts } from './game/ghosts.js';
 import { simVersion } from './sim/version.js';
-import { setColorblind, playerColorCss } from './render/theme.js';
+import { setColorblind, playerColorCss, setReduceEffects } from './render/theme.js';
 
 const DT = 1 / TUNING.SIM.HZ;
 
@@ -90,6 +90,8 @@ class Game {
     // The colourblind option swaps the whole player palette (release spec
     // §A), so it is set before anything player-coloured is built.
     setColorblind(this.options.colorblindTrails);
+    // §A: one switch, whole game — trails, signs, brake discs and the ghost.
+    setReduceEffects(!!this.options.reduceEffects);
     document.documentElement.style.setProperty('--p1', playerColorCss(0));
 
     this.art = new ArtDirector(scene, renderer);
@@ -1230,7 +1232,10 @@ class Game {
       else TUNING.TRAFFIC.MODE = v;
     }
     if (k === 'artStyle') this.art.setStyle(v);
-    if (k === 'reduceEffects' && this.trails) this.trails.setOptions({ reduceEffects: v });
+    if (k === 'reduceEffects') {
+      setReduceEffects(v);
+      if (this.trails) this.trails.setOptions({ reduceEffects: v });
+    }
     if (k === 'colorblindTrails') {
       // One switch, whole game: trails, trim, split HUD and the CSS accent
       // all follow the palette in the same frame.
@@ -1253,7 +1258,7 @@ class Game {
     this.accum = 0;
   }
 
-  async beginCapture({ behavior = null, style = null, fps = 30, start = null, script = 'demo', arena = 'park', players = 1 } = {}) {
+  async beginCapture({ behavior = null, style = null, fps = 30, start = null, script = 'demo', arena = 'park', players = 1, reduce = null, vantage = null } = {}) {
     this.stop();
     await this.useArena(arena, { players, mode: 'stunt' });
     this.setPlayerCount(players);
@@ -1272,9 +1277,29 @@ class Game {
     this.sim.restartRun('stunt');
     this.sim.run.begin();
     if (style) this.art.setStyle(style);      // forced, not saved as a preference
+    // §A: forced for the shot, and never written to the player's options —
+    // the accessibility clip has to be the same jump with one switch flipped.
+    if (reduce !== null) {
+      setReduceEffects(reduce);
+      if (this.trails) this.trails.setOptions({ reduceEffects: reduce });
+    }
     this._captureOverride = behavior;
     this.director.setOverride(behavior);
     this.screens.go('run');
+
+    // A starting vantage, for arenas the scripted driver cannot reach the
+    // interesting parts of. It flails outside The Yard — in Skyline it never
+    // gets off the deck, because the way up is a spiral it has no idea how to
+    // take — so a clip driven from the spawn is a film of the driver's
+    // limitations rather than of the arena. The driving after this point is
+    // real; only the starting position is chosen.
+    if (vantage) {
+      const p0 = this.sim.players[0];
+      p0.place(vantage.pos, vantage.heading || 0);
+      const f = p0.car.forward;
+      const sp = vantage.speed ?? 24;
+      p0.car.body.setLinvel({ x: f.x * sp, y: 0, z: f.z * sp }, true);
+    }
 
     this.advance(start);
     this.renderFrame(1 / fps);
@@ -1289,6 +1314,9 @@ class Game {
   }
 
   endCapture() {
+    // Put the player's own choice back, whatever the clip forced.
+    setReduceEffects(!!this.options.reduceEffects);
+    if (this.trails) this.trails.setOptions({ reduceEffects: !!this.options.reduceEffects });
     this.mode = 'play';
     this.inRun = false;
     this._captureOverride = null;

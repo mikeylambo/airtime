@@ -58,7 +58,22 @@ const CLIPS = [
   { id: 'camera-target-lock', behavior: 'landing-target-lock', style: 'afterglow', hud: true,
     caption: '§6 landing-target lock — car and target framed together, dolly-zoom in' },
   { id: 'city', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'city', seconds: 14, start: 6,
-    caption: '§10b — the city block: rooftops, billboards, overpasses, traffic' },
+    caption: 'R8 Vertical City — the centre is a pit; the Coil and the Stack are how you leave it' },
+  // R10. Each arena's clip is the arena's own routing idea, not a tour of it.
+  // Started from a vantage inside the arena. The scripted driver finds the
+  // hero jump in The Yard and flails everywhere else, so a clip driven from
+  // the spawn films the driver rather than the place. The driving is real;
+  // only the starting position is chosen, and it is stated here rather than
+  // hidden.
+  { id: 'works', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'works', seconds: 12, start: 0.6,
+    vantage: { pos: { x: 0, y: 56, z: -12 }, heading: 0, speed: 30 },
+    caption: 'R10 Mega Works — off the plant, over the yard: the skip, the jib, the cranes' },
+  { id: 'flood', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'flood', seconds: 12, start: 0.6,
+    vantage: { pos: { x: -220, y: 26, z: -150 }, heading: -Math.PI / 2, speed: 34 },
+    caption: 'R10 Floodway — down the top channel, banked walls returning the line' },
+  { id: 'sky', behavior: null, style: 'afterglow', hud: true, script: 'loop', arena: 'sky', seconds: 12, start: 0.6,
+    vantage: { pos: { x: 0, y: 78, z: 10 }, heading: 0, speed: 30 },
+    caption: 'R10 Skyline — no ground under any of it; a missed landing is a demotion' },
   { id: 'split-screen', behavior: null, style: 'afterglow', hud: false, script: 'split',
     players: 3, seconds: 14, start: 4,
     caption: '§9 split-screen — three drivers, one world, one clock; per-viewport chase only' },
@@ -68,6 +83,10 @@ const CLIPS = [
     caption: 'Art gate — the hero jump in AFTERGLOW: trails, ghosts, stretch, splash' },
   { id: 'art-graybox', behavior: 'chase-pullback', style: 'graybox', hud: false,
     caption: 'Art gate — the same jump, lit gray box (diagnostic reference)' },
+  // §A: Reduce Effects "must read as the same game", and that is a footage
+  // question. The same hero jump, same seed, same camera, one switch flipped.
+  { id: 'art-reduced', behavior: 'chase-pullback', style: 'afterglow', hud: false, reduce: true,
+    caption: 'Accessibility — the same jump with REDUCE EFFECTS on; it has to read as the same game' },
 ];
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -224,7 +243,7 @@ async function openRenderer(port) {
           document.getElementById('screens').style.display = 'none';
           document.getElementById('hud').style.display = c.hud ? '' : 'none';
           if ((c.players || 1) > 1) document.getElementById('splithud').classList.remove('hidden');
-          await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null, players: c.players || 1 });
+          await window.AIRTIME.beginCapture({ behavior: c.behavior, style: c.style, fps, script: c.script || 'demo', arena: c.arena || 'park', start: c.start ?? null, players: c.players || 1, reduce: c.reduce ?? null, vantage: c.vantage ?? null });
         }, clip, FPS);
 
         for (let f = 0; f < total; f++) {

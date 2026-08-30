@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { SLOTS } from '../sim/panels.js';
 import { buildWedgeBody, buildAeroPlate, PANEL_KIND } from './wedge.js';
-import { playerColor, trimFor } from './theme.js';
+import { playerColor, trimFor, isReduced } from './theme.js';
 
 /**
  * AFTERGLOW's velocity stretch: the trim's vertex shader elongates the
@@ -277,7 +277,10 @@ export function buildCarView(scene, art, index = 0) {
       if (brakes) {
         const g = brakes.glow;
         const c = brakes.color;
-        discMat.opacity = g * 0.9;
+        // Reduce Effects dims the discs rather than killing them: a glowing
+        // brake is a readout of something the car is doing, and removing it
+        // removes information rather than decoration.
+        discMat.opacity = g * 0.9 * (isReduced() ? TUNING.BRAKES.REDUCED_GLOW : 1);
         discMat.color.setRGB(c.r, c.g, c.b);
       }
     },
