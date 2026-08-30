@@ -458,6 +458,10 @@ export const TUNING = {
   // and matched at runtime by proximity at both ends of the flight.
   GAPS: {
     MATCH_RADIUS: 30,     // metres, applied at both the launch and the landing
+    // Vertical City stacks decks nine metres apart, so the vertical tolerance
+    // has to be tighter than the horizontal one or a gap onto the top deck
+    // matches the same flight two storeys down.
+    MATCH_HEIGHT: 7,
     FIRST_BONUS: 4000,    // discovering one, once, ever
     BONUS: 900,           // flying one you already know
   },

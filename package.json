@@ -32,7 +32,10 @@
     "probe:fx": "node tools/probe-fx.mjs",
     "probe:replay": "node tools/probe-replay.mjs",
     "probe:perf": "node tools/probe-perf.mjs",
-    "probe:dark": "node tools/probe-dark.mjs"
+    "probe:dark": "node tools/probe-dark.mjs",
+    "probe:city": "node tools/probe-city.mjs",
+    "lines:city": "node tools/lines.mjs --city",
+    "gaps:city": "node tools/lines.mjs --city --emit-gaps"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

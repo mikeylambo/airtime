@@ -229,7 +229,7 @@ or it does not ship.
 | Arena | Identity | State |
 |---|---|---|
 | **The Yard** | The pure stunt park. Bowls, towers, banks, transfer lines, verticality. | **built** (R3) |
-| **Vertical City** | Rooftops, parking structures, glass towers, traffic, billboards, skybridges. | exists as a procedural grid; **must be rebuilt**, not iterated |
+| **Vertical City** | Rooftops, parking structures, glass towers, traffic, billboards, skybridges. | **built** (R8) — four altitude strata, the Coil, the Stack |
 | **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | — |
 | **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | — |
 | **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | — |
@@ -347,7 +347,7 @@ capture exactly that, unedited, in one take, the game is real.
 | **R6 — Named gaps** | The cheapest depth in the plan | analyzer → `gaps.js`, discovery tracking, HUD callout, profile | Every arena ships named gaps derived from its own reachability graph | **done** — 12 named in The Yard, discovery tracked |
 | **RC — The wedge** | The car stops being a box | `render/wedge.js`, `car-view.js`, aero naming | Silhouettes differ per car and are derived, not authored | **done** — one generator, eight parameter sets, no per-car art |
 | **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, particles, speed lines, shake | Judged on footage — but the handoff, the duck and the emission rules are measured | **done** — soundscape flips in 133 ms, a 60k stick ducks the bed to 0.22 |
-| **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | |
+| **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | **done** — 34 ramps, 0 orphans, 27 reachable from 3+, 84% of flights hold altitude |
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | |
 | **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
 | **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
@@ -453,6 +453,68 @@ peak live over a 20 s drift             54 of 3,000
 **Still owed by R7:** panel deformation and session-long scuffing, breakable
 props, active billboards, a PA, and brake glow. And the acceptance clip needs
 a skyscraper and a helicopter, so it needs R8 before it can be attempted.
+
+### Build 7 — R8, and the city as an instrument
+
+The old city measured **4 orphan ramps and 6 reachable from three or more**:
+every launch was street to roof, and every roof was a dead end. It is authored
+now, against its own routing idea rather than The Yard's.
+
+**The Yard is centripetal.** Rings pointing inward, a tower in the middle, and
+the player's job is finding ways back out. Vertical City inverts both halves:
+the centre is a *pit* (a low plaza with a pool on it), and altitude is the
+currency. Four strata — street 0, mezzanine 12, roofs 24–34, the spire at 46 —
+and each one is a network in its own right, because there is a kicker on every
+roof aimed at the next one. Descending is free; ascending costs speed carried
+from the street.
+
+Two structures carry it. **THE COIL** is a spiral flyover you *drive* — sixteen
+wedges on chords of a 26 m circle, one full turn, an eight-degree climb — and
+its exit tangent is aimed at the plaza, so the top of the spiral throws you at
+the pool. **THE STACK** is a parking structure with a cantilevered kicker on
+every deck: an altitude selector, where overshooting the top deck means landing
+on the one below rather than on nothing.
+
+```
+── city: 34 launchable ramps, 48 structures, 13 tagged targets ──
+ramps that only ever land you on deck    0
+ramps nothing can reach                  0
+ramps reachable from 3+ others          27      (The Yard: 16)
+longest chain without touching deck      9
+tagged targets no launch reaches         0
+
+strata       street   mezz   roof    sky
+  from street        1     27     25      0
+  from mezz          5     21     58      3
+  from roof          4     12     23      3
+  from sky           1      5     12      2
+flights that hold or gain altitude   163/202  (81%)
+```
+
+Three of those rows are new, and two of them changed the arena:
+
+- **The strata matrix** is the routing idea stated as numbers rather than as
+  prose. `probe:city` then checks the claim the matrix cannot: that each rung
+  of the ladder is inside *one apex* of the one below.
+- **"Tagged targets no launch reaches"** caught four of five billboards and the
+  mast sited where nothing could land — prizes behind glass, which is the
+  failure the old city made everywhere. They are placed from the measurement
+  now: the analyzer knows where every descending arc crosses billboard
+  altitude, and the billboards stand in the five busiest of those corridors.
+- **"Deck-only ramps"** caught the Coil's exit kicker guessed onto the far side
+  of its own circle, firing out of the city into bare ground. It is derived
+  from the helix now.
+
+And `probe:city` measures the three claims a reachability graph structurally
+cannot, because all three are about the simulation rather than the geometry:
+**the Coil is a road** (a car drives it to 27 of 28 m; ten wedges of 45° was a
+spiral staircase that dropped a car at 5.5 m, and sixteen of 22.5° is a road),
+**the strata are real**, and **the acceptance clip has its furniture** — a
+46 m skyscraper to leave, a three-deck garage to land on, and a helicopter
+whose near miss now *pays*. That last one was a bug the vision exposed: near
+misses lived in `traffic.js` and required speed **over the ground**, which
+disqualifies every moment of a shot whose whole point is that the car is in
+the air.
 
 ### Build 2's acceptance test
 

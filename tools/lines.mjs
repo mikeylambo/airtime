@@ -115,7 +115,12 @@ function launchFrom(r, speed) {
 const edges = [];
 const from = new Map();
 const into = new Map();
-const launchable = park.ramps.filter((r) => r.id !== 'garage' && rampExitAngle(r) <= LAUNCHABLE);
+// A `transit` ramp is a road that happens to be inclined — the city's spiral
+// flyover. Counting its ten shallow segments as launch surfaces would report
+// ten flights into the street and call the arena a scatter on the strength of
+// its best feature.
+const launchable = park.ramps.filter((r) => r.id !== 'garage' && !r.transit
+  && rampExitAngle(r) <= LAUNCHABLE);
 
 for (const r of launchable) {
   const hits = new Set();
@@ -182,16 +187,61 @@ console.log(`ramps nothing can reach                  ${unreachable.length}  ${u
 console.log(`ramps reachable from 3+ others           ${chainable.length}  ${chainable.length ? '— ' + chainable.join(', ') : ''}`);
 console.log(`longest chain without touching deck      ${longest.length}  ${longest.join(' -> ')}`);
 
+// ── Strata (R8) ────────────────────────────────────────────────────────────
+// The Yard's routing idea is centripetal; Vertical City's is altitude, and
+// "each stratum is a network in its own right" is a claim about where flights
+// start and where they end rather than about how many of them there are. So
+// bucket every edge by the height it left from and the height it arrived at.
+const STRATA = [
+  { name: 'street', below: 8 }, { name: 'mezz', below: 22 },
+  { name: 'roof', below: 42 }, { name: 'sky', below: Infinity },
+];
+const stratumOf = (y) => STRATA.findIndex((s) => y < s.below);
+const grid = STRATA.map(() => STRATA.map(() => 0));
+let held = 0, real = 0;
+for (const e of edges) {
+  if (e.to.kind === 'deck') continue;
+  const a = stratumOf(e.at.y - 9), b = stratumOf(e.point.y);   // -9: lip height
+  grid[a][b]++;
+  real++;
+  if (b >= a) held++;
+}
+console.log('\nstrata      ' + STRATA.map((s) => s.name.padStart(7)).join(''));
+STRATA.forEach((s, i) => {
+  if (!grid[i].some(Boolean)) return;
+  console.log(`  from ${s.name.padEnd(7)} ` + grid[i].map((n) => String(n).padStart(7)).join(''));
+});
+console.log(`flights that hold or gain altitude       ${held}/${real}  ` +
+  `(${((held / Math.max(1, real)) * 100).toFixed(0)}%)`);
+
+// A tagged target is a promise the camera makes to the player: it frames the
+// thing, so the thing had better be somewhere a jump can end. One that no arc
+// in the sweep reaches is a prize behind glass.
+const landedOn = new Set(edges.map((e) => e.to.id));
+const tagged = park.targets.filter((t) => t.tagged !== false);
+const unreachedTargets = tagged.filter((t) => !landedOn.has(t.id));
+console.log(`tagged targets no launch reaches         ${unreachedTargets.length}  ` +
+  (unreachedTargets.length ? '— ' + unreachedTargets.map((t) => t.id).join(', ') : ''));
+
 // ── Named gaps (R6) ────────────────────────────────────────────────────────
 const NOUN = [
+  // The Yard
   [/^tower/, 'TOWER'], [/^mid_up/, 'DECK'], [/^mid/, 'DECK'], [/^hero/, 'HERO'],
   [/^in_/, 'KICKER'], [/^bank/, 'BANK'], [/^pipe/, 'PIPE'], [/^shelf/, 'SHELF'],
-  [/^board/, 'BILLBOARD'], [/^pool/, 'POOL'], [/^mast/, 'MAST'], [/^roof/, 'ROOF'],
+  [/^board/, 'BILLBOARD'], [/^pool/, 'POOL'], [/^mast/, 'MAST'],
   [/^over/, 'OVERPASS'], [/^garage/, 'GARAGE'],
+  // Vertical City (R8). The city names things after what they *are*, so the
+  // gap names come out as places a player can say out loud rather than as
+  // grid coordinates: SPIRE DROP, NORTH STACK LINE, WEST COIL SKIP.
+  [/^spire/, 'SPIRE'], [/^stack/, 'STACK'], [/^coil/, 'COIL'],
+  [/^roof_/, 'ROOF'], [/^tw_/, 'ROOF'], [/^br_/, 'BRIDGE'], [/^st_/, 'STREET'],
+  [/^plaza/, 'PLAZA'], [/^bb_/, 'BILLBOARD'], [/^viaduct/, 'VIADUCT'],
 ];
 const nounOf = (id) => (NOUN.find(([re]) => re.test(id)) || [null, id.toUpperCase()])[1];
 const VERB = { TOWER: 'DROP', BANK: 'SWEEP', PIPE: 'SPILL', DECK: 'HOP', SHELF: 'STEP',
-               BILLBOARD: 'SIGN', POOL: 'PLUNGE', ROOF: 'SKIP', OVERPASS: 'UNDERPASS' };
+               BILLBOARD: 'SIGN', POOL: 'PLUNGE', ROOF: 'SKIP', OVERPASS: 'UNDERPASS',
+               SPIRE: 'DROP', STACK: 'LINE', COIL: 'SPIRAL', BRIDGE: 'SPAN',
+               PLAZA: 'DIVE', STREET: 'FALL', VIADUCT: 'RAIL' };
 
 // The Yard is four-fold symmetric, so a dozen gaps are rotations of each other
 // and naming them by shape alone produces BANK DROP I through VI. Bearing off
@@ -206,7 +256,12 @@ const bearingOf = (p) => {
 function nameGap(e, dist, src) {
   src = { at: e.at };
   const a = nounOf(e.from), b = nounOf(e.to.id);
-  const far = dist > 130, high = e.apex > 32;
+  // apexHeight is absolute world y, so "high" has to be measured against the
+  // launch. In The Yard every lip is nine metres up and the two readings
+  // agree; in a city where a ramp can sit on a forty-six metre roof, an
+  // absolute threshold calls every rooftop hop HIGH and the word stops
+  // meaning anything.
+  const far = dist > 130, high = e.apex - e.at.y > 20;
   const shape = a === b ? `${a} ${VERB[a] || 'LINE'}` : `${a} ${VERB[b] || 'LINE'}`;
   const qualifier = far ? 'LONG ' : high ? 'HIGH ' : '';
   return `${bearingOf(src.at)} ${qualifier}${shape}`;
@@ -273,8 +328,11 @@ if (gaps.length > 14) console.log(`  ...and ${gaps.length - 14} more`);
 if (EMIT) {
   const rows = gaps.map((g) => ({
     id: `${ARENA}:${g.e.from}>${g.e.to.id}`, name: g.name, arena: ARENA,
-    from: { x: +g.e.at.x.toFixed(2), z: +g.e.at.z.toFixed(2) },
-    to: { x: +g.dp.x.toFixed(2), z: +g.dp.z.toFixed(2) },
+    // y on both ends: Vertical City stacks four garage decks on one footprint,
+    // and an x/z-only match cannot tell a flight onto the top deck from the
+    // same flight three storeys lower.
+    from: { x: +g.e.at.x.toFixed(2), y: +g.e.at.y.toFixed(2), z: +g.e.at.z.toFixed(2) },
+    to: { x: +g.dp.x.toFixed(2), y: +g.dp.y.toFixed(2), z: +g.dp.z.toFixed(2) },
     dist: +g.dist.toFixed(1), airtime: +g.e.airtime.toFixed(2), apex: +g.e.apex.toFixed(1),
     tier: g.e.to.tier || g.e.to.kind,
   }));

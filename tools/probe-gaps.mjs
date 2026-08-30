@@ -25,7 +25,11 @@ for (const g of gaps) {
 // the matcher must return that gap and not a neighbour.
 let selfMatch = 0, wrong = [];
 for (const g of gaps) {
-  const m = matchGap(ARENA, { x: g.from.x, z: g.from.z }, { x: g.to.x, z: g.to.z });
+  // Altitude is part of a gap's identity now (R8): Vertical City stacks three
+  // garage decks on one footprint, so two entirely different flights share an
+  // x/z landing point and only the height tells them apart.
+  const m = matchGap(ARENA, { x: g.from.x, y: g.from.y, z: g.from.z },
+    { x: g.to.x, y: g.to.y, z: g.to.z });
   if (m && m.id === g.id) selfMatch++;
   else wrong.push(`${g.name} -> ${m ? m.name : 'no match'}`);
 }
@@ -71,8 +75,11 @@ const p0 = sim.players[0];
 const synthetic = {
   quality: 'clean', multiplier: 1.5, angle: 0.05, angleDeg: 3, wheels: 4, bounced: false,
   airtime: target.airtime, height: target.apex, impactVel: 6, bounces: 0,
-  from: { x: target.from.x, y: 6, z: target.from.z },
-  landedAt: { x: target.to.x, y: 6, z: target.to.z },
+  // At the gap's own altitudes: since R8 a gap is matched in three dimensions,
+  // and a synthetic flight pinned to a flat y=6 is a flight through the inside
+  // of a building, which is exactly what the matcher should refuse.
+  from: { x: target.from.x, y: target.from.y, z: target.from.z },
+  landedAt: { x: target.to.x, y: target.to.y, z: target.to.z },
   target: null, tier: 'road', counted: true,
 };
 sim.drainEvents();

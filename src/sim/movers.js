@@ -38,13 +38,23 @@ export class Movers {
         .setCollisionGroups(GROUP_TRAFFIC),
       body
     );
-    return { spec, index, body, collider, x: 0, y: spec.y, z: 0, yaw: 0, faceUp: true };
+    return { spec, index, body, collider, x: 0, y: spec.y, z: 0, yaw: 0, faceUp: true,
+             seen: new Set(), rearm: 0 };
   }
 
-  reset() { this.t = 0; }
+  reset() {
+    this.t = 0;
+    for (const m of this.items) { m.seen = new Set(); m.rearm = 0; }
+  }
 
-  update(dt) {
+  /**
+   * @param players the drivers sharing this world, so a pass can pay
+   * @returns {{nearMiss:number[]}} one count per driver
+   */
+  update(dt, players = []) {
     this.t += dt;
+    const list = Array.isArray(players) ? players : [players];
+    const nearMiss = list.map(() => 0);
     for (const m of this.items) {
       const s = m.spec;
       if (s.kind === 'train') this._train(m, s);
@@ -55,7 +65,35 @@ export class Movers {
       m.body.setNextKinematicRotation({
         x: Math.sin(m.pitch || 0) * 0, y: Math.sin(m.yaw / 2), z: 0, w: Math.cos(m.yaw / 2),
       });
+
+      // ── Near miss (§4's rule, applied to the things that move in the air) ─
+      // The vision's acceptance clip is a near-miss on a *helicopter*, and
+      // near misses only ever came from traffic — which is a ground system
+      // and disqualifies you the moment the wheels leave the road. So the
+      // check is the same one, against speed through the air rather than
+      // speed over the ground, and at a radius that suits an object you pass
+      // at forty metres up rather than one you squeeze past in a lane.
+      if (m.rearm > 0) m.rearm -= dt;
+      m.seen = m.seen || new Set();
+      if (m.active !== false) {
+        const R = TUNING.TRAFFIC.NEAR_MISS_RADIUS + Math.max(s.half.x, s.half.z);
+        for (let i = 0; i < list.length; i++) {
+          const c = list[i].car;
+          const p = c.position;
+          const v = c.linvel;
+          const dist = Math.hypot(p.x - m.x, p.y - m.y, p.z - m.z);
+          const close = dist < R;
+          if (close && !m.seen.has(i) && m.rearm <= 0
+              && Math.hypot(v.x, v.y, v.z) > TUNING.TRAFFIC.NEAR_MISS_MIN_SPEED) {
+            m.seen.add(i);
+            m.rearm = TUNING.TRAFFIC.NEAR_MISS_REARM;
+            nearMiss[i]++;
+          }
+          if (!close) m.seen.delete(i);
+        }
+      }
     }
+    return { nearMiss };
   }
 
   /** A rolling rooftop, five cars long, wrapping the line (§6.2). */

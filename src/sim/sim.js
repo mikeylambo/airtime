@@ -188,8 +188,16 @@ export class Sim {
 
     if (E(0).reset) { this.reset(); return; }
 
-    this.movers.update(dt);
+    const moverSignal = this.movers.update(dt, this.players);
     const signal = this.traffic.update(dt, this.players);
+    // A helicopter you nearly hit is a near miss like any other, so it lands
+    // in the same signal and pays through the same facet.
+    for (let i = 0; i < signal.nearMiss.length; i++) {
+      if (moverSignal.nearMiss[i]) {
+        signal.nearMiss[i] += moverSignal.nearMiss[i];
+        this.players[i].boost.creditNearMiss(moverSignal.nearMiss[i]);
+      }
+    }
     this.trafficSignal = signal;
     for (const p of this.players) p.oncoming = signal.oncoming[p.index];
     if (signal.nearMiss.some(Boolean)) {

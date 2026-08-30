@@ -29,6 +29,9 @@ const CHECKS = [
   ['R6', 'the arena has named places in it', 'probe-gaps.mjs'],
   ['R7', 'the soundscape tracks the car', 'probe-audio.mjs'],
   ['R7', 'the effects are a response, not decoration', 'probe-fx.mjs'],
+  ['R8', 'the city is a network too', 'lines.mjs', ['--city']],
+  ['R8', 'the city has named places in it too', 'probe-gaps.mjs', ['--city']],
+  ['R8', 'the city is an instrument, and the clip has its furniture', 'probe-city.mjs'],
 ];
 
 const verbose = process.argv.includes('--verbose');
@@ -37,11 +40,11 @@ let failed = 0, ran = 0;
 
 console.log('\n  AIRTIME — gates\n  ' + '─'.repeat(58));
 let phase = null;
-for (const [p, label, script] of CHECKS) {
+for (const [p, label, script, args = []] of CHECKS) {
   if (only && p.toLowerCase() !== only.toLowerCase()) continue;
   if (p !== phase) { console.log(`  ${'·'.repeat(2)} ${p}`); phase = p; }
   ran++;
-  const r = spawnSync(process.execPath, [join(ROOT, 'tools', script)], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [join(ROOT, 'tools', script), ...args], { encoding: 'utf8' });
   const out = (r.stdout || '') + (r.stderr || '');
   const bad = r.status !== 0 || /^FAIL\b/m.test(out);
   if (bad) failed++;

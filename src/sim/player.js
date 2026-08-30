@@ -138,7 +138,9 @@ export class Player {
     const p = this.car.position;
     let best = null, bestD = Infinity;
     for (const r of park.ramps) {
-      if (r.id === 'garage') continue;
+      // A transit ramp is a road (the city's spiral flyover): dropping a
+      // recovering player onto one points them up a spiral at 16 m/s.
+      if (r.id === 'garage' || r.transit) continue;
       const d = Math.hypot(r.pos.x - p.x, r.pos.z - p.z);
       if (d < bestD) { bestD = d; best = r; }
     }
@@ -148,7 +150,9 @@ export class Player {
     if (best) {
       const s = Math.sin(best.yaw), c = Math.cos(best.yaw);
       const back = rampSurface(best).zMax + R.APPROACH;
-      pos = { x: best.pos.x + s * back, y: 1.2, z: best.pos.z + c * back };
+      // Ramps live at altitude in Vertical City. Respawning at y=1.2 on the
+      // approach to a rooftop kicker drops the player inside the building.
+      pos = { x: best.pos.x + s * back, y: best.pos.y + 1.2, z: best.pos.z + c * back };
       heading = best.yaw;
     }
     this.place(pos, heading);

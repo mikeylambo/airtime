@@ -18,7 +18,6 @@
  */
 
 import { simVersion, SCHEMA_VERSION } from '../sim/version.js';
-import { makeRng } from '../sim/mathx.js';
 
 const P = (v, d) => (v === undefined ? d : v);
 
@@ -36,6 +35,10 @@ function rampRec(kind, inst, d = {}) {
     radius: P(p.radius, 8),
     exitAngle: p.exitAngle,
     lipFrac: p.lipFrac,
+    // A ramp you *drive*, not a ramp you leave. A spiral flyover is a road
+    // that happens to be inclined, and counting it as a launch surface would
+    // report ten shallow flights into the street as ten deck-only ramps.
+    transit: P(p.transit, false),
   };
 }
 
@@ -154,47 +157,105 @@ export const PIECES = {
     expand: (inst, out) => out.movers.push({ id: inst.id, ...inst.params }),
   },
 
+  // ── R8: the city's own vocabulary ────────────────────────────────────────
   /**
-   * The city's generated block grid, deliberately ONE piece: tower heights
-   * come from a sequential RNG, so splitting it into per-block pieces would
-   * change every roof in the city. When R8 rebuilds the city as an
-   * instrument, its blocks become individual pieces; until then the grid is
-   * a single generated object with a seed, which is also exactly what a
-   * "generated terrain" editor piece looks like.
+   * A building: the shaft, and the roof you can land on. One gesture, because
+   * a tower whose roof is not a target is scenery, and Vertical City has no
+   * scenery — every solid thing in it is somewhere you could end up.
    */
-  blockGrid: {
+  tower: {
     expand: (inst, out) => {
       const p = inst.params;
-      const rng = makeRng(p.seed);
-      const pitch = p.block + p.street;
-      const gx = (i) => (i - (p.blocksX - 1) / 2) * pitch;
-      const gz = (j) => (j - (p.blocksZ - 1) / 2) * pitch;
-      for (let i = 0; i < p.blocksX; i++) {
-        for (let j = 0; j < p.blocksZ; j++) {
-          const cx = gx(i), cz = gz(j);
-          // Two towers per block, so roofs sit at different heights and a
-          // jump between them is a real decision.
-          for (const [ox, oz, w, d] of p.towers) {
-            const h = p.minH + rng() * (p.maxH - p.minH);
-            const id = `blk_${i}_${j}_${ox > 0 ? 'b' : 'a'}`;
-            out.structures.push(slabRec(id, cx + ox, h / 2, cz + oz, w, h / 2, d, 'roof'));
-            // Ordinary roofs score as rooftop tier but are not *tagged*: the
-            // camera should lock onto the handful worth a shot, not onto
-            // every building in the city.
-            out.targets.push({
-              id, tier: 'rooftop', tagged: false,
-              aim: { x: cx + ox, y: h, z: cz + oz },
-              half: { x: w, y: 3, z: d },
-            });
-          }
-          // A low podium: the easy roof, and the ramp up onto the block.
-          out.structures.push(slabRec(`pod_${i}_${j}`, cx, 2.6, cz + 26, 20, 2.6, 7, 'roof'));
-          out.ramps.push(rampRec('kicker', {
-            id: `up_${i}_${j}`, pos: { x: cx, z: cz + 42 }, yaw: 0,
-            params: { length: 15, halfWidth: 7, exitAngle: 0.55, lipFrac: 0.36 },
-          }));
-        }
+      const h = p.height;
+      const { x, z } = inst.pos;
+      out.structures.push(slabRec(inst.id, x, h / 2, z, p.half.x, h / 2, p.half.z, 'roof'));
+      out.targets.push({
+        id: inst.id, tier: P(p.tier, 'rooftop'), tagged: P(p.tagged, false),
+        aim: { x, y: h, z },
+        half: { x: p.half.x, y: P(p.targetHalfY, 3), z: p.half.z },
+      });
+    },
+  },
+
+  /**
+   * A parking structure — decks stacked on columns, every one of them a
+   * landing surface. This is the piece that makes the city an *altitude
+   * selector*: the same footprint pays out at four heights, so overshooting
+   * the top deck is landing on the one below rather than landing on nothing.
+   */
+  garage: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      const { x, z } = inst.pos;
+      const top = p.levels[p.levels.length - 1];
+      const ch = P(p.columnHalf, 1.6);
+      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        out.structures.push(slabRec(`${inst.id}_c${dx > 0 ? 'e' : 'w'}${dz > 0 ? 's' : 'n'}`,
+          x + dx * (p.half.x - ch), top / 2, z + dz * (p.half.z - ch), ch, top / 2, ch, 'leg'));
       }
+      p.levels.forEach((y, i) => {
+        const id = `${inst.id}_d${i}`;
+        out.structures.push(slabRec(id, x, y, z, p.half.x, P(p.deckHalfY, 0.5), p.half.z, 'roof'));
+        out.targets.push({
+          id, tier: P(p.tier, 'rooftop'), tagged: i === p.levels.length - 1,
+          aim: { x, y: y + P(p.deckHalfY, 0.5), z },
+          half: { x: p.half.x, y: 2.5, z: p.half.z },
+        });
+      });
+    },
+  },
+
+  /**
+   * A spiral flyover — the city's way up, built out of the ramp geometry the
+   * game already has. Each segment is a wedge on a chord of the circle,
+   * lifted by one segment's rise, so consecutive segments meet exactly: the
+   * high end of one is the low end of the next. Every segment is `transit`,
+   * because this is a road.
+   */
+  helix: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      const { x, z } = inst.pos;
+      const R = p.radius, arc = p.arc;
+      for (let i = 0; i < p.segments; i++) {
+        const a0 = p.startAngle + i * arc, a1 = a0 + arc;
+        const p0 = { x: x + Math.sin(a0) * R, z: z + Math.cos(a0) * R };
+        const p1 = { x: x + Math.sin(a1) * R, z: z + Math.cos(a1) * R };
+        const dx = p1.x - p0.x, dz = p1.z - p0.z;
+        const len = Math.hypot(dx, dz);
+        out.ramps.push(rampRec('wedge', {
+          id: `${inst.id}_s${i}`,
+          pos: { x: (p0.x + p1.x) / 2, y: p.y0 + i * p.rise, z: (p0.z + p1.z) / 2 },
+          // A wedge climbs toward its own -Z, so the yaw is the bearing of the
+          // chord, negated.
+          yaw: Math.atan2(-dx / len, -dz / len),
+          params: { height: p.rise, length: len, halfWidth: p.halfWidth, transit: true },
+        }));
+      }
+    },
+  },
+
+  /**
+   * A skybridge: the mezzanine road between two podiums, and a landing
+   * surface in its own right. Axis-aligned on purpose — target boxes are
+   * axis-aligned everywhere in this codebase, so a diagonal bridge would be
+   * a solid you can hit and a target you cannot score.
+   */
+  skybridge: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      const a = inst.pos, b = p.to;
+      if (a.x !== b.x && a.z !== b.z) throw new Error(`skybridge '${inst.id}' is not axis-aligned`);
+      const hx = Math.max(p.halfWidth, Math.abs(b.x - a.x) / 2);
+      const hz = Math.max(p.halfWidth, Math.abs(b.z - a.z) / 2);
+      const cx = (a.x + b.x) / 2, cz = (a.z + b.z) / 2;
+      const th = P(p.thickness, 0.7);
+      out.structures.push(slabRec(inst.id, cx, p.y, cz, hx, th, hz, 'roof'));
+      out.targets.push({
+        id: inst.id, tier: P(p.tier, 'road'), tagged: P(p.tagged, false),
+        aim: { x: cx, y: p.y + th, z: cz },
+        half: { x: hx, y: 2.5, z: hz },
+      });
     },
   },
 };

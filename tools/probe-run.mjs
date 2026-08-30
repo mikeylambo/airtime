@@ -23,9 +23,14 @@ const profile = {
   parts: { doors: 'stock', hood: 'stock', trunk: 'stock', spoiler: 'stock' },
 };
 
+// R8: either arena, because the loop has to survive a second instrument and
+// the city is where an elevated ramp, a respawn onto a roof and a spiral
+// flyover first exist to break it.
+const ARENA = process.argv.includes('--city') ? 'city' : 'park';
+
 const setup = resolveSetup(profile);
-const sim = await Sim.create(setup, 'park');
-const rec = new Recorder({ arena: 'park', setup, profile });
+const sim = await Sim.create(setup, ARENA);
+const rec = new Recorder({ arena: ARENA, setup, profile });
 sim.restartRun('stunt');
 sim.run.begin();
 
@@ -69,7 +74,7 @@ while (!sim.run.over && t < 120) {
 }
 
 const s = sim.runSummary();
-console.log(`── a ${TUNING.RUN.DURATION}s run ──────────────────────────────────────────`);
+console.log(`── a ${TUNING.RUN.DURATION}s run in ${ARENA} ──────────────────────────────`);
 for (const l of log.slice(0, 14)) console.log(l);
 if (log.length > 14) console.log(`  … ${log.length - 14} more`);
 console.log(`\nscore        ${s.score.toLocaleString()}   medal ${s.medal || 'none'}`);
