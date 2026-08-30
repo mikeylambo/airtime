@@ -329,3 +329,11 @@ table.brk tr.crash td { color: #7a4453; }
   padding: .18rem 0; border-left: 2px solid var(--green, #39ff88); padding-left: .7rem;
 }
 .earned b { letter-spacing: .12em; margin-right: .5rem; }
+
+/* The keyboard map is the one list longer than its pane (§A: eighteen verbs),
+   so it scrolls rather than overflowing off the bottom of the screen. */
+#bind-list {
+  max-height: 54vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}

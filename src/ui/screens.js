@@ -110,6 +110,11 @@ export function makeList(el, items, onPick, onMove) {
         return `<div class="row${sel}${dis}" data-i="${i}"><span>${it.label}</span>${note}</div>`;
       })
       .join('');
+    // Keep the cursor on screen in a list too long for its pane. A no-op for
+    // every list that fits, which is all of them except the keyboard map — and
+    // that one is eighteen verbs long and ran straight off the bottom.
+    const sel = el.querySelector('.row.selected');
+    if (sel && el.scrollHeight > el.clientHeight + 1) sel.scrollIntoView({ block: 'nearest' });
   };
   const move = (d) => {
     const n = items.length;

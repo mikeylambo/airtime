@@ -17,6 +17,7 @@ import { buildProgress } from './progress.js';
 import { buildParty } from './party.js';
 import { buildMastery } from './mastery.js';
 import { BOARDS as BOARD_LIST } from '../game/boards.js';
+import { DEFAULT_BINDINGS, BINDING_LABELS, keyLabel } from '../input/input.js';
 
 import { LENGTH as GAUNTLET_LENGTH } from '../game/gauntlet.js';
 
@@ -197,7 +198,12 @@ export function buildFrame(mgr, game) {
               : `${medalDot(game.profile.medals[key])}  best ${(game.profile.best[key] || 0).toLocaleString()}`,
           };
         }),
-        (it) => { game.lastArena = it.arena; mgr.push('prerun'); },
+        (it) => {
+          game.lastArena = it.arena;
+          // §A: the notice comes before the first round anybody plays, not
+          // buried in options. After that it never appears again.
+          mgr.push(game.options.seenPhotoWarning ? 'prerun' : 'photowarn');
+        },
         (it) => { blurb.textContent = it.arena.blurb; }
       );
       blurb.textContent = ARENAS[0].blurb;
@@ -305,6 +311,7 @@ export function buildFrame(mgr, game) {
 
   // ── Options (§2.1) ───────────────────────────────────────────────────────
   let optList;
+  let warnList;
   const optionItems = () => {
     const o = game.options;
     return [
@@ -318,10 +325,13 @@ export function buildFrame(mgr, game) {
       { key: 'reduceEffects', label: 'REDUCE EFFECTS', values: [false, true] },
       { key: 'colorblindTrails', label: 'COLOURBLIND PALETTE', values: [false, true] },
       { key: 'haptics', label: 'HAPTICS', values: [true, false] },
+      { key: 'controls', label: 'CONTROLS', values: null },
     ].map((r) => ({
       ...r,
       label: r.label,
-      note: r.names ? r.names[r.values.indexOf(o[r.key])] || String(o[r.key]).toUpperCase() : String(o[r.key]).toUpperCase(),
+      note: r.values === null ? 'REBIND \u203a'
+        : r.names ? r.names[r.values.indexOf(o[r.key])] || String(o[r.key]).toUpperCase()
+          : String(o[r.key]).toUpperCase(),
     }));
   };
   S('options', {
@@ -335,8 +345,10 @@ export function buildFrame(mgr, game) {
     },
     onMenu: (m) => {
       if (m.back) return mgr.back('main');
+      if (m.confirm && optList.item.key === 'controls') return mgr.push('controls');
       if (m.left || m.right) {
         const row = optList.item;
+        if (row.key === 'controls') return;
         const cur = game.options[row.key];
         const i = row.values.findIndex((v) => v === cur);
         const next = row.values[((i < 0 ? 0 : i) + (m.right ? 1 : -1) + row.values.length) % row.values.length];
@@ -346,6 +358,103 @@ export function buildFrame(mgr, game) {
       }
       optList.handle(m);
     },
+  });
+
+  // ── Controls (§A: remapping is a release requirement, not a nicety) ──────
+  // Listening for the *next* keydown rather than offering a list of keys: a
+  // picker cannot express a keyboard it has never seen, and the players who
+  // need this most are the ones on layouts a picker would get wrong.
+  let bindList;
+  let capturing = null;          // the verb waiting for a key, or null
+  const bindingItems = () => Object.keys(BINDING_LABELS).map((verb) => {
+    const codes = game.options.bindings?.[verb] || DEFAULT_BINDINGS[verb];
+    return {
+      key: verb,
+      label: BINDING_LABELS[verb],
+      note: capturing === verb ? 'PRESS A KEY' : codes.map(keyLabel).join(' / '),
+    };
+  });
+  const captureKey = (e) => {
+    if (!capturing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') { capturing = null; bindList.setItems(bindingItems()); return; }
+    const code = e.code || e.key;
+    if (!code) return;
+    // One key, one verb. Leaving a duplicate in place is how a player ends up
+    // with a car that boosts when they brake and no way to tell why.
+    const next = { ...(game.options.bindings || {}) };
+    for (const verb of Object.keys(BINDING_LABELS)) {
+      const cur = next[verb] || DEFAULT_BINDINGS[verb];
+      const stripped = cur.filter((c) => c !== code);
+      if (stripped.length !== cur.length) next[verb] = stripped;
+    }
+    next[capturing] = [code];
+    // A verb left with nothing bound is a verb the player cannot use and
+    // cannot see is missing, so anything emptied falls back to its default.
+    for (const verb of Object.keys(next)) {
+      if (!next[verb] || !next[verb].length) delete next[verb];
+    }
+    game.applyOption('bindings', next);
+    capturing = null;
+    // Drop the key we just consumed, or the same press is still down next
+    // frame and the menu reads it as "rebind the next row too".
+    game.input.keys.delete(code);
+    bindList.setItems(bindingItems());
+  };
+  S('controls', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow">Options · Controls</div><h2 class="title">KEYBOARD</h2>
+      <div class="list" id="bind-list"></div>
+      <div class="hint"><b>A</b> rebind · <b>Y</b> reset all · <b>B</b> back</div>
+    </div>`,
+    onEnter: () => {
+      capturing = null;
+      bindList = makeList(document.getElementById('bind-list'), bindingItems(), () => {});
+      window.addEventListener('keydown', captureKey, true);
+    },
+    onExit: () => {
+      capturing = null;
+      window.removeEventListener('keydown', captureKey, true);
+    },
+    onMenu: (m) => {
+      if (capturing) return;                  // the raw handler owns the keyboard
+      if (m.back) return mgr.back('options');
+      if (m.alt) { game.applyOption('bindings', {}); bindList.setItems(bindingItems()); return; }
+      if (m.confirm) {
+        capturing = bindList.item.key;
+        bindList.setItems(bindingItems());
+        return;
+      }
+      bindList.handle(m);
+    },
+  });
+
+  // ── The photosensitivity notice (§A) ────────────────────────────────────
+  // Shown once, before the first round, and acknowledged rather than dismissed.
+  // It offers the switch on the spot, because a warning that tells you a risk
+  // and then makes you go and find the setting is a disclaimer, not a guard.
+  S('photowarn', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow">Before you play</div><h2 class="title">FLASHING LIGHTS</h2>
+      <p class="blurb">AIRTIME uses bright flashes on landings and scoring, over a
+        dark background. If you are sensitive to flashing light, turn on
+        <b>Reduce Effects</b> — it caps every flash, dims the neon and shortens
+        the trails, and the game plays exactly the same.</p>
+      <div class="list" id="warn-list"></div>
+      <div class="hint"><b>A</b> choose</div>
+    </div>`,
+    onEnter: () => {
+      warnList = makeList(document.getElementById('warn-list'), [
+        { label: 'TURN ON REDUCE EFFECTS', key: 'on' },
+        { label: 'CONTINUE WITHOUT IT', key: 'off' },
+      ], (it) => {
+        if (it.key === 'on') game.applyOption('reduceEffects', true);
+        game.applyOption('seenPhotoWarning', true);
+        mgr.go('prerun');
+      });
+    },
+    onMenu: (m) => warnList.handle(m),
   });
 
   buildGarage(mgr, game);

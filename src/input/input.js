@@ -79,6 +79,70 @@ function deadzone(v, dz) {
   return Math.sign(v) * ((a - dz) / (1 - dz));
 }
 
+/**
+ * Keyboard bindings (§A).
+ *
+ * The keys were literals scattered through `_sampleKeyboard` until now, which
+ * made the accessibility clause impossible to satisfy without touching the
+ * input loop: rebinding is a stated release requirement, and a WASD-shaped
+ * game is unplayable one-handed, on a non-QWERTY layout, or with a switch
+ * device. So every keyboard verb is named, and the names are the seam.
+ *
+ * Values are arrays because several verbs legitimately answer to more than one
+ * key — both shifts boost, and the arrows have always mirrored WASD for steer
+ * while separately being the thrust-mode stick in the air.
+ *
+ * Gamepad is deliberately not remappable here. It is the priority input (§1),
+ * its layout is the reference's, and a pad with a bad map is a pad the player
+ * can remap at the OS. The keyboard is the fallback, so it is the one that has
+ * to bend.
+ */
+export const DEFAULT_BINDINGS = Object.freeze({
+  throttle: ['KeyW'],
+  brake: ['KeyS'],
+  left: ['KeyA', 'ArrowLeft'],
+  right: ['KeyD', 'ArrowRight'],
+  boost: ['ShiftLeft', 'ShiftRight'],
+  handbrake: ['Space'],
+  reset: ['Enter'],
+  camera: ['KeyV'],
+  style: ['KeyB'],
+  airLeft: ['ArrowLeft'],
+  airRight: ['ArrowRight'],
+  airUp: ['ArrowUp'],
+  airDown: ['ArrowDown'],
+  doorL: ['KeyQ'],
+  doorR: ['KeyE'],
+  hood: ['KeyR'],
+  trunk: ['KeyF'],
+  spoiler: ['KeyC'],
+});
+
+/** What each verb is called on the controls screen, in binding order. */
+export const BINDING_LABELS = Object.freeze({
+  throttle: 'THROTTLE', brake: 'BRAKE / REVERSE', left: 'STEER LEFT',
+  right: 'STEER RIGHT', boost: 'BOOST / THRUST', handbrake: 'HANDBRAKE',
+  reset: 'RESET CAR', camera: 'CYCLE CAMERA', style: 'CYCLE ART STYLE',
+  airUp: 'AIR — PITCH BACK', airDown: 'AIR — PITCH FORWARD',
+  airLeft: 'AIR — ROLL LEFT', airRight: 'AIR — ROLL RIGHT',
+  doorL: 'PANEL — LEFT DOOR', doorR: 'PANEL — RIGHT DOOR',
+  hood: 'PANEL — HOOD', trunk: 'PANEL — TRUNK', spoiler: 'PANEL — SPOILER',
+});
+
+/** 'KeyW' -> 'W', 'ArrowLeft' -> '←' — what a player would call the key. */
+export function keyLabel(code) {
+  if (!code) return '—';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  const named = {
+    ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+    ShiftLeft: 'L-SHIFT', ShiftRight: 'R-SHIFT', ControlLeft: 'L-CTRL',
+    ControlRight: 'R-CTRL', Space: 'SPACE', Enter: 'ENTER', Tab: 'TAB',
+    Backspace: 'BKSP', Escape: 'ESC',
+  };
+  return named[code] || code.toUpperCase();
+}
+
 export const NEUTRAL_ACTIONS = Object.freeze({
   throttle: 0,      // 0..1
   brake: 0,         // 0..1
@@ -104,6 +168,8 @@ export class Input {
     this.target = target;
     /** Options the input layer reads: { manualAir, invertPitch }. */
     this.options = { manualAir: false, invertPitch: false };
+    /** verb -> [KeyboardEvent.code]. Overridden per-player from storage. */
+    this.bindings = { ...DEFAULT_BINDINGS };
     this.actions = { ...NEUTRAL_ACTIONS };
     this.prev = { ...NEUTRAL_ACTIONS };
     this.pool = [this.actions];
@@ -180,9 +246,13 @@ export class Input {
     const k = (c) => this.keys.has(c) || this._latched.has(c);
 
     let x = 0, y = 0;
+    // Menu keys are deliberately *not* remappable. A player who rebinds their
+    // way out of the menus has no way back in, and the one screen that could
+    // fix it is the one they can no longer reach.
     let confirm = k('Enter') || k('Space') || k('KeyZ');
     let back = k('Escape') || k('Backspace') || k('KeyX');
     let start = k('Enter');
+    let alt = k('KeyY');
 
     if (k('ArrowUp') || k('KeyW')) y += 1;
     if (k('ArrowDown') || k('KeyS')) y -= 1;
@@ -200,12 +270,13 @@ export class Input {
       if (btn(15)) x += 1;
       confirm = confirm || btn(0);
       back = back || btn(1);
+      alt = alt || btn(3);
       start = start || btn(9);
     }
 
     const dirs = {
       up: y > 0.5, down: y < -0.5, left: x < -0.5, right: x > 0.5,
-      confirm, back, start,
+      confirm, back, start, alt,
     };
     const out = {};
     for (const key of Object.keys(dirs)) {
@@ -339,46 +410,65 @@ export class Input {
     else a.airbrake = false;
   }
 
+  /**
+   * Replace the keyboard map. Anything absent keeps its default, so a saved
+   * map from an older build cannot leave a verb unbound and the car
+   * unsteerable — the failure mode of storing the whole map rather than the
+   * overrides.
+   */
+  setBindings(map) {
+    this.bindings = { ...DEFAULT_BINDINGS };
+    for (const [verb, codes] of Object.entries(map || {})) {
+      if (!(verb in DEFAULT_BINDINGS)) continue;
+      const list = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
+      if (list.length) this.bindings[verb] = list;
+    }
+    return this.bindings;
+  }
+
   _sampleKeyboard(a, dt, airborne) {
     const T = TUNING.INPUT;
-    const k = (c) => this.keys.has(c);
+    const b = this.bindings;
+    /** Is any key bound to this verb down? */
+    const v = (verb) => b[verb].some((c) => this.keys.has(c));
 
     // Virtual analog steering so keyboard is not a bang-bang input.
-    const want = (k('KeyA') || k('ArrowLeft') ? -1 : 0) + (k('KeyD') || k('ArrowRight') ? 1 : 0);
+    const want = (v('left') ? -1 : 0) + (v('right') ? 1 : 0);
     const rate = want === 0 ? T.KEYBOARD_STEER_RETURN : T.KEYBOARD_STEER_RATE;
     this._vSteer += clamp(want - this._vSteer, -rate * dt, rate * dt);
     a.steer = clamp(this._vSteer, -1, 1);
 
     // In the air the arrow keys become the thrust-mode stick (§5).
-    a.stickX = (k('ArrowLeft') ? -1 : 0) + (k('ArrowRight') ? 1 : 0);
-    a.stickY = (k('ArrowUp') ? 1 : 0) + (k('ArrowDown') ? -1 : 0);
+    a.stickX = (v('airLeft') ? -1 : 0) + (v('airRight') ? 1 : 0);
+    a.stickY = (v('airUp') ? 1 : 0) + (v('airDown') ? -1 : 0);
 
-    a.boost = k('ShiftLeft') || k('ShiftRight');
+    a.boost = v('boost');
     a.thrust = a.boost;
-    a.handbrake = k('Space');
-    a.reset = k('Enter');
-    a.cycleCamera = k('KeyV');
-    a.cycleStyle = k('KeyB');
+    a.handbrake = v('handbrake');
+    a.reset = v('reset');
+    a.cycleCamera = v('camera');
+    a.cycleStyle = v('style');
 
     if (airborne) {
       a.throttle = 0; a.brake = 0;
       if (this.options.manualAir) {
-        a.doorL = k('KeyQ') ? 1 : 0;
-        a.doorR = k('KeyE') ? 1 : 0;
-        a.hood = k('KeyR') ? 1 : 0;
-        a.trunk = k('KeyF') ? 1 : 0;
-        a.spoiler = k('KeyC') ? 1 : 0;
+        a.doorL = v('doorL') ? 1 : 0;
+        a.doorR = v('doorR') ? 1 : 0;
+        a.hood = v('hood') ? 1 : 0;
+        a.trunk = v('trunk') ? 1 : 0;
+        a.spoiler = v('spoiler') ? 1 : 0;
       } else {
-        // Arrows already fill stickX/stickY above; WASD mirrors them in the air.
-        if (k('KeyA')) a.stickX = -1;
-        if (k('KeyD')) a.stickX = 1;
-        if (k('KeyW')) a.stickY = 1;
-        if (k('KeyS')) a.stickY = -1;
-        this._flyStick(a, k('Space'));
+        // The stick verbs already fill stickX/stickY above; the drive keys
+        // mirror them in the air.
+        if (v('left')) a.stickX = -1;
+        if (v('right')) a.stickX = 1;
+        if (v('throttle')) a.stickY = 1;
+        if (v('brake')) a.stickY = -1;
+        this._flyStick(a, v('handbrake'));
       }
     } else {
-      a.throttle = k('KeyW') ? 1 : 0;
-      a.brake = k('KeyS') ? 1 : 0;
+      a.throttle = v('throttle') ? 1 : 0;
+      a.brake = v('brake') ? 1 : 0;
       a.doorL = 0; a.doorR = 0; a.hood = 0; a.trunk = 0; a.spoiler = 0;
     }
   }

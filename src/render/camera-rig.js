@@ -382,9 +382,29 @@ export class CameraDirector {
     return shot;
   }
 
+  /**
+   * Keep the lens out of the deck — and, in an interior, under the roof.
+   *
+   * The ceiling half is R12's, and it is not a nicety: the chase camera rises
+   * with airtime and pullback, so in The Concourse it climbed straight through
+   * a solid twenty-six-metre lid and sat on top of the building looking down
+   * at it. The car was still inside, driving. Every frame came back black —
+   * not dark, black — and nothing else in the build could have reported it,
+   * because the simulation was perfect and the geometry was correct and the
+   * only thing wrong was where you were standing.
+   *
+   * Clamped rather than collided: an arena that declares a ceiling is stating
+   * a hard bound on the whole volume, so there is nothing to raycast against
+   * and no cost to paying attention to it.
+   */
   _liftAboveDeck(shot) {
     const min = this.probeGround(shot.position.x, shot.position.z) + TUNING.CAMERA.CHASE.MIN_GROUND_HEIGHT;
     if (shot.position.y < min) shot.position.y = min;
+    const ceil = this.park && this.park.ceiling;
+    if (ceil) {
+      const max = ceil - TUNING.CAMERA.CHASE.MIN_CEILING_GAP;
+      if (shot.position.y > max) shot.position.y = Math.max(min, max);
+    }
   }
 
   /** Push the smoothed shot onto the real camera, plus speed-sense shake (§4). */

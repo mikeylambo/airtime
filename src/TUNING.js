@@ -540,6 +540,10 @@ export const TUNING = {
       FOV_AIR: 76,              // "wider FOV"
       HEADING_SMOOTH: 0.30,     // camera yaw follows velocity heading, lazily
       MIN_GROUND_HEIGHT: 0.85,  // never clip through the deck
+      // R12: how far under an interior's roof the lens has to stay. Enough
+      // that the ceiling is visible above the car rather than clipping the
+      // near plane, which is what reads as "indoors".
+      MIN_CEILING_GAP: 3.0,
     },
 
     // Orbit (§6, on big airtime)

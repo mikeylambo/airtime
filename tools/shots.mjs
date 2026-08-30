@@ -62,6 +62,8 @@ const SHOTS = [
   ['codes', null],
   ['gauntlet', null],
   ['options', null],
+  ['controls', null],
+  ['photowarn', null],
   ['run', 'run'],
   ['city', 'city'],
   // R10: the three arenas that did not exist when these exhibits were last
@@ -70,6 +72,7 @@ const SHOTS = [
   ['works', 'works'],
   ['flood', 'flood'],
   ['sky', 'sky'],
+  ['hall', 'hall'],
   ['party', null],
   ['split3', 'split3'],
   ['split4', 'split4'],
@@ -133,7 +136,7 @@ const SHOTS = [
           g.sim.drainEvents();
         }
         return true;
-      } else if (sp === 'works' || sp === 'flood' || sp === 'sky') {
+      } else if (sp === 'works' || sp === 'flood' || sp === 'sky' || sp === 'hall') {
         await g.startRun(g.lastMode, window.AIRTIME.ARENAS.find((a) => a.id === sp));
         g.sim.run.begin();
         // Placed, not driven. The scripted driver finds the hero jump in The
@@ -148,6 +151,9 @@ const SHOTS = [
           // the middle of a channel there is nothing in frame but the floor.
           flood: { pos: { x: -206, y: 26, z: -166 }, heading: -Math.PI / 2 },
           sky: { pos: { x: 0, y: 78, z: 8 }, heading: 0 },
+          // Down a platform, under the gallery, with the roof in frame — the
+          // one thing this arena has that none of the others do.
+          hall: { pos: { x: -140, y: 1.2, z: -52 }, heading: -Math.PI / 2 },
         }[sp];
         const p0 = g.sim.players[0];
         p0.place(VANTAGE.pos, VANTAGE.heading);

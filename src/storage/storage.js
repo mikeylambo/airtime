@@ -43,6 +43,14 @@ export const DEFAULT_OPTIONS = {
   invertPitch: false,
   manualAir: false,
   mute: false,           // per-panel air controls for anyone who wants them
+  // §A. Overrides only, never the whole map: a saved map from an older build
+  // that is missing a verb would leave the car unsteerable, so anything absent
+  // falls back to the default binding at load.
+  bindings: {},
+  // §A. The photosensitivity notice is shown once, before the first round, and
+  // acknowledged. Storing the acknowledgement rather than a "don't show me"
+  // preference means it cannot be dismissed by accident and never seen.
+  seenPhotoWarning: false,
 };
 
 export function loadOptions() {

@@ -12,6 +12,8 @@ import { makeRng } from '../sim/mathx.js';
 const ROLE_FOR_KIND = {
   platform: 'roof', roof: 'roof', billboard: 'billboard',
   pool: 'pool', poolwall: 'pool', secret: 'secret', leg: 'leg',
+  // R12. A ceiling draws like a roof and lights nothing like one.
+  ceiling: 'roof',
 };
 
 export function buildArenaView(scene, art, arenaId = 'park') {
@@ -64,7 +66,12 @@ export function buildArenaView(scene, art, arenaId = 'park') {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(s.half.x * 2, s.half.y * 2, s.half.z * 2));
     mesh.position.set(s.pos.x, s.pos.y, s.pos.z);
     mesh.rotation.y = s.yaw;
-    mesh.castShadow = true;
+    // A ceiling is the one solid that must not cast: it is a lid over the
+    // entire arena, so a single directional light puts the whole interior in
+    // shadow and The Concourse rendered as a black frame — no columns, no
+    // platforms, not even the edge lines. An interior is lit from inside it,
+    // which in AFTERGLOW means lit by its own geometry.
+    mesh.castShadow = s.kind !== 'ceiling';
     mesh.receiveShadow = true;
     mesh.name = s.id;
     group.add(art.register(mesh, ROLE_FOR_KIND[s.kind] || 'roof'));

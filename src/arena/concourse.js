@@ -110,7 +110,7 @@ export function describeConcoursePieces() {
     for (let iz = -2; iz <= 2; iz++) {
       pieces.push(at('slab', `roof_${ix + 3}_${iz + 2}`,
         { x: ix * (X / 3.5), y: CEIL, z: iz * (Z / 2.5) }, 0,
-        { half: { x: 65, y: 0.8, z: 65 }, kind: 'roof' }));
+        { half: { x: 65, y: 0.8, z: 65 }, kind: 'ceiling' }));
     }
   }
 

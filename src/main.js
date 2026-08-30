@@ -115,11 +115,24 @@ class Game {
     this.art.setStyle(this.options.artStyle || TUNING.RENDER.STYLE);
 
     const down = { x: 0, y: -1, z: 0 };
+    // Where the deck is under a given point, for keeping the lens out of it.
+    //
+    // The start height is not a detail. Cast from four hundred metres in an
+    // arena with a roof and the first thing the ray finds *is the roof*, so
+    // "the ground" under the camera comes back as 26.8 m and the floor clamp
+    // dutifully lifts the lens above the ceiling — which is exactly how The
+    // Concourse came to render as a black frame with the car still driving
+    // around inside. In an interior the ray has to start under the lid.
     const probeGround = (x, z) => {
+      const ceil = this.arenaView?.park?.ceiling;
+      // Clear of the slab, not level with it: `ceiling` is the roof's centre
+      // plane, so starting half a metre under it is still inside the solid and
+      // the ray finds the roof's own underside at once.
+      const from = ceil ? ceil - 2 : 400;
       const hit = this.sim.world.castRay(
-        new RAPIER.Ray({ x, y: 400, z }, down), 800, true, undefined, WHEEL_RAY_GROUPS
+        new RAPIER.Ray({ x, y: from, z }, down), from + 400, true, undefined, WHEEL_RAY_GROUPS
       );
-      return hit ? 400 - hit.timeOfImpact : 0;
+      return hit ? from - hit.timeOfImpact : 0;
     };
     this.director = new CameraDirector(camera, park, probeGround);
     this.director.reset(this.sim.snapshot());
@@ -131,6 +144,7 @@ class Game {
 
     this.input = new Input(window);
     this.input.options = this.options;
+    this.input.setBindings(this.options.bindings);
     this.audio = new Audio();
     // Browsers will not start audio without a gesture.
     const wake = () => { this.audio.start(); this.audio.setVolume(this.options.sfxVolume ?? 0.9); };
@@ -1231,6 +1245,7 @@ class Game {
       if (this._trafficBefore !== undefined) this._trafficBefore = v;
       else TUNING.TRAFFIC.MODE = v;
     }
+    if (k === 'bindings') this.input.setBindings(v);
     if (k === 'artStyle') this.art.setStyle(v);
     if (k === 'reduceEffects') {
       setReduceEffects(v);
