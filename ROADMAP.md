@@ -355,6 +355,24 @@ capture exactly that, unedited, in one take, the game is real.
 | **R12 — Arena six** | Finish the content roster | THE CONCOURSE: an interior, where you cannot solve anything by going up | Non-dominated on the seven-lens analysis, and passes `npm run lines` | **done** — six arenas, a new `enclosure` axis, and a clearance check for ceilings |
 | **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
 
+### Audio — the brief, and what stays synthesised
+
+`airtime-audio-brief.md` specifies the asset set: five pieces of music (written,
+not generated), six per-arena room tones, a crowd, and a four-take wordless PA.
+
+The load-bearing decision is what is *not* in it. The engine, wind, road, tyre
+scrub and bodywork stress stay synthesised, because `mix.js` computes a level
+and a frequency for each of them every frame out of speed, slip angle, rotation
+rate and panel deployment. A clip has one RPM and one load. Files buy rooms and
+music; they cannot buy a car that is telling the truth.
+
+The one finding worth keeping: **the game is already in A minor.** The pad root
+is 55 Hz (A1), the score cash-out starts on 440 Hz (A4), and the named-gap
+figure is C5–E5–B5 — all diatonic to A minor. That was not designed, it
+accumulated, but it means the key is now a constraint rather than a preference:
+write anything else and the most frequent sound in the game is out of key with
+the soundtrack several times a minute.
+
 ### The 2026-08-29 pivot — AFTERGLOW and the editor
 
 Locked with the user. Three decisions, two documents:
