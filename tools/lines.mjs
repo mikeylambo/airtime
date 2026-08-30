@@ -31,7 +31,10 @@ import { predictArc } from '../src/sim/airtime.js';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
-const ARENA = argv.includes('--city') ? 'city' : 'park';
+// Any arena by name. `--city` stays as an alias because it is in a dozen
+// commit messages and one npm script.
+const ai = argv.indexOf('--arena');
+const ARENA = ai >= 0 ? argv[ai + 1] : (argv.includes('--city') ? 'city' : 'park');
 const VERBOSE = argv.includes('--verbose');
 const EMIT = argv.includes('--emit-gaps');
 
@@ -236,12 +239,29 @@ const NOUN = [
   [/^spire/, 'SPIRE'], [/^stack/, 'STACK'], [/^coil/, 'COIL'],
   [/^roof_/, 'ROOF'], [/^tw_/, 'ROOF'], [/^br_/, 'BRIDGE'], [/^st_/, 'STREET'],
   [/^plaza/, 'PLAZA'], [/^bb_/, 'BILLBOARD'], [/^viaduct/, 'VIADUCT'],
+  // Mega Works (R10)
+  [/^hop/, 'HOPPER'], [/^cr_/, 'CRANE'], [/^cw_/, 'CATWALK'],
+  [/^st_/, 'STACK'], [/^yd_/, 'YARD'], [/^skip/, 'SKIP'], [/^jib/, 'JIB'],
+  // Floodway (R10)
+  [/^ch_/, 'CHANNEL'], [/^spill/, 'SPILLWAY'], [/^weir/, 'WEIR'],
+  [/^basin/, 'BASIN'], [/^culvert/, 'CULVERT'], [/^fw_/, 'CHANNEL'],
+  // Skyline (R10)
+  [/^up_peak/, 'PEAK'], [/^up_pad/, 'PAD'], [/^pad_/, 'PAD'],
+  [/^span_/, 'SPAN'], [/^peak/, 'PEAK'], [/^climb/, 'CLIMB'],
+  [/^sk_/, 'PAD'], [/^anchor/, 'ANCHOR'], [/^cable/, 'CABLE'],
 ];
 const nounOf = (id) => (NOUN.find(([re]) => re.test(id)) || [null, id.toUpperCase()])[1];
 const VERB = { TOWER: 'DROP', BANK: 'SWEEP', PIPE: 'SPILL', DECK: 'HOP', SHELF: 'STEP',
                BILLBOARD: 'SIGN', POOL: 'PLUNGE', ROOF: 'SKIP', OVERPASS: 'UNDERPASS',
                SPIRE: 'DROP', STACK: 'LINE', COIL: 'SPIRAL', BRIDGE: 'SPAN',
-               PLAZA: 'DIVE', STREET: 'FALL', VIADUCT: 'RAIL' };
+               PLAZA: 'DIVE', STREET: 'FALL', VIADUCT: 'RAIL',
+               HOPPER: 'DROP', CRANE: 'SWING', CATWALK: 'WALK', YARD: 'CLIMB',
+               SKIP: 'CATCH', JIB: 'REACH',
+               CHANNEL: 'RUN', SPILLWAY: 'SPILL', WEIR: 'BREAK', BASIN: 'PLUNGE',
+               CULVERT: 'BORE',
+               PAD: 'STEP', SPAN: 'CROSS', PEAK: 'SUMMIT', ANCHOR: 'HOLD',
+               CLIMB: 'HAUL',
+               CABLE: 'WIRE' };
 
 // The Yard is four-fold symmetric, so a dozen gaps are rotations of each other
 // and naming them by shape alone produces BANK DROP I through VI. Bearing off

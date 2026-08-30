@@ -7,8 +7,11 @@
 
 import { describePark } from './stunt-park.js';
 import { describeCity } from './city-block.js';
+import { describeWorks } from './mega-works.js';
+import { describeFlood } from './floodway.js';
+import { describeSky } from './skyline.js';
 
-const BUILDERS = { park: describePark, city: describeCity };
+const BUILDERS = { park: describePark, city: describeCity, works: describeWorks, flood: describeFlood, sky: describeSky };
 
 export const ARENA_IDS = Object.keys(BUILDERS);
 
@@ -23,6 +26,6 @@ export function getArena(id = 'park') {
   return a;
 }
 
-export { describePark, describeCity };
+export { describePark, describeCity, describeWorks, describeFlood, describeSky };
 export { PIECES, expandPieces, serializeArena, parseArena } from './pieces.js';
 export * from './ramp-geometry.js';

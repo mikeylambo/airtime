@@ -42,6 +42,31 @@ export function dailyVariant(seed = dailySeed()) {
   };
 }
 
+/**
+ * The daily set (R11).
+ *
+ * Three challenges, chosen by the date, the same three for everybody. They are
+ * drawn from the ladder that already exists rather than being a second kind of
+ * objective — a daily that asks for something the game does not otherwise ask
+ * for is a second game, and this one is capped-content on purpose.
+ *
+ * Deliberately *not* weighted toward the easy end. The point of a daily is
+ * that on some days it asks you for something you are bad at, which is the
+ * only mechanism in the design that reliably makes somebody drive an arena
+ * they had written off.
+ */
+export function dailySet(challenges, day = todayKey()) {
+  const seed = dailySeed(day);
+  const pool = challenges.filter((c) => !c.mode);   // a daily never gates on a mode
+  const picked = [];
+  for (let k = 0; picked.length < 3 && k < 64; k++) {
+    const i = ((seed ^ (k * 2654435761)) >>> 0) % pool.length;
+    const c = pool[i];
+    if (c && !picked.includes(c)) picked.push(c);
+  }
+  return { day, seed, challenges: picked };
+}
+
 // ── Leaderboard adapter ────────────────────────────────────────────────────
 // Two functions, and a board id. R9 files a run onto every board it qualifies
 // for (game/boards.js), so the adapter takes *which* board as well as which

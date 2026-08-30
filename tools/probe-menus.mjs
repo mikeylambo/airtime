@@ -129,6 +129,10 @@ const out = await page.evaluate(async () => {
         boards: { board: 'arena' },
         gauntletnext: { state: { index: 1, cleared: [{ id: 'g1' }] }, cleared: { name: 'THREE IN A ROW' }, summary: g.lastSummary },
         gauntletresult: { state: { index: 3, cleared: [{}, {}, {}], failed: 'g4' }, summary: g.lastSummary },
+        horseresult: { state: {
+          players: [{ index: 0, letters: 0, out: false }, { index: 1, letters: 5, out: true }],
+          turn: 0, setter: 0, mark: null, history: [], over: true, winner: 0,
+        } },
         licresult: { test: g.licences[0], result: { value: 1, grade: 'bronze', unit: 'landings' } },
         result: g.lastSummary,
         scoreboard: { all: [g.lastSummary], kind: 'split' },

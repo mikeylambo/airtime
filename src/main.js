@@ -44,8 +44,11 @@ import { LICENCES, evaluate, licenceRank } from './game/licences.js';
 import { Board, dailyVariant, todayKey, useBoard } from './game/daily.js';
 import { submitRun, readBoard, standings, BOARDS } from './game/boards.js';
 import { boardFromEnv } from './game/supabase-board.js';
-import { evaluateRun, completedCount, nextUnlock, unlockedBy, CHALLENGES } from './game/challenges.js';
+import { evaluateRun, completedCount, nextUnlock, unlockedBy, CHALLENGES, UNLOCKS } from './game/challenges.js';
 import * as Gauntlet from './game/gauntlet.js';
+import * as Horse from './game/horse.js';
+import { encodeRun, decodeRun } from './game/codes.js';
+import { dailySet } from './game/daily.js';
 import { ghostFromRun, bakeGhost, saveGhost, bestGhost, listGhosts } from './game/ghosts.js';
 import { simVersion } from './sim/version.js';
 import { setColorblind, playerColorCss } from './render/theme.js';
@@ -294,7 +297,10 @@ class Game {
     this.playback = null;
     // §R: a real run rerolls under an explicit seed so its recording can put
     // the world back. Any value works — it is written into every clip's meta.
-    this.sim.restartRun(mode.id, opts.duration,
+    // R11: a mode may own its clock — Survival starts at twenty seconds,
+    // Free Ride effectively has none. An explicit duration still wins, so the
+    // licence tests and the Gauntlet keep setting their own.
+    this.sim.restartRun(mode.id, opts.duration ?? mode.seconds,
       opts.seed ?? ((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0));
     this.lastStartMs = performance.now() - t0;
     // §6.1: record every run. A clip costs a few KB, so there is no reason to
@@ -718,6 +724,22 @@ class Game {
     return this.wear;
   }
 
+  /** R11: is this mode earned yet? Stunt Run always is — it is the game. */
+  modeUnlocked(id) {
+    if (id === 'stunt') return true;
+    return (this.profile.unlocked.modes || []).includes(id);
+  }
+
+  /** What it costs, for the locked row in the menu. */
+  modeCost(id) {
+    const u = UNLOCKS.find((x) => x.id === id);
+    return u ? u.at : '—';
+  }
+
+  arenaUnlocked(id) {
+    return id === 'park' || (this.profile.unlocked.arenas || []).includes(id);
+  }
+
   grantUnlock(u) {
     const p = this.profile;
     if (u.kind === 'arena' && !p.unlocked.arenas.includes(u.id)) p.unlocked.arenas.push(u.id);
@@ -745,13 +767,44 @@ class Game {
 
   abandonGauntlet() { this.gauntlet = null; }
 
+  // ── R11: run codes ──────────────────────────────────────────────────────
+  // A clip is inputs and a seed, so a run is a string. Sharing one is not
+  // sharing a video of a run, it is sharing the run.
+
+  /** The best run here, as a code somebody can paste. */
+  async runCode(record = null) {
+    const r = record || this.ghostHere();
+    if (!r) return null;
+    try { return await encodeRun(r); } catch { return null; }
+  }
+
+  /**
+   * Take a code. It arrives as a ghost, because the thing you do with
+   * somebody else's run is try to beat it.
+   */
+  async takeCode(code, onProgress = null) {
+    const out = await decodeRun(code);
+    if (!out.ok) return out;
+    saveGhost(this.profileIndex, out.record);
+    await this.loadGhost(out.record, onProgress);
+    return { ok: true, record: out.record };
+  }
+
+  /** R11: three challenges, chosen by the date, the same for everybody. */
+  dailySet() { return dailySet(CHALLENGES); }
+
   get challengeCount() { return completedCount(this.profile); }
   get challengeTotal() { return CHALLENGES.length; }
   nextUnlock() { return nextUnlock(this.profile); }
 
   // ── Pass-the-pad (§9): one controller, 45s turns, scoreboard between ─────
   startPassThePad(count) {
-    this.party = { kind: 'pad', count, turn: 0, scores: [] };
+    // R11: HORSE is pass-the-pad with a rule about the *sequence* of turns, so
+    // the game layer carries the letters and the sim never hears about them.
+    this.party = {
+      kind: 'pad', count, turn: 0, scores: [],
+      horse: this.lastMode.id === 'horse' ? Horse.begin(count) : null,
+    };
     this.playTurn();
   }
 
@@ -765,6 +818,21 @@ class Game {
   nextTurn(summary) {
     const p = this.party;
     p.scores.push({ ...summary, player: p.turn });
+
+    if (p.horse) {
+      const out = Horse.resolve(p.horse, summary);
+      this.lastHorse = out;
+      if (p.horse.over) {
+        const state = p.horse;
+        this.party = null;
+        return this.screens.go('horseresult', { state });
+      }
+      p.turn = p.horse.turn;
+      return this.screens.go('handover', {
+        turn: p.turn, count: p.count, scores: p.scores, horse: p.horse, last: out,
+      });
+    }
+
     p.turn++;
     if (p.turn >= p.count) {
       const scores = p.scores;
@@ -831,6 +899,10 @@ class Game {
    */
   async submitScore(summary) {
     if (!summary.score) return [];
+    // R11: Free Ride is not scored, so it does not go on a board. A mode with
+    // no clock and no stakes filing runs against modes that have both would
+    // make every board a Free Ride board.
+    if (this.lastMode.scored === false) return [];
     try {
       const v = dailyVariant();
       return await submitRun(summary, {

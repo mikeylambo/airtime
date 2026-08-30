@@ -160,14 +160,21 @@ check(freebies.length === 0, 'none of them completes itself',
   freebies.length ? freebies.map((c) => c.id).join(', ') : 'an empty run earns nothing');
 
 // Every challenge has to apply to something that exists.
+// Derived from the registries rather than hardcoded, or the check goes stale
+// the moment an arena or a mode is added — which is exactly what it did when
+// R10 landed three arenas and this list still said ['park', 'city'].
+const { ARENA_IDS } = await import('../src/arena/index.js');
+const { MODES: SIM_MODES } = await import('../src/sim/modes.js');
+const { CARS } = await import('../src/sim/cars.js');
+// CARS is an array, so the ids are on the records rather than the keys.
+const carIds = Object.values(CARS).map((c) => c.id);
 const contexts = [];
-for (const arena of ['park', 'city']) {
-  for (const mode of ['stunt', 'shot', 'standing', 'potato', 'party']) {
-    for (const car of ['vector', 'anvil']) contexts.push({ arena, mode, car });
+for (const arena of ARENA_IDS) {
+  for (const mode of Object.keys(SIM_MODES)) {
+    for (const car of carIds) contexts.push({ arena, mode, car });
   }
 }
-const orphanChallenges = CHALLENGES.filter((c) => !contexts.some((x) => applies(c, x))
-  && !(c.car && !['vector', 'anvil'].includes(c.car)));
+const orphanChallenges = CHALLENGES.filter((c) => !contexts.some((x) => applies(c, x)));
 check(orphanChallenges.length === 0, 'every challenge applies to something that exists',
   orphanChallenges.length ? orphanChallenges.map((c) => c.id).join(', ') : 'no orphans');
 
@@ -183,7 +190,7 @@ check(topRung.at <= CHALLENGES.length && !UNLOCKS.some((u) => u.kind === 'car'),
   // Clear every stage by handing each one a summary it accepts, then confirm
   // a failed stage ends the attempt rather than skipping it.
   const pass = {
-    bestChain: 12, moverNearMisses: 1,
+    bestChain: 12, moverNearMisses: 1, jumps: 14, respawns: 0,
     landings: [{
       landed: true, facetCount: 7, airtime: 4.5, tier: 'secret', target: 'stack_d2',
       quality: 'perfect', purity: { id: 'raw' }, rotation: 16.5, from: { y: 47 },
@@ -195,6 +202,13 @@ check(topRung.at <= CHALLENGES.length && !UNLOCKS.some((u) => u.kind === 'car'),
       quality: 'clean', purity: { id: 'raw' }, rotation: 1, from: { y: 47 },
     }, {
       landed: true, facetCount: 6, airtime: 2, tier: 'rooftop', target: 'stack_d1',
+      quality: 'clean', purity: { id: 'raw' }, rotation: 1, from: { y: 47 },
+    }, {
+      // R10's stages: something moving, and a pool at the foot of a weir.
+      landed: true, facetCount: 6, airtime: 2, tier: 'moving', target: 'skip',
+      quality: 'clean', purity: { id: 'raw' }, rotation: 1, from: { y: 47 },
+    }, {
+      landed: true, facetCount: 6, airtime: 2, tier: 'pool', target: 'basin_0',
       quality: 'clean', purity: { id: 'raw' }, rotation: 1, from: { y: 47 },
     }],
     score: 9000,

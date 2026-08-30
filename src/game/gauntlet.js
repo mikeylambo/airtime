@@ -5,14 +5,15 @@
  * of things to be good at, and the roster gives ours the same job: "endgame
  * mastery course combining everything. **Unlocked, not offered.**"
  *
- * It is a *mode*, not an arena, and that is a deliberate scoping decision
- * rather than a shortcut. The roster describes The Gauntlet as combining
- * everything, and three of the six arenas do not exist yet — an arena built
- * now could only combine the two that do, and would have to be rebuilt the
- * moment Mega Works, Floodway and Skyline land in R10. So The Gauntlet is
- * currently a **chain of short trials across the arenas that exist**, using
- * the licence machinery it is already shaped like, and it becomes an arena in
- * R10 when there is something worth combining.
+ * It is a *mode*, not an arena, and since R10 that is a design decision
+ * rather than a scoping one. Every arena now exists, and the exam visits all
+ * five — but a single arena that "combines everything" would necessarily be a
+ * worse version of each of the five routing ideas, blended until none of them
+ * reads. The Gauntlet is better as a **chain of short trials across the
+ * arenas themselves**: it asks the centripetal question in The Yard, the
+ * altitude question in the City, the timing question in Mega Works, the
+ * momentum question in Floodway and the commitment question in Skyline, each
+ * in the place built to ask it.
  *
  * Two rules it does not break:
  *
@@ -33,9 +34,9 @@ const facets = (l) => l.facetCount || (l.facets || l.tricks || []).length;
 const spinDeg = (l) => Math.round((l.rotation || 0) * (180 / Math.PI));
 
 /**
- * Twelve stages, alternating arenas, each one a single sentence a player can
- * hold in their head while driving. The seconds are generous at the top and
- * tight at the bottom — the difficulty is the ask, never the clock.
+ * Eighteen stages across all five arenas, each one a single sentence a player
+ * can hold in their head while driving. The seconds are generous at the top
+ * and tight at the bottom — the difficulty is the ask, never the clock.
  */
 export const STAGES = [
   {
@@ -95,7 +96,37 @@ export const STAGES = [
     test: (r) => landed(r).some((l) => l.tier === 'secret'),
   },
   {
-    id: 'g12', arena: 'city', seconds: 75, name: 'THE SHOT',
+    id: 'g12', arena: 'works', seconds: 60, name: 'THE SKIP',
+    brief: 'Land on something that was moving when you left the ramp.',
+    test: (r) => landed(r).some((l) => l.tier === 'moving'),
+  },
+  {
+    id: 'g13', arena: 'works', seconds: 70, name: 'OFF THE PLANT',
+    brief: 'Land a six-facet jump launched from above forty metres.',
+    test: (r) => landed(r).some((l) => facets(l) >= 6 && (l.from ? l.from.y > 40 : false)),
+  },
+  {
+    id: 'g14', arena: 'flood', seconds: 65, name: 'WITH THE FLOW',
+    brief: 'Land ten in a row.',
+    test: (r) => (r.bestChain || 0) >= 10,
+  },
+  {
+    id: 'g15', arena: 'flood', seconds: 70, name: 'THE BASIN',
+    brief: 'Take a weir and land in the pool below it.',
+    test: (r) => landed(r).some((l) => l.tier === 'pool'),
+  },
+  {
+    id: 'g16', arena: 'sky', seconds: 70, name: 'NO GROUND',
+    brief: 'Land eight jumps without a single respawn.',
+    test: (r) => (r.jumps || 0) >= 8 && (r.respawns || 0) === 0,
+  },
+  {
+    id: 'g17', arena: 'sky', seconds: 75, name: 'THE ANCHOR',
+    brief: 'Land on the anchor. Nothing else in Skyline is that small.',
+    test: (r) => landed(r).some((l) => l.tier === 'secret'),
+  },
+  {
+    id: 'g18', arena: 'city', seconds: 75, name: 'THE SHOT',
     brief: 'Off the spire, past the helicopter, six facets, land it on a garage deck.',
     test: (r) => (r.moverNearMisses || 0) >= 1 && landed(r).some((l) =>
       facets(l) >= 6 && (l.target || '').startsWith('stack_d')

@@ -35,6 +35,11 @@ const CHECKS = [
   ['R8', 'the city is an instrument, and the clip has its furniture', 'probe-city.mjs'],
   ['R9', 'ghosts are the runs they recorded, and the ladder holds', 'probe-mastery.mjs'],
   ['R9', 'every screen opens in a browser', 'probe-menus.mjs'],
+  ['R10', 'Mega Works is a network', 'lines.mjs', ['--arena', 'works']],
+  ['R10', 'Floodway is a network', 'lines.mjs', ['--arena', 'flood']],
+  ['R10', 'Skyline is a network', 'lines.mjs', ['--arena', 'sky']],
+  ['R10', 'six instruments, each the most something', 'probe-arenas.mjs'],
+  ['R11', 'seven lenses, and a run is a string', 'probe-party.mjs'],
 ];
 
 const verbose = process.argv.includes('--verbose');

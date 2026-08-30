@@ -448,6 +448,29 @@ export const TUNING = {
       MAX_PLAYERS: 4,
       GRID_GAP: 7.5,            // lateral spacing on the starting grid
     },
+    // R11's four lenses. Every one of them is the same loop with one rule
+    // bolted on; the numbers are how hard that rule bites.
+    FREERIDE: {
+      SECONDS: 900,             // long enough to stop being a clock
+    },
+    BESTTRICK: {
+      SECONDS: 120,             // more attempts, because only one counts
+    },
+    COMBO: {
+      SECONDS: 150,             // the clock is not the thing that ends this
+    },
+    SURVIVAL: {
+      START: 20,
+      PER_LANDING: 3.0,
+      PER_FACET: 0.9,
+      MAX_ADD: 12,              // one landing cannot buy a whole round
+      CEILING: 60,              // nor can a good streak bank a minute of slack
+      CRASH_COST: 4,
+    },
+    HORSE: {
+      SECONDS: 40,              // a turn, not a round
+      WORD: 'HORSE',
+    },
   },
 
   // ── Recovery (§3: "Repeat until timer ends") ─────────────────────────────

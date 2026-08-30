@@ -18,6 +18,7 @@ import {
 } from '../game/challenges.js';
 import { BOARDS } from '../game/boards.js';
 import * as Gauntlet from '../game/gauntlet.js';
+import * as Horse from '../game/horse.js';
 
 const num = (n) => (n || 0).toLocaleString();
 const bar = (done, total) => {
@@ -107,7 +108,17 @@ export function buildMastery(mgr, game) {
     const b = BOARDS[boardIndex];
     const el = document.getElementById('bd-table');
     document.getElementById('bd-title').textContent = b.label;
-    document.getElementById('bd-note').textContent = b.blurb;
+    // R11: the daily board also carries the daily *set* — three challenges
+    // chosen by the date, the same three for everybody, drawn from the ladder
+    // that already exists rather than being a second kind of objective.
+    if (b.id === 'daily') {
+      const set = game.dailySet();
+      const done = game.profile.challenges || {};
+      document.getElementById('bd-note').innerHTML = `${b.blurb}<br><b>Today's three:</b> ` +
+        set.challenges.map((c) => `${done[c.id] ? '✓ ' : ''}${c.name}`).join(' · ');
+    } else {
+      document.getElementById('bd-note').textContent = b.blurb;
+    }
     document.getElementById('bd-eyebrow').textContent =
       `Board ${boardIndex + 1}/${BOARDS.length} · ${game.lastArena.label} · ${game.lastMode.label}`;
     el.innerHTML = '<tr><td>reading…</td></tr>';
@@ -215,7 +226,7 @@ export function buildMastery(mgr, game) {
         `The Gauntlet · best ${p.gauntlet || 0}/${Gauntlet.LENGTH}`;
       const card = document.getElementById('ga-card');
       const items = [
-        { label: 'BEGIN', note: `twelve stages · best ${p.gauntlet || 0}`, begin: true },
+        { label: 'BEGIN', note: `${Gauntlet.LENGTH} stages · best ${p.gauntlet || 0}`, begin: true },
         ...Gauntlet.STAGES.map((st, i) => ({
           label: `${String(i + 1).padStart(2, '0')} ${st.name}`,
           note: i < (p.gauntlet || 0) ? '✓' : st.arena,
@@ -226,9 +237,10 @@ export function buildMastery(mgr, game) {
         if (it.begin) game.startGauntlet();
       }, (it) => {
         if (it.begin) {
-          card.innerHTML = '<h3>Twelve stages</h3><p>One objective each, one short run each. '
+          card.innerHTML = `<h3>${Gauntlet.LENGTH} stages</h3><p>One objective each, one short run each. `
             + 'A cleared stage rolls straight into the next; a failed one ends the attempt '
-            + 'and costs nothing.</p><div class="stat">The last stage is the acceptance clip.</div>';
+            + 'and costs nothing.</p><div class="stat">All five arenas. The last stage is '
+            + 'the acceptance clip.</div>';
         } else {
           card.innerHTML = `<h3>${it.stage.name}</h3><p>${it.stage.brief}</p>`
             + `<div class="stat">${it.stage.arena} · ${it.stage.seconds}s</div>`;
@@ -305,6 +317,98 @@ export function buildMastery(mgr, game) {
       const l = mgr.get('gauntletresult')._list;
       if (m.start) return game.startGauntlet();
       if (m.back) return mgr.go('gauntlet');
+      l.handle(m);
+    },
+  }));
+
+  // ── R11: run codes ──────────────────────────────────────────────────────
+  // The replay architecture's quiet gift. A clip is inputs and a seed, so a
+  // run is a few kilobytes of text — no upload, no account, no server — and
+  // what the other person gets is not a video of your run, it is your run.
+  let codeList;
+  mgr.register(new Screen('codes', {
+    html: `<div class="veil"></div><div class="pane">
+      <div class="eyebrow" id="cd-eyebrow">Run codes</div>
+      <h2 class="title">SEND SOMEBODY YOUR RUN</h2>
+      <div class="list" id="cd-list"></div>
+      <div class="card" id="cd-card" style="max-width:520px"></div>
+      <div class="hint"><b>A</b> do it · <b>B</b> back</div>
+    </div>`,
+    onEnter: () => {
+      const card = document.getElementById('cd-card');
+      const here = game.ghostHere();
+      document.getElementById('cd-eyebrow').textContent =
+        here ? `Run codes · best here ${num(here.score)}` : 'Run codes · nothing saved here yet';
+      codeList = makeList(document.getElementById('cd-list'), [
+        { label: 'COPY MY RUN', note: here ? `${here.arena} · ${num(here.score)}` : 'nothing here yet', copy: true },
+        { label: 'PASTE A RUN', note: 'it arrives as a ghost', paste: true },
+      ], async (it) => {
+        if (it.copy) {
+          const code = await game.runCode();
+          if (!code) {
+            card.innerHTML = '<h3>Nothing to send</h3><p>Finish a run here first.</p>';
+            return;
+          }
+          try { await navigator.clipboard.writeText(code); } catch { /* shown below anyway */ }
+          card.innerHTML = `<h3>Copied — ${code.length} characters</h3>`
+            + `<p style="word-break:break-all;font-size:.62rem;opacity:.7">${code.slice(0, 320)}${code.length > 320 ? '…' : ''}</p>`
+            + '<div class="stat">Not a video. The whole run, re-simulated on their machine.</div>';
+        } else {
+          let text = '';
+          try { text = await navigator.clipboard.readText(); } catch { text = ''; }
+          if (!text) {
+            card.innerHTML = '<h3>Nothing on the clipboard</h3>'
+              + '<p>Copy a run code first, then come back.</p>';
+            return;
+          }
+          card.innerHTML = '<h3>Baking…</h3><p>Re-simulating their run so you can race it.</p>';
+          const out = await game.takeCode(text, (k) => {
+            card.innerHTML = `<h3>Baking… ${Math.round(k * 100)}%</h3><p>Re-simulating their run.</p>`;
+          });
+          card.innerHTML = out.ok
+            ? `<h3>${out.record.name} · ${num(out.record.score)}</h3>`
+              + `<p>${out.record.arena} · ${out.record.car}. Loaded as your ghost.</p>`
+            : `<h3>No</h3><p>${out.why}</p>`;
+        }
+      }, (it) => {
+        card.innerHTML = it.copy
+          ? '<h3>Copy my run</h3><p>Your best run here becomes a string. Send it to anybody.</p>'
+            + '<div class="stat">A clip is inputs and a seed, so this is a few kilobytes rather than a file.</div>'
+          : '<h3>Paste a run</h3><p>Somebody else\'s run, from your clipboard.</p>'
+            + '<div class="stat">It arrives as a ghost, because the thing you do with somebody\'s run is beat it.</div>';
+      });
+    },
+    onMenu: (m) => { if (m.back) mgr.back('main'); else codeList.handle(m); },
+  }));
+
+  // ── R11: HORSE ──────────────────────────────────────────────────────────
+  mgr.register(new Screen('horseresult', {
+    html: `<div class="veil full"></div><div class="pane">
+      <div class="eyebrow">HORSE</div>
+      <h2 class="title" id="hr-title">—</h2>
+      <table class="brk" id="hr-table"></table>
+      <div class="list" id="hr-actions"></div>
+    </div>`,
+    onEnter: (_c, data) => {
+      const st = data.state;
+      document.getElementById('hr-title').textContent =
+        st.winner === null ? 'NOBODY' : `PLAYER ${st.winner + 1} WINS`;
+      document.getElementById('hr-table').innerHTML =
+        '<tr><th>player</th><th>letters</th><th></th></tr>' +
+        Horse.standings(st).map((p) =>
+          `<tr class="${p.out ? 'crash' : ''}"><td>PLAYER ${p.index + 1}</td>` +
+          `<td>${p.word}</td><td>${p.out ? 'out' : ''}</td></tr>`).join('');
+      const l = makeList(document.getElementById('hr-actions'), [
+        { label: 'AGAIN', note: '' }, { label: 'MENU', note: '' },
+      ], (it) => {
+        if (it.label === 'AGAIN') mgr.go('party');
+        else mgr.go('main');
+      });
+      mgr.get('horseresult')._list = l;
+    },
+    onMenu: (m) => {
+      const l = mgr.get('horseresult')._list;
+      if (m.back) return mgr.go('main');
       l.handle(m);
     },
   }));

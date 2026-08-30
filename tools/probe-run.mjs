@@ -26,7 +26,9 @@ const profile = {
 // R8: either arena, because the loop has to survive a second instrument and
 // the city is where an elevated ramp, a respawn onto a roof and a spiral
 // flyover first exist to break it.
-const ARENA = process.argv.includes('--city') ? 'city' : 'park';
+const _ai = process.argv.indexOf('--arena');
+const ARENA = _ai >= 0 ? process.argv[_ai + 1]
+  : (process.argv.includes('--city') ? 'city' : 'park');
 
 const setup = resolveSetup(profile);
 const sim = await Sim.create(setup, ARENA);

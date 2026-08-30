@@ -236,6 +236,34 @@ export const PIECES = {
   },
 
   /**
+   * A gantry crane (R10, Mega Works): two legs and a jib you can land on and
+   * launch off. The jib is the point — a narrow platform forty metres up with
+   * nothing under it, which is what makes the industrial arena read as
+   * industrial rather than as a warehouse with ramps in it.
+   */
+  crane: {
+    expand: (inst, out) => {
+      const p = inst.params;
+      const { x, z } = inst.pos;
+      const h = p.height;
+      const alongZ = P(p.alongZ, false);
+      const span = p.span;
+      for (const side of [-1, 1]) {
+        out.structures.push(slabRec(`${inst.id}_leg${side < 0 ? 'a' : 'b'}`,
+          x + (alongZ ? 0 : side * span), h / 2, z + (alongZ ? side * span : 0),
+          2.2, h / 2, 2.2, 'leg'));
+      }
+      const hx = alongZ ? P(p.halfWidth, 6) : span + 2.2;
+      const hz = alongZ ? span + 2.2 : P(p.halfWidth, 6);
+      out.structures.push(slabRec(inst.id, x, h, z, hx, 0.7, hz, 'roof'));
+      out.targets.push({
+        id: inst.id, tier: P(p.tier, 'rooftop'), tagged: P(p.tagged, true),
+        aim: { x, y: h + 0.7, z }, half: { x: hx, y: 3, z: hz },
+      });
+    },
+  },
+
+  /**
    * Street furniture — the things that exist to be destroyed (sim/props.js).
    * A prop is not part of the routing graph: nothing lands on it, nothing
    * launches off it, and the analyzer never sees it. It is kinematic until

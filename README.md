@@ -254,6 +254,32 @@ it to 27 of 28 m), each rung of the ladder is inside one apex of the one
 below, and the acceptance clip has its furniture — a 46 m skyscraper to leave,
 a three-deck garage to land on, and a helicopter whose near miss pays.
 
+### The other three arenas (R10)
+
+`npm run lines` proves an arena is a *network*. It cannot prove an arena is a
+**different** network — six arenas that are all "ramps pointing at things,
+76 m apart" would pass it six times while being one arena with six skins. So
+`npm run probe:arenas` is **`probe:cars` applied to arenas**, with the roster's
+own law: no arena Pareto-dominated, every arena the maximum on some axis.
+
+```
+  arena     retention  verticali  direction     motion   altitude   exposure   openness
+  park           0.51       0.00       0.09       0.00       0.00       0.40       0.48
+  city           0.49       1.00       0.11       0.19       0.18       0.36       0.50
+  works          0.29       1.00       0.06       0.21       0.23       0.49       0.42
+  flood          0.20       1.00       0.27       0.00       0.14       0.17       0.33
+  sky            0.33       0.52       0.03       0.08       0.60       0.35       0.44
+```
+
+- **MEGA WORKS routes in time.** A skip on a rail, a swinging jib, a conveyor
+  that only pays face-up: the reachability graph opens and closes, and the
+  skill is leaving at the moment the arrival will be somewhere.
+- **FLOODWAY has a direction.** Three terraces serpentine — east, west, east —
+  joined by spillways you drive. Its walls face inward, so drifting wide
+  returns you to the line carrying the speed you took into it.
+- **SKYLINE has no ground.** Everything is 44–92 m up and one spiral, at the
+  far edge, is the way back. A missed landing is a demotion, not a crash.
+
 ### Mastery (R9)
 
 **Ghosts.** A ghost is not a second car in your world — one that were would be
@@ -273,6 +299,24 @@ list is a fact about a client rather than about a score.
 arenas and the roster, so no challenge asks for a pool in an arena that has no
 pool. Cars are never gated behind them: the ladder hands out arenas, modes and
 eventually The Gauntlet.
+
+### The mode roster and run codes (R11)
+
+Seven lenses on one game, not seven games — the same loop with one rule bolted
+on. **Free Ride** (no clock, no medal, off the boards), **Call Your Shot**,
+**Best Trick** (a running maximum, so the score you are watching is always
+your best single stunt), **Combo Run** (one chain; a crash ends it),
+**Survival** (twenty seconds, and every landing buys more of them),
+**Party Stunts**, and **HORSE**, whose mark is the *facet count* of the best
+landing rather than the score — a score means reproducing a route, a facet
+count means doing the same number of things at once, which is a thing you can
+watch somebody do and then try.
+
+And the replay architecture's quiet gift: **a run is a string.** A clip is
+inputs and a seed, so sharing one needs no upload, no account and no server —
+a twenty-second run is 1,750 characters — and what arrives is not a video, it
+is the run, re-simulating on their machine to 0.0000 m. It loads as a ghost,
+because the thing you do with somebody's run is try to beat it.
 
 ### Audio
 
@@ -467,9 +511,15 @@ screenshots.
   judging it needs runs by somebody who is trying, not by a scripted driver.
 - **The glass does not break.** Panels detach and bend, and the car scuffs
   across a session; the glasshouse is still one unbreakable volume.
-- **Arenas 4–6 do not exist**, so The Gauntlet is twelve chained trials across
-  the two that do rather than the arena the roster describes. It becomes an
-  arena in R10, when there is something worth combining.
+- **The Gauntlet is a mode, not an arena**, and since R10 that is a design
+  choice rather than a scoping one: one arena "combining everything" is
+  necessarily a worse version of each of the five routing ideas, blended until
+  none of them reads. It is eighteen stages across all five instead.
+- **The scripted driver cannot drive the new arenas.** It finds the hero jump
+  in The Yard and flails everywhere else — in Skyline it never gets off the
+  deck, because the way up is a spiral it has no idea how to take. `probe:run`
+  is a smoke test that the loop runs, and it is a weaker one in five arenas
+  than it was in two.
 - **The scripted driver is a weak proxy for a player.** It lands what it
   launches but only finds a handful of ramps in a round, so `probe:run` is a
   smoke test that the loop runs end to end, not a measure of what the mode is

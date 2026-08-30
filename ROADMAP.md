@@ -230,9 +230,9 @@ or it does not ship.
 |---|---|---|
 | **The Yard** | The pure stunt park. Bowls, towers, banks, transfer lines, verticality. | **built** (R3) |
 | **Vertical City** | Rooftops, parking structures, glass towers, traffic, billboards, skybridges. | **built** (R8) — four altitude strata, the Coil, the Stack |
-| **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | — |
-| **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | — |
-| **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | — |
+| **Mega Works** | Industrial cranes, pipes, containers, moving machinery, giant drops. | **built** (R10) — routes in *time*; the best surfaces move |
+| **Floodway** | Concrete canals, huge banks, drainage tubes, spillways, long-speed lines. | **built** (R10) — the only arena with a *direction* |
+| **Skyline** | Massive elevation, suspended structures, wind exposure, terrifying gaps. | **built** (R10) — no ground; a miss is a demotion |
 | **The Gauntlet** | Endgame mastery course combining everything. Unlocked, not offered. | **a mode** (R9) — twelve chained trials at 90 challenges; becomes an arena in R10 |
 
 Traffic settles here: it is an **ingredient of Vertical City**, not a universal
@@ -349,8 +349,8 @@ capture exactly that, unedited, in one take, the game is real.
 | **R7 — Premium feel** | The other half of the illusion | audio handoff + duck + crowd, particles, speed lines, shake | Judged on footage — but the handoff, the duck and the emission rules are measured | **done** — soundscape flips in 133 ms, a 60k stick ducks the bed to 0.22 |
 | **R8 — Vertical City** | Second instrument | rebuild the city under R3 range logic, traffic as its ingredient | Passes `npm run lines` as a network | **done** — 34 ramps, 0 orphans, 27 reachable from 3+, 84% of flights hold altitude |
 | **R9 — Mastery** | Give hundreds of runs purpose | challenges, medals, ghosts, the seven boards, The Gauntlet | 100–150 challenges; a ghost can be loaded and beaten | **done** — 103 challenges, a ghost reproduces its run to 0.0000 m |
-| **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | |
-| **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | |
+| **R10 — Arenas 4–6** | Finish the roster | Mega Works, Floodway, Skyline | Each teaches a routing idea the others do not | **done** — five arenas, none Pareto-dominated, each the maximum on some axis |
+| **R11 — Party / creator** | Exploit what exists | Call Your Shot, HORSE, Survival, replay export, dailies | | **done** — ten modes, HORSE, run codes, the daily set |
 | **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
 
 ### The 2026-08-29 pivot — AFTERGLOW and the editor
@@ -636,6 +636,104 @@ and the 4-way split 102–139 fps at 1080p — down from 353/224, and noisy enou
 in this container that the range matters more than any single number. Still
 several times the 60/45 target, and the formal verdict still needs
 `probe:perf --headful` on a real target machine.
+
+### Build 10 — R10 and R11, and the law that came with them
+
+**Three arenas, and a gate that is not `npm run lines`.** The line analyzer
+proves an arena is a *network*; it cannot prove an arena is a **different**
+network, and six arenas that are all "ramps pointing at things, 76 m apart"
+would pass it six times while being one arena with six skins. That is the
+failure a capped-content release cannot afford, because the whole argument for
+six instead of twenty is that each is worth thirty hours.
+
+So `probe:arenas` is **`probe:cars` applied to arenas**, with the roster's own
+law: no arena may be Pareto-dominated, and every arena must be the maximum on
+some axis. If an arena is not the most anything, it is not teaching anything.
+
+```
+  arena     retention  verticali  direction     motion   altitude   exposure   openness
+  park           0.51       0.00       0.09       0.00       0.00       0.40       0.48
+  city           0.49       1.00       0.11       0.19       0.18       0.36       0.50
+  works          0.29       1.00       0.06       0.21       0.23       0.49       0.42
+  flood          0.20       1.00       0.27       0.00       0.14       0.17       0.33
+  sky            0.33       0.52       0.03       0.08       0.60       0.35       0.44
+
+park:retention  city:verticality/openness  works:motion/exposure
+flood:direction  sky:altitude
+```
+
+The axes earned their keep twice over. `motion` read **zero for every arena**,
+including the two built around machinery — movers are their own list, not
+tagged targets, so the metric was counting nothing. And Skyline came back
+*dominated and the maximum on nothing*: its pads catch their own flights, so
+"exposure" could not see the one thing the arena is about. `altitude` is that
+axis, and it exists because the gate said the arena did not earn its place.
+
+- **MEGA WORKS routes in time.** Its best surfaces move — a skip on a rail, a
+  swinging jib, a conveyor that only pays face-up — so the reachability graph
+  *opens and closes* and the skill is leaving at the moment the arrival will be
+  somewhere. The static half is a safety net on purpose: a mistimed launch
+  lands on a container, never on the concrete.
+- **FLOODWAY has a direction**, and it is the only arena that does. Three
+  terraces serpentine — top runs east, middle runs west, bottom runs east —
+  joined by spillways you *drive*. Its walls face inward, so drifting wide
+  returns you to the line carrying the speed you took into it: the arena
+  forgives a bad line and punishes a slow one.
+- **SKYLINE has no ground.** Everything is 44–92 m up and there is one spiral
+  back, at the far edge, that costs most of a round. A missed landing is not a
+  crash, it is a *demotion*. Its inverse is Floodway, deliberately.
+
+Four things the analyzer caught that eyes would not have:
+
+- Mega Works had every launch pointing at the middle, so the outer ring was
+  decoration — one orphan ramp and two tagged targets nothing could reach. It
+  has outward launches and loading aprons now.
+- Floodway's first layout put kickers 150 m apart on 600 m terraces: **nothing
+  in the arena was reachable from three others.** At the pitch a car actually
+  covers it is a chain of nine.
+- A single 600 m quarter-pipe wall builds convex hulls Rapier accepts and then
+  refuses to make colliders from. Floodway's walls are cast in 40 m sections,
+  like real ones.
+- Skyline's peak had four roll-offs firing at the compass; two went clean out
+  of the arena. The peak launches at *named neighbours* now, like every other
+  pad.
+
+And the billboards and masts in all three are sited **from the measurement** —
+the corridors where descending arcs actually cross sign height — because
+placing them by eye put nine of them where nothing could land, which is the
+same failure the city made and the same readout that caught it.
+
+**The Gauntlet is eighteen stages across all five arenas**, and it stays a mode
+rather than becoming an arena. That was a scoping decision in R9 and it is a
+design decision now: one arena "combining everything" is necessarily a worse
+version of each of the five ideas, blended until none of them reads. The exam
+asks the centripetal question in The Yard, the altitude question in the City,
+the timing question in Mega Works, the momentum question in Floodway and the
+commitment question in Skyline — each in the place built to ask it — and still
+ends on the acceptance clip.
+
+**R11: seven lenses, and two things that are not modes.**
+
+Free Ride (no clock, no medal, off the boards), Best Trick (a *running
+maximum*, so the score you are watching is always your best single stunt and
+every other system keeps working unchanged), Combo Run (one chain; a crash
+ends it), Survival (twenty seconds, and every landing buys more of them,
+scaled by the facet stack) and HORSE, whose letters live in the game layer
+because the simulation has no idea anybody is taking turns. HORSE's mark is
+the **facet count** of the best landing rather than the score: a score means
+reproducing a whole route, a facet count means doing the same number of things
+at once, which is a thing you can watch somebody do and then try.
+
+And the replay architecture's quiet gift: **a run is a string.** A clip is
+inputs and a seed, so sharing a run needs no upload, no account and no server
+— a twenty-second run is 1,750 characters — and what arrives is not a video,
+it is the run, re-simulating on their machine to **0.0000 m** over 2,401
+steps. It loads as a ghost, because the thing you do with somebody's run is
+try to beat it. A code from another physics build is refused with the reason.
+
+The daily set is three challenges chosen by the date, the same three for
+everybody, drawn from the ladder that already exists — a daily asking for
+something the game does not otherwise ask for is a second game.
 
 ### Build 2's acceptance test
 

@@ -18,17 +18,28 @@ import { buildParty } from './party.js';
 import { buildMastery } from './mastery.js';
 import { BOARDS as BOARD_LIST } from '../game/boards.js';
 
+import { LENGTH as GAUNTLET_LENGTH } from '../game/gauntlet.js';
+
 const BOARD_COUNT = BOARD_LIST.length;
 
 // The modes, and their rules, live with the rules themselves (src/sim/modes.js)
 // so the menu can never describe a mode the simulation does not implement.
 export const MODES = Object.values(SIM_MODES).map((m) => ({
   id: m.id, label: m.label, arena: m.arena, rules: m.rules,
+  // R11: a mode may own its clock, and may be a party mode rather than a solo
+  // one. Both travel with the rules so the menu cannot describe a mode the
+  // simulation does not implement.
+  seconds: m.seconds, party: !!m.party, scored: m.scored !== false,
 }));
 
+// Six instruments, and the blurb is the routing idea rather than the scenery
+// — that is the thing a player is actually choosing between.
 export const ARENAS = [
-  { id: 'park', label: 'STUNT PARK', blurb: 'Ramps, gaps and pipes. Nothing to hit but the ground.', medals: 0 },
-  { id: 'city', label: 'CITY BLOCK', blurb: 'Every rooftop is a landing. Every billboard is a dare.', medals: 4 },
+  { id: 'park', label: 'THE YARD', blurb: 'Everything points inward. The job is finding ways back out.', medals: 0 },
+  { id: 'city', label: 'VERTICAL CITY', blurb: 'The centre is a pit. Altitude is the currency; refusing to come down is the game.', medals: 4 },
+  { id: 'works', label: 'MEGA WORKS', blurb: 'The best surfaces move. Route in time, not just in space.', medals: 8 },
+  { id: 'flood', label: 'FLOODWAY', blurb: 'The only arena with a direction. Forgives a bad line, punishes a slow one.', medals: 12 },
+  { id: 'sky', label: 'SKYLINE', blurb: 'No ground. A missed landing is not a crash, it is a demotion.', medals: 16 },
 ];
 
 const medalDot = (m) => (m ? `<span class="medal ${m}">${m[0].toUpperCase()}</span>` : '·');
@@ -95,11 +106,12 @@ export function buildFrame(mgr, game) {
         { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
         { label: 'BOARDS', note: `${BOARD_COUNT} of them` },
         { label: 'GHOSTS', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved` },
+        { label: 'RUN CODES', note: 'send somebody your run' },
         { label: 'DAILY LINE', note: game.dailyLabel() },
         { label: 'LICENCES', note: `${Object.keys(game.profile.licences).length}/${game.licences.length}` },
         // §8: unlocked, not offered. It is not in the menu until it is earned.
         ...(game.gauntletUnlocked
-          ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/12` }] : []),
+          ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/${GAUNTLET_LENGTH}` }] : []),
         { label: 'OPTIONS', note: '' },
       ], (it) => {
         if (it.label === 'PLAY') mgr.push('mode');
@@ -108,6 +120,7 @@ export function buildFrame(mgr, game) {
         else if (it.label === 'CHALLENGES') mgr.push('challenges');
         else if (it.label === 'BOARDS') mgr.push('boards');
         else if (it.label === 'GHOSTS') mgr.push('ghosts');
+        else if (it.label === 'RUN CODES') mgr.push('codes');
         else if (it.label === 'DAILY LINE') mgr.push('boards', { board: 'daily' });
         else if (it.label === 'LICENCES') mgr.push('licences');
         else if (it.label === 'THE GAUNTLET') mgr.push('gauntlet');
@@ -138,14 +151,23 @@ export function buildFrame(mgr, game) {
       const rules = document.getElementById('mode-rules');
       modeList = makeList(
         document.getElementById('mode-list'),
-        MODES.map((m) => ({ label: m.label, note: `default: ${m.arena}`, mode: m })),
+        // R11: seven lenses on one game, and the ladder hands them out. Stunt
+        // Run is never locked — it is the game; the rest are earned.
+        MODES.map((m) => {
+          const locked = m.id !== 'stunt' && !game.modeUnlocked(m.id);
+          return {
+            label: m.label, mode: m, locked,
+            note: locked ? `locked · ${game.modeCost(m.id)} challenges` : `default: ${m.arena}`,
+          };
+        }),
         (it) => {
+          if (it.locked) return;
           game.lastMode = it.mode;
-          // Party is a shape, not an arena choice: pick the seats first.
-          if (it.mode.id === 'party') mgr.push('party');
+          // Party shapes are a seat choice, not an arena choice.
+          if (it.mode.party) mgr.push('party');
           else mgr.push('arena');
         },
-        (it) => { rules.textContent = it.mode.rules + (it.locked ? '   —   not in this build' : ''); }
+        (it) => { rules.textContent = it.mode.rules + (it.locked ? '   —   locked' : ''); }
       );
       rules.textContent = MODES[0].rules;
     },

@@ -11,7 +11,9 @@ import TUNING from '../src/TUNING.js';
 import { NEUTRAL_ACTIONS } from '../src/input/input.js';
 import { gapsFor, matchGap } from '../src/arena/gaps.js';
 
-const ARENA = process.argv.includes('--city') ? 'city' : 'park';
+const _ai = process.argv.indexOf('--arena');
+const ARENA = _ai >= 0 ? process.argv[_ai + 1]
+  : (process.argv.includes('--city') ? 'city' : 'park');
 const gaps = gapsFor(ARENA);
 const DT = 1 / TUNING.SIM.HZ;
 

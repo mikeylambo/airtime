@@ -30,7 +30,10 @@ import { CARS } from '../sim/cars.js';
 import { gapsFor } from '../arena/gaps.js';
 import { MODES } from '../sim/modes.js';
 
-const ARENA_LABEL = { park: 'The Yard', city: 'Vertical City' };
+const ARENA_LABEL = {
+  park: 'The Yard', city: 'Vertical City', works: 'Mega Works',
+  flood: 'Floodway', sky: 'Skyline',
+};
 const TIER_LABEL = {
   road: 'the road', rooftop: 'a rooftop', billboard: 'a billboard',
   moving: 'something moving', pool: 'the pool', secret: 'the secret pad',
@@ -143,7 +146,9 @@ const survival = [
 
 /** SCORE, per arena. Thresholds are the same; the arenas are not. */
 const score = ARENA_IDS.flatMap((arena) =>
-  [4000, 15000, 30000, 60000, 100000].map((n, i) => make('SCORE', {
+  // Three thresholds, not five. With two arenas five was fine; with six it
+  // would put the ladder over the vision's 150 on the score set alone.
+  [6000, 24000, 60000].map((n, i) => make('SCORE', {
     id: `score_${arena}_${n}`,
     arena,
     name: `${(n / 1000).toFixed(0)}K IN ${ARENA_LABEL[arena].toUpperCase()}`,
@@ -176,8 +181,7 @@ const tiers = ARENA_IDS.flatMap((arena) => {
 const gaps = ARENA_IDS.flatMap((arena) => {
   const total = gapsFor(arena).length;
   if (!total) return [];
-  const steps = [...new Set([Math.ceil(total / 4), Math.ceil(total / 2),
-    Math.ceil((total * 3) / 4), total])];
+  const steps = [...new Set([Math.ceil(total / 3), Math.ceil((total * 2) / 3), total])];
   return steps.map((n, i) => make('GAPS', {
     id: `gaps_${arena}_${n}`,
     arena,
@@ -259,7 +263,7 @@ const traffic = [5, 12, 25].map((n, i) => make('TRAFFIC', {
 /** COINS, per arena — coins are a routing hint, so these are route challenges. */
 const coins = ARENA_IDS.flatMap((arena) => {
   const total = getArena(arena).coins.length;
-  return [Math.ceil(total / 4), Math.ceil(total / 2), total].map((n, i) => make('COINS', {
+  return [Math.ceil(total / 2), total].map((n, i) => make('COINS', {
     id: `coins_${arena}_${n}`,
     arena,
     name: n === total ? 'EVERY COIN' : `${n} COINS`,
@@ -269,6 +273,39 @@ const coins = ARENA_IDS.flatMap((arena) => {
     test: (r) => (r.coins || 0) >= n,
   }));
 });
+
+/**
+ * SIGNATURE — one per arena, naming the thing that arena is *for*. These are
+ * the challenges that read as a description of the place rather than as a
+ * number, and there is exactly one per arena on purpose: a second would be a
+ * second-best description.
+ */
+const signature = [
+  make('SIGNATURE', {
+    id: 'sig_works', arena: 'works',
+    name: 'CAUGHT THE SKIP',
+    brief: 'Land on something that was moving when you left the ramp.',
+    teaches: 'Mega Works routes in time. The graph opens and closes.',
+    tier: 0,
+    test: (r) => landed(r).some((l) => l.tier === 'moving'),
+  }),
+  make('SIGNATURE', {
+    id: 'sig_flood', arena: 'flood',
+    name: 'RODE THE FLOW',
+    brief: 'Land eight in a row without crashing, in one channel run.',
+    teaches: 'Floodway has a direction. Going with it, speed is free.',
+    tier: 0,
+    test: (r) => (r.bestChain || 0) >= 8,
+  }),
+  make('SIGNATURE', {
+    id: 'sig_sky', arena: 'sky',
+    name: 'NEVER CAME DOWN',
+    brief: 'Finish a round of ten jumps without a single respawn.',
+    teaches: 'Skyline has no ground. A missed landing is a demotion.',
+    tier: 0,
+    test: (r) => (r.jumps || 0) >= 10 && (r.respawns || 0) === 0,
+  }),
+];
 
 /**
  * CITY — the R8 arena's own vocabulary, and the acceptance clip broken into
@@ -341,9 +378,9 @@ const modes = Object.values(MODES).filter((m) => m.id !== 'stunt').map((m, i) =>
  * rather than the run, because The Gauntlet is scored across a chain of runs
  * and asking "did this one round clear four stages" would be nonsense.
  */
-const gauntlet = [4, 8, 12].map((n, i) => make('GAUNTLET', {
+const gauntlet = [6, 12, 18].map((n, i) => make('GAUNTLET', {
   id: `gauntlet_${n}`,
-  name: n === 12 ? 'THE WHOLE GAUNTLET' : `GAUNTLET: ${n} STAGES`,
+  name: n === 18 ? 'THE WHOLE GAUNTLET' : `GAUNTLET: ${n} STAGES`,
   brief: `Clear ${n} stages of The Gauntlet in one attempt.`,
   teaches: 'Unlocked, not offered. The last stage is the shot the vision ends on.',
   tier: i,
@@ -353,7 +390,7 @@ const gauntlet = [4, 8, 12].map((n, i) => make('GAUNTLET', {
 export const CHALLENGES = [
   ...rotation, ...stack, ...purity, ...chain, ...air, ...precision, ...survival,
   ...score, ...tiers, ...gaps, ...vehicles, ...ghost, ...traffic, ...coins,
-  ...city, ...modes, ...gauntlet,
+  ...city, ...signature, ...modes, ...gauntlet,
 ];
 
 export const CHALLENGE_SETS = [...new Set(CHALLENGES.map((c) => c.set))];
@@ -406,11 +443,16 @@ export function setProgress(profile) {
  */
 export const UNLOCKS = [
   { at: 1, id: 'city', kind: 'arena', label: 'VERTICAL CITY' },
-  { at: 18, id: 'party', kind: 'mode', label: 'PARTY STUNTS' },
-  { at: 30, id: 'shot', kind: 'mode', label: 'CALL YOUR SHOT' },
-  { at: 48, id: 'potato', kind: 'mode', label: 'HOT POTATO' },
-  { at: 66, id: 'standing', kind: 'mode', label: 'LAST CAR STANDING' },
-  { at: 90, id: 'gauntlet', kind: 'trial', label: 'THE GAUNTLET' },
+  { at: 14, id: 'freeride', kind: 'mode', label: 'FREE RIDE' },
+  { at: 22, id: 'works', kind: 'arena', label: 'MEGA WORKS' },
+  { at: 32, id: 'besttrick', kind: 'mode', label: 'BEST TRICK' },
+  { at: 44, id: 'flood', kind: 'arena', label: 'FLOODWAY' },
+  { at: 54, id: 'shot', kind: 'mode', label: 'CALL YOUR SHOT' },
+  { at: 66, id: 'sky', kind: 'arena', label: 'SKYLINE' },
+  { at: 78, id: 'combo', kind: 'mode', label: 'COMBO RUN' },
+  { at: 90, id: 'survival', kind: 'mode', label: 'SURVIVAL' },
+  { at: 102, id: 'party', kind: 'mode', label: 'PARTY STUNTS' },
+  { at: 118, id: 'gauntlet', kind: 'trial', label: 'THE GAUNTLET' },
 ];
 
 export function unlockedBy(profile) {
