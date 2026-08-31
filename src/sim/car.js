@@ -164,10 +164,15 @@ export class Car {
     if (actions.throttle > 0) engine = actions.throttle * peak * capFade;
     else if (boosting) engine = peak * capFade;   // boost implies throttle
 
-    // Brake pedal reverses once we have basically stopped, Burnout style.
+    // Brake pedal (GTA-style): a friction brake while rolling forward, and once
+    // you have slowed past REVERSE_ENGAGE_SPEED it becomes reverse — so holding
+    // it from a standstill backs the car up. `forwardSpeed` is signed along the
+    // heading (positive = forward), so the test reads directly; the old form
+    // compared against ENGINE_SIGN and came out inverted, which is why a stopped
+    // car braked instead of reversing and reverse was unreachable on the pad.
     let brake = 0;
     if (actions.brake > 0) {
-      if (this.forwardSpeed * ENGINE_SIGN > -1.0) brake = actions.brake * D.BRAKE_FORCE;
+      if (this.forwardSpeed > D.REVERSE_ENGAGE_SPEED) brake = actions.brake * D.BRAKE_FORCE;
       else engine = -actions.brake * D.REVERSE_FORCE;
     }
 

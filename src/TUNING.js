@@ -79,6 +79,10 @@ export const TUNING = {
     BRAKE_FORCE: 3800,
     HANDBRAKE_FORCE: 2600,
     HANDBRAKE_SIDE_FRICTION: 0.16,   // drops rear grip → the drift
+    // GTA-style brake pedal: friction-brake while rolling forward, and once
+    // you are below this it becomes reverse — so holding brake from a stop backs
+    // the car up. Signed along heading; positive = moving forward.
+    REVERSE_ENGAGE_SPEED: 1.5,  // m/s below which the brake pedal reverses
     DRIVEN_WHEELS: 'rear',      // 'rear' | 'front' | 'all'
     TOP_SPEED: 68,              // m/s soft cap (~245 km/h)
     TOP_SPEED_BOOST: 88,
