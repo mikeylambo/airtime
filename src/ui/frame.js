@@ -110,7 +110,7 @@ export function buildFrame(mgr, game) {
         { label: 'GARAGE', note: '' },
         { label: 'PROGRESS', note: `${game.challengeCount}/${game.challengeTotal}` },
         { label: 'ECHOES', note: game.ghost ? `racing ${game.ghost.name}` : '' },
-        { label: 'RECORDS', note: '' },
+        { label: 'LEADERBOARDS', note: '' },
         // §8: unlocked, not offered. It is not in the menu until it is earned.
         ...(game.gauntletUnlocked
           ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/${GAUNTLET_LENGTH}` }] : []),
@@ -120,7 +120,7 @@ export function buildFrame(mgr, game) {
         else if (it.label === 'GARAGE') mgr.push('garage');
         else if (it.label === 'PROGRESS') mgr.push('progresshub');
         else if (it.label === 'ECHOES') mgr.push('replayhub');
-        else if (it.label === 'RECORDS') mgr.push('boards');
+        else if (it.label === 'LEADERBOARDS') mgr.push('boards');
         else if (it.label === 'THE GAUNTLET') mgr.push('gauntlet');
         else if (it.label === 'OPTIONS') mgr.push('options');
       });
@@ -317,12 +317,12 @@ export function buildFrame(mgr, game) {
 
       resultList = makeList(document.getElementById('res-actions'), [
         { label: 'RETRY', note: `${game.lastMode.label} · ${game.lastArena.label}` },
-        { label: 'ECHO THEATER', note: `${game.replays.length} saved this run` },
+        { label: 'REPLAY THEATER', note: `${game.replays.length} saved this run` },
         { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
         { label: 'MENU', note: '' },
       ], (it) => {
         if (it.label === 'RETRY') game.startRun(game.lastMode, game.lastArena);
-        else if (it.label === 'ECHO THEATER') mgr.push('replays');
+        else if (it.label === 'REPLAY THEATER') mgr.push('replays');
         else if (it.label === 'CHALLENGES') mgr.push('challenges');
         else mgr.go('main');
       });
