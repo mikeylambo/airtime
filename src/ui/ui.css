@@ -19,6 +19,14 @@
   --panel: rgba(10, 10, 18, 0.82);
   --line: rgba(46, 154, 255, 0.22);
 
+  /* SPECTRAL BLUR (tone pass). The world is blue-violet-forward now: magenta
+     stays the hot accent, but the identity and the atmosphere read as light
+     through haze rather than pink neon. These are the spectral hemisphere —
+     cyan → iris → magenta — that the wordmark and the screen bloom sweep. */
+  --cyan: #59d0ff;
+  --iris: #7a5cff;             /* the spectral violet — the new atmosphere hue */
+  --spectral: linear-gradient(120deg, var(--cyan) 0%, var(--iris) 48%, var(--brand) 100%);
+
   /* MARQUEE type system (§UI overhaul). Three roles, never crossed:
        display — identity: the wordmark, screen titles, frozen hero numbers.
        ui      — the reading: menu rows, blurbs, hints, cards.
@@ -56,14 +64,25 @@ body { font-family: var(--f-ui); color: var(--ink); -webkit-font-smoothing: anti
   padding: clamp(2rem, 7vw, 7rem); gap: 1.5rem;
 }
 .pane.center { justify-items: center; text-align: center; }
-.veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,7,11,.96) 0%, rgba(4,7,11,.9) 34%, rgba(4,7,11,.45) 60%, rgba(4,7,11,0) 82%); }
-.veil.full { background: rgba(4,7,11,.955); }
+/* The veil darkens the scene under the text — and now carries the spectral
+   atmosphere in the open right half, where the arena wireframe shows through:
+   a soft iris bloom high, a fainter cyan low, so a screen sits inside haze
+   rather than flat black. The left column stays dark for contrast. */
+.veil { position: absolute; inset: 0; background:
+  radial-gradient(58% 48% at 84% 6%, rgba(122,92,255,.18), transparent 60%),
+  radial-gradient(46% 42% at 98% 66%, rgba(89,208,255,.10), transparent 62%),
+  linear-gradient(90deg, rgba(4,7,11,.96) 0%, rgba(4,7,11,.9) 34%, rgba(4,7,11,.45) 60%, rgba(4,7,11,0) 82%); }
+.veil.full { background:
+  radial-gradient(70% 55% at 78% 8%, rgba(122,92,255,.12), transparent 66%),
+  rgba(4,7,11,.955); }
 .pane > * { position: relative; }
 
 h1.logo {
   margin: 0; font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
   font-size: clamp(3.4rem, 13vw, 8.5rem); letter-spacing: .02em; line-height: .86;
-  background: linear-gradient(180deg, #fff 6%, var(--brand) 56%, #6e1246 116%);
+  /* The wordmark is a spectral smear: a white-hot core bleeding through cyan
+     and iris to magenta, the way the light comes off a car in motion. */
+  background: linear-gradient(150deg, #f4f8ff 2%, var(--cyan) 26%, var(--iris) 58%, var(--brand) 96%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .eyebrow { font-family: var(--f-data); color: var(--faint); letter-spacing: .26em;
@@ -71,9 +90,21 @@ h1.logo {
 h2.title { margin: 0; font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
   font-size: clamp(1.9rem, 4.4vw, 3rem); letter-spacing: .03em; line-height: 1; }
 .blurb { font-family: var(--f-ui); color: var(--dim); font-size: 1rem; max-width: 52ch; line-height: 1.55; }
+/* The kicker: the editorial line demoted out of the title. Lowercase italic,
+   quiet, sitting just under the big display noun — the voice without the shout. */
+.kicker { font-family: var(--f-ui); font-style: italic; font-weight: 400; font-size: 1.02rem;
+  color: var(--dim); letter-spacing: .01em; margin: -.55rem 0 0; max-width: 52ch; }
 
 /* ── Lists ─────────────────────────────────────────────────────────────── */
-.list { display: grid; gap: .12rem; max-width: 500px; }
+/* Capped and scrollable: the bigger display type made a long list (the
+   seventeen challenge sets) overflow the vertically-centred pane and push the
+   title off the top of the screen. A cap keeps the header on screen; makeList
+   scrolls the cursor into view, so nothing needs it below the fold. Short
+   lists never reach the cap. */
+.list { display: grid; gap: .12rem; max-width: 500px; max-height: 60vh; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--faint) transparent; }
+.list::-webkit-scrollbar { width: 6px; }
+.list::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
 .list .row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem;
   padding: .5rem 1rem; border-left: 2px solid transparent;
@@ -360,10 +391,3 @@ table.brk tr.crash td { color: #7a4453; }
 }
 .earned b { letter-spacing: .12em; margin-right: .5rem; }
 
-/* The keyboard map is the one list longer than its pane (§A: eighteen verbs),
-   so it scrolls rather than overflowing off the bottom of the screen. */
-#bind-list {
-  max-height: 54vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}

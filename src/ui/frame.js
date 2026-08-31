@@ -68,8 +68,8 @@ export function buildFrame(mgr, game) {
   let profileList;
   S('profile', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow">Profile</div>
-      <h2 class="title">WHO IS DRIVING</h2>
+      <h2 class="title">PROFILE</h2>
+      <p class="kicker">who is driving</p>
       <div class="list" id="profile-list"></div>
       <div class="hint"><b>↑↓</b> choose · <b>A</b> select · <b>B</b> back</div>
     </div>`,
@@ -141,7 +141,7 @@ export function buildFrame(mgr, game) {
   let modeList;
   S('mode', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow">Mode</div><h2 class="title">WHAT ARE WE PLAYING</h2>
+      <h2 class="title">MODE</h2><p class="kicker">what are we playing</p>
       <div class="list" id="mode-list"></div>
       <div class="blurb" id="mode-rules"></div>
       <div class="hint"><b>A</b> select · <b>B</b> back</div>
@@ -177,7 +177,7 @@ export function buildFrame(mgr, game) {
   let arenaList;
   S('arena', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow">Arena</div><h2 class="title">WHERE</h2>
+      <h2 class="title">ARENA</h2><p class="kicker">where you're driving it</p>
       <div class="list" id="arena-list"></div>
       <div class="blurb" id="arena-blurb"></div>
       <div class="hint"><b>A</b> select · <b>B</b> back</div>

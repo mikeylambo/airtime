@@ -27,9 +27,14 @@ const PALETTES = {
   // are the car's trim, deployed panels, billboards (they are targets —
   // brightness is "land here" language) and whatever the trails write.
   afterglow: {
-    background: THEME.VOID, fog: THEME.VOID, fogNear: 150, fogFar: 840,
-    hemiSky: 0x14142a, hemiGround: THEME.VOID, hemiInt: 0.4,
-    sunColor: 0x8888c8, sunInt: 0.38, ambient: 0x07070f,
+    // SPECTRAL BLUR tone pass: the atmosphere leans blue-violet. The fog is a
+    // hair off pure black so distance dissolves into spectral haze rather than
+    // a hard black edge, and the hemisphere and key light carry an iris tint —
+    // the world lit as if through the same haze the trails smear into. Kept
+    // deliberately small: probe:dark still measures the worst frame ≥85% dark.
+    background: THEME.VOID, fog: 0x0c0b1a, fogNear: 150, fogFar: 840,
+    hemiSky: 0x1a1640, hemiGround: THEME.VOID, hemiInt: 0.42,
+    sunColor: 0x9088d8, sunInt: 0.38, ambient: 0x08081a,
     roles: {
       deck: { color: 0x0d0d16, rough: 1, emissive: 0x040409 },
       // Ramps are dark slabs with emissive edge-strips; the edge colour is

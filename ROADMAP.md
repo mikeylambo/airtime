@@ -355,6 +355,18 @@ capture exactly that, unedited, in one take, the game is real.
 | **R12 — Arena six** | Finish the content roster | THE CONCOURSE: an interior, where you cannot solve anything by going up | Non-dominated on the seven-lens analysis, and passes `npm run lines` | **done** — six arenas, a new `enclosure` axis, and a clearance check for ceilings |
 | **V2 — Park editor** | The ecology engine | piece palette, build/drive flip, validation, park codes, build-then-run | A first-timer builds a >1.5s jump in 5 minutes, no tutorial | one-pager: `airtime-park-editor-v2.md` |
 
+### SPECTRAL BLUR — the tone evolves
+
+`airtime-spectral-blur.md`. AFTERGLOW's rule (dark world, light earned from
+motion) is unchanged; its *hue* moved from pink neon toward light-through-haze —
+blue-violet-forward, spectral, dissolving. The wordmark is a cyan→iris→magenta
+smear, screens sit inside a soft iris bloom, and the world's fog lifted off pure
+black into a deep violet so distance dissolves into haze. All bounded by the
+same ≥85% dark law: `probe:dark` still reads the worst frame at 92.1% dark. The
+deeper move — a spectral gradient along the trail ribbons, the car dissolving
+into light — is the next pass, and it is `probe:dark`-gated like everything that
+adds light here.
+
 ### Audio — the brief, and what stays synthesised
 
 `airtime-audio-brief.md` specifies the asset set: five pieces of music (written,

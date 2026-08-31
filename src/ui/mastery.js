@@ -32,8 +32,9 @@ export function buildMastery(mgr, game) {
   // ── Challenges: the sets, then the set ──────────────────────────────────
   mgr.register(new Screen('challenges', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow" id="ch-eyebrow">Challenges</div>
-      <h2 class="title">SOMETHING TO BE GOOD AT</h2>
+      <div class="eyebrow" id="ch-eyebrow"></div>
+      <h2 class="title">CHALLENGES</h2>
+      <p class="kicker">something to be good at</p>
       <div class="list" id="ch-list"></div>
       <div class="card" id="ch-card" style="max-width:460px"></div>
       <div class="hint"><b>A</b> open · <b>B</b> back</div>
@@ -42,7 +43,7 @@ export function buildMastery(mgr, game) {
       const p = game.profile;
       const next = nextUnlock(p);
       document.getElementById('ch-eyebrow').textContent =
-        `Challenges · ${completedCount(p)}/${CHALLENGES.length}` +
+        `${completedCount(p)}/${CHALLENGES.length}` +
         (next ? ` · ${next.remaining} to ${next.label}` : ' · everything unlocked');
       const card = document.getElementById('ch-card');
       const items = setProgress(p).map((s) => ({
@@ -164,7 +165,8 @@ export function buildMastery(mgr, game) {
   mgr.register(new Screen('ghosts', {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="gh-eyebrow">Ghosts</div>
-      <h2 class="title">RACE YOURSELF</h2>
+      <h2 class="title">GHOSTS</h2>
+      <p class="kicker">race yourself</p>
       <div class="list" id="gh-list"></div>
       <div class="card" id="gh-card" style="max-width:460px"></div>
       <div class="hint"><b>A</b> load · <b>B</b> back</div>
@@ -173,7 +175,7 @@ export function buildMastery(mgr, game) {
       const records = game.ghostRecords;
       const card = document.getElementById('gh-card');
       document.getElementById('gh-eyebrow').textContent =
-        `Ghosts · ${records.length} saved` + (game.ghost ? ` · racing ${game.ghost.name}` : '');
+        `${records.length} saved` + (game.ghost ? ` · racing ${game.ghost.name}` : '');
       const items = [
         ...(game.ghost ? [{ label: 'NO GHOST', note: 'drive alone', clear: true }] : []),
         ...records.map((r) => ({
@@ -215,7 +217,8 @@ export function buildMastery(mgr, game) {
   mgr.register(new Screen('gauntlet', {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="ga-eyebrow">The Gauntlet</div>
-      <h2 class="title">UNLOCKED, NOT OFFERED</h2>
+      <h2 class="title">THE GAUNTLET</h2>
+      <p class="kicker">unlocked, not offered</p>
       <div class="list" id="ga-list"></div>
       <div class="card" id="ga-card" style="max-width:480px"></div>
       <div class="hint"><b>A</b> begin · <b>B</b> back</div>
@@ -223,7 +226,7 @@ export function buildMastery(mgr, game) {
     onEnter: () => {
       const p = game.profile;
       document.getElementById('ga-eyebrow').textContent =
-        `The Gauntlet · best ${p.gauntlet || 0}/${Gauntlet.LENGTH}`;
+        `best ${p.gauntlet || 0}/${Gauntlet.LENGTH}`;
       const card = document.getElementById('ga-card');
       const items = [
         { label: 'BEGIN', note: `${Gauntlet.LENGTH} stages · best ${p.gauntlet || 0}`, begin: true },
@@ -329,7 +332,8 @@ export function buildMastery(mgr, game) {
   mgr.register(new Screen('codes', {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="cd-eyebrow">Run codes</div>
-      <h2 class="title">SEND SOMEBODY YOUR RUN</h2>
+      <h2 class="title">RUN CODES</h2>
+      <p class="kicker">send somebody your run</p>
       <div class="list" id="cd-list"></div>
       <div class="card" id="cd-card" style="max-width:520px"></div>
       <div class="hint"><b>A</b> do it · <b>B</b> back</div>
@@ -338,7 +342,7 @@ export function buildMastery(mgr, game) {
       const card = document.getElementById('cd-card');
       const here = game.ghostHere();
       document.getElementById('cd-eyebrow').textContent =
-        here ? `Run codes · best here ${num(here.score)}` : 'Run codes · nothing saved here yet';
+        here ? `best here ${num(here.score)}` : 'nothing saved here yet';
       codeList = makeList(document.getElementById('cd-list'), [
         { label: 'COPY MY RUN', note: here ? `${here.arena} · ${num(here.score)}` : 'nothing here yet', copy: true },
         { label: 'PASTE A RUN', note: 'it arrives as a ghost', paste: true },
