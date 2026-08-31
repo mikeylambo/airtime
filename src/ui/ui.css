@@ -389,6 +389,7 @@ table.brk tr.crash td { color: #7a4453; }
 
 
 /* ── Visual tuner (dev/feel overlay, toggled by backtick) ────────────────── */
+#vtune[hidden] { display: none; }  /* ID beats the UA [hidden] rule, so say it here */
 #vtune {
   position: fixed; top: 14px; right: 14px; z-index: 50; width: 300px;
   max-height: calc(100vh - 28px); display: flex; flex-direction: column;
