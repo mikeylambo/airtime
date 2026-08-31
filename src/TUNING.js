@@ -796,6 +796,11 @@ export const TUNING = {
     GHOST_EVERY: 0.11,         // seconds between shells while spinning
     GHOST_LIFE: 0.42,          // seconds a shell takes to fade
     GHOST_MAX: 3,              // live shells per player
+    // A drift leaves the same afterimage on the ground: a sustained slide sheds
+    // shells of the car's own silhouette, so a slide reads as the car smearing
+    // into light exactly the way a flip does (§2). Same pool, same fade.
+    GHOST_DRIFT_SLIP: 0.30,    // rad of slip before a ground drift ghosts
+    GHOST_DRIFT_SPEED: 20,     // m/s minimum, so a slow scrub does not shed shells
     // Velocity stretch on the emissive trim.
     STRETCH_FROM: 26,          // m/s where the trim starts to smear
     STRETCH_FULL: 62,          // m/s of full elongation

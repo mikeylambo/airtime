@@ -248,10 +248,13 @@ export class Trails {
         }
       }
 
-      // Rotation ghosts — the flip made visible.
+      // Rotation ghosts — the flip made visible. And a drift smears the same
+      // way: a sustained ground slide sheds the car's silhouette into light.
       this.ghostTimer[p] -= dt;
-      if (!this.reduceEffects && ps.airborne && ps.rotationRate > T.GHOST_SPIN
-          && this.ghostTimer[p] <= 0) {
+      const spinning = ps.airborne && ps.rotationRate > T.GHOST_SPIN;
+      const drifting = !ps.airborne && (ps.slipAngle || 0) > T.GHOST_DRIFT_SLIP
+        && (ps.groundSpeed || 0) > T.GHOST_DRIFT_SPEED;
+      if (!this.reduceEffects && (spinning || drifting) && this.ghostTimer[p] <= 0) {
         this._spawnGhost(p, view);
         this.ghostTimer[p] = T.GHOST_EVERY;
       }
