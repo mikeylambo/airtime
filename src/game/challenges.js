@@ -223,26 +223,26 @@ const vehicles = Object.values(CARS).flatMap((car) => [
 
 /** GHOST — the R9 gate, as something a player is asked to do. */
 const ghost = [
-  make('GHOST', {
+  make('ECHO', {
     id: 'ghost_beat',
-    name: 'BEAT YOUR GHOST',
+    name: 'BEAT YOUR ECHO',
     brief: 'Race your own personal best and beat it.',
-    teaches: 'A ghost is a replay we do not draw the HUD for. It is the run, again.',
+    teaches: 'An echo is a replay we do not draw the HUD for. It is the run, again.',
     tier: 0,
     test: (r) => r.ghost && r.score > r.ghost.score,
   }),
-  make('GHOST', {
+  make('ECHO', {
     id: 'ghost_crush',
     name: 'BY HALF AGAIN',
-    brief: 'Beat your ghost by fifty per cent.',
+    brief: 'Beat your echo by fifty per cent.',
     teaches: 'The gap between a good run and your best one is mostly routing.',
     tier: 1,
     test: (r) => r.ghost && r.score >= r.ghost.score * 1.5,
   }),
-  make('GHOST', {
+  make('ECHO', {
     id: 'ghost_other_car',
     name: 'WRONG INSTRUMENT',
-    brief: 'Beat a ghost that was set in a different car.',
+    brief: 'Beat an echo that was set in a different car.',
     teaches: 'No car is better. Proving it is a different matter.',
     tier: 2,
     test: (r) => r.ghost && r.ghost.car !== r.car && r.score > r.ghost.score,

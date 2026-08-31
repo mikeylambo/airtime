@@ -102,7 +102,7 @@ export const BOARDS = [
     key: arenaKey, value: (e) => e.score, qualifies: (e) => e.raw,
   },
   {
-    id: 'daily', label: 'DAILY LINE', blurb: "Today's seed. The date is the seed, so everybody gets the same one.",
+    id: 'daily', label: 'DAILY RUN', blurb: "Today's seed. The date is the seed, so everybody gets the same one.",
     key: (e) => `${e.day}:${e.arena}:${e.mode}`, value: (e) => e.score, qualifies: (e) => e.daily,
   },
   {

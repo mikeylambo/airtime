@@ -131,7 +131,7 @@ export function buildParty(mgr, game) {
           : ranked.length > 1 ? 'DEAD HEAT' : 'ROUND OVER';
       document.getElementById('sb-table').innerHTML =
         '<tr><th>#</th><th>driver</th><th class="n">score</th><th class="n">landed</th>' +
-        '<th class="n">chain</th><th>best</th></tr>' +
+        '<th class="n">combo</th><th>best</th></tr>' +
         ranked.map((s, i) => {
           const best = s.best ? `${s.best.quality} ${s.best.total.toLocaleString()}` : '—';
           return `<tr><td>${i + 1}</td><td>${NAMES[s.seat]}${s.alive === false ? ' · out' : ''}</td>` +

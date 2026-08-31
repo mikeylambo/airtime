@@ -70,7 +70,7 @@ export class SplitHud {
     if (!p) return;
     p.hold = 2.0;
     p.land.innerHTML = `<span style="color:${QUALITY_COLOR[result.quality]}">${
-      result.landed ? result.quality.toUpperCase() : 'CRASHED'}</span>` +
+      result.landed ? result.quality.toUpperCase() : 'BROKEN'}</span>` +
       (result.landed ? `<em>+${result.total.toLocaleString()}</em>` : '');
     p.land.classList.add('show');
   }

@@ -35,7 +35,7 @@ export class Hud {
       <div class="hud-top">
         <div class="hud-clock"><b class="clock-v">1:30</b><i>TIME</i></div>
         <div class="hud-score"><b class="score-v">0</b><i>SCORE</i></div>
-        <div class="hud-combo"><b class="combo-v">x1.0</b><i>CHAIN</i></div>
+        <div class="hud-combo"><b class="combo-v">x1.0</b><i>COMBO</i></div>
       </div>
 
       <div class="hud-air">
@@ -122,8 +122,8 @@ export class Hud {
     const tier = TIER_LABEL[l.tier] ? ` · ${TIER_LABEL[l.tier]} ×${l.tierMult}` : '';
     const head = l.landed
       ? (l.facetName || l.quality.toUpperCase())
-      : 'CRASHED';
-    const chain = l.combo > 1 ? ` · CHAIN ×${l.combo.toFixed(2)}` : '';
+      : 'BROKEN';
+    const chain = l.combo > 1 ? ` · COMBO ×${l.combo.toFixed(2)}` : '';
     const sub = l.landed
       ? `${l.facetCount} FACETS ×${l.facetMult} · ${l.purity.label} ×${l.purity.mult} · ${l.quality.toUpperCase()} ×${l.landingMult}${tier}${chain}`
       : `${Math.round(l.bank).toLocaleString()} LOST`;

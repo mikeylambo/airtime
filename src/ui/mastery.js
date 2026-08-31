@@ -163,8 +163,8 @@ export function buildMastery(mgr, game) {
   let ghostList;
   mgr.register(new Screen('ghosts', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow" id="gh-eyebrow">Ghosts</div>
-      <h2 class="title">GHOSTS</h2>
+      <div class="eyebrow" id="gh-eyebrow">Echoes</div>
+      <h2 class="title">ECHOES</h2>
       <div class="list" id="gh-list"></div>
       <div class="card" id="gh-card" style="max-width:460px"></div>
       <div class="hint"><b>A</b> load · <b>B</b> back</div>
@@ -175,7 +175,7 @@ export function buildMastery(mgr, game) {
       document.getElementById('gh-eyebrow').textContent =
         `${records.length} saved` + (game.ghost ? ` · racing ${game.ghost.name}` : '');
       const items = [
-        ...(game.ghost ? [{ label: 'NO GHOST', note: 'drive alone', clear: true }] : []),
+        ...(game.ghost ? [{ label: 'NO ECHO', note: 'drive alone', clear: true }] : []),
         ...records.map((r) => ({
           label: `${r.arena.toUpperCase()} · ${num(r.score)}`,
           note: `${r.car} · ${new Date(r.created).toLocaleDateString()}`,
@@ -184,7 +184,7 @@ export function buildMastery(mgr, game) {
       ];
       if (!items.length) {
         card.innerHTML = '<h3>Nothing to race yet</h3><p>Finish a run and it becomes '
-          + 'your ghost here. A ghost is the run itself, re-simulated — not a recording of it.</p>';
+          + 'your echo here. An echo is the run itself, re-simulated — not a recording of it.</p>';
       }
       ghostList = makeList(document.getElementById('gh-list'), items, async (it) => {
         if (it.clear) { game.clearGhost(); return mgr.go('ghosts'); }
@@ -192,12 +192,12 @@ export function buildMastery(mgr, game) {
           + 'so that starting a race still costs one input.</p>';
         await game.loadGhost(it.record, (k) => {
           card.innerHTML = `<h3>Baking… ${Math.round(k * 100)}%</h3>`
-            + '<p>Re-simulating the run, so the ghost is the run rather than a recording of it.</p>';
+            + '<p>Re-simulating the run, so the echo is the run rather than a recording of it.</p>';
         });
         mgr.go('ghosts');
       }, (it) => {
         if (it.clear) {
-          card.innerHTML = '<h3>Drive alone</h3><p>No ghost on the track.</p>';
+          card.innerHTML = '<h3>Drive alone</h3><p>No echo on the track.</p>';
           return;
         }
         const r = it.record;
@@ -341,7 +341,7 @@ export function buildMastery(mgr, game) {
         here ? `best here ${num(here.score)}` : 'nothing saved here yet';
       codeList = makeList(document.getElementById('cd-list'), [
         { label: 'COPY MY RUN', note: here ? `${here.arena} · ${num(here.score)}` : 'nothing here yet', copy: true },
-        { label: 'PASTE A RUN', note: 'it arrives as a ghost', paste: true },
+        { label: 'PASTE A RUN', note: 'it arrives as an echo', paste: true },
       ], async (it) => {
         if (it.copy) {
           const code = await game.runCode();
@@ -367,7 +367,7 @@ export function buildMastery(mgr, game) {
           });
           card.innerHTML = out.ok
             ? `<h3>${out.record.name} · ${num(out.record.score)}</h3>`
-              + `<p>${out.record.arena} · ${out.record.car}. Loaded as your ghost.</p>`
+              + `<p>${out.record.arena} · ${out.record.car}. Loaded as your echo.</p>`
             : `<h3>No</h3><p>${out.why}</p>`;
         }
       }, (it) => {
@@ -375,7 +375,7 @@ export function buildMastery(mgr, game) {
           ? '<h3>Copy my run</h3><p>Your best run here becomes a string. Send it to anybody.</p>'
             + '<div class="stat">A clip is inputs and a seed, so this is a few kilobytes rather than a file.</div>'
           : '<h3>Paste a run</h3><p>Somebody else\'s run, from your clipboard.</p>'
-            + '<div class="stat">It arrives as a ghost, because the thing you do with somebody\'s run is beat it.</div>';
+            + '<div class="stat">It arrives as an echo, because the thing you do with somebody\'s run is beat it.</div>';
       });
     },
     onMenu: (m) => { if (m.back) mgr.back('main'); else codeList.handle(m); },

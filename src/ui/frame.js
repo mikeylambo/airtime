@@ -106,26 +106,26 @@ export function buildFrame(mgr, game) {
       // subtitles were noise, and five of the old items were really two
       // rooms: PROGRESS (what to chase) and REPLAYS (recorded runs).
       mainList = makeList(document.getElementById('main-list'), [
-        { label: 'PLAY', note: last },
+        { label: 'DRIVE', note: last },
         { label: 'GARAGE', note: '' },
         { label: 'PROGRESS', note: `${game.challengeCount}/${game.challengeTotal}` },
-        { label: 'REPLAYS', note: game.ghost ? `racing ${game.ghost.name}` : '' },
-        { label: 'BOARDS', note: '' },
+        { label: 'ECHOES', note: game.ghost ? `racing ${game.ghost.name}` : '' },
+        { label: 'RECORDS', note: '' },
         // §8: unlocked, not offered. It is not in the menu until it is earned.
         ...(game.gauntletUnlocked
           ? [{ label: 'THE GAUNTLET', note: `best ${game.profile.gauntlet || 0}/${GAUNTLET_LENGTH}` }] : []),
         { label: 'OPTIONS', note: '' },
       ], (it) => {
-        if (it.label === 'PLAY') mgr.push('mode');
+        if (it.label === 'DRIVE') mgr.push('mode');
         else if (it.label === 'GARAGE') mgr.push('garage');
         else if (it.label === 'PROGRESS') mgr.push('progresshub');
-        else if (it.label === 'REPLAYS') mgr.push('replayhub');
-        else if (it.label === 'BOARDS') mgr.push('boards');
+        else if (it.label === 'ECHOES') mgr.push('replayhub');
+        else if (it.label === 'RECORDS') mgr.push('boards');
         else if (it.label === 'THE GAUNTLET') mgr.push('gauntlet');
         else if (it.label === 'OPTIONS') mgr.push('options');
       });
       document.getElementById('daily').innerHTML =
-        `<h3>DAILY LINE</h3><p>${game.dailyLabel()}</p>` +
+        `<h3>DAILY RUN</h3><p>${game.dailyLabel()}</p>` +
         `<div class="stat">best today ${(game.dailyBest() || 0).toLocaleString()}</div>`;
     },
     onMenu: (m) => {
@@ -227,7 +227,7 @@ export function buildFrame(mgr, game) {
           <div class="stat">thrust ${(p.tune.thrust * 100) | 0} · aero ${(p.tune.aero * 100) | 0}</div></div>
         <div class="card"><h3>${TUNING.RUN.DURATION}s ROUND</h3><p>Final score is the sum of landed banks.</p>
           <div class="stat">your best ${(p.best[key] || 0).toLocaleString()}</div></div>
-        <div class="card"><h3>GHOST</h3><p>Your best run, wireframe, non-collidable.</p>
+        <div class="card"><h3>ECHO</h3><p>Your best run, wireframe, non-collidable.</p>
           <div class="stat">${p.best[key] ? 'available' : 'none yet'}</div></div>`;
     },
     onMenu: (m) => {
@@ -291,9 +291,9 @@ export function buildFrame(mgr, game) {
       document.getElementById('res-table').innerHTML =
         `<tr><th>landing</th><th>air</th><th>tricks</th><th class="n">bank</th><th class="n">×</th><th class="n">score</th></tr>` +
         (rows.length ? rows.map((l) => {
-          const names = l.tricks.map((t) => t.name).join(', ') || '—';
+          const names = l.tricks.map((t) => t.label).join(', ') || '—';
           const mult = l.landed ? `${(l.landingMult * l.tierMult * l.combo).toFixed(1)}` : '0';
-          return `<tr class="${l.landed ? '' : 'crash'}"><td>${l.quality}</td><td>${l.airtime.toFixed(2)}s</td>` +
+          return `<tr class="${l.landed ? '' : 'crash'}"><td>${l.landed ? l.quality : 'broken'}</td><td>${l.airtime.toFixed(2)}s</td>` +
                  `<td>${names}</td><td class="n">${Math.round(l.bank)}</td><td class="n">${mult}</td>` +
                  `<td class="n">${l.total.toLocaleString()}</td></tr>`;
         }).join('') : '<tr><td colspan="6">no landings</td></tr>');
@@ -317,12 +317,12 @@ export function buildFrame(mgr, game) {
 
       resultList = makeList(document.getElementById('res-actions'), [
         { label: 'RETRY', note: `${game.lastMode.label} · ${game.lastArena.label}` },
-        { label: 'REPLAY THEATER', note: `${game.replays.length} saved this run` },
+        { label: 'ECHO THEATER', note: `${game.replays.length} saved this run` },
         { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}` },
         { label: 'MENU', note: '' },
       ], (it) => {
         if (it.label === 'RETRY') game.startRun(game.lastMode, game.lastArena);
-        else if (it.label === 'REPLAY THEATER') mgr.push('replays');
+        else if (it.label === 'ECHO THEATER') mgr.push('replays');
         else if (it.label === 'CHALLENGES') mgr.push('challenges');
         else mgr.go('main');
       });
@@ -340,7 +340,7 @@ export function buildFrame(mgr, game) {
     return [
       { label: 'CHALLENGES', note: `${game.challengeCount}/${game.challengeTotal}`, go: 'challenges' },
       { label: 'LICENCES', note: `${Object.keys(p.licences).length}/${game.licences.length}`, go: 'licences' },
-      { label: 'DAILY LINE', note: game.dailyLabel(), go: 'daily' },
+      { label: 'DAILY RUN', note: game.dailyLabel(), go: 'daily' },
     ];
   };
   S('progresshub', {
@@ -360,12 +360,12 @@ export function buildFrame(mgr, game) {
   let repList;
   const repItems = () => [
     { label: 'WATCH', note: `${game.replays.length} saved`, go: 'replays' },
-    { label: 'GHOSTS', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved`, go: 'ghosts' },
+    { label: 'RACE', note: game.ghost ? `racing ${game.ghost.name}` : `${game.ghostRecords.length} saved`, go: 'ghosts' },
     { label: 'RUN CODES', note: 'paste or share a run', go: 'codes' },
   ];
   S('replayhub', {
     html: `<div class="veil"></div><div class="pane">
-      <div class="eyebrow">Recorded runs</div><h2 class="title">REPLAYS</h2>
+      <div class="eyebrow">Recorded runs</div><h2 class="title">ECHOES</h2>
       <div class="list" id="rep-list"></div>
       <div class="hint"><b>A</b> open · <b>B</b> back</div>
     </div>`,
@@ -547,7 +547,7 @@ export function buildFrame(mgr, game) {
   S('savedata', {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow">Options · Save data</div><h2 class="title">SAVE</h2>
-      <p class="blurb">Everything — profiles, medals, challenges, ghosts, boards and
+      <p class="blurb">Everything — profiles, medals, challenges, echoes, boards and
         settings — as one file. Runs recorded under different physics are left
         out of an import rather than replayed into nonsense.</p>
       <div class="list" id="save-list"></div>

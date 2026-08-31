@@ -36,7 +36,7 @@ export function buildTheater(mgr, game) {
   // ── Replay list ─────────────────────────────────────────────────────────
   mgr.register(new Screen('replays', {
     html: `<div class="veil"></div><div class="pane">
-      <h2 class="title">THEATER</h2>
+      <h2 class="title">ECHO THEATER</h2>
       <div class="list" id="rep-list"></div>
       <div class="blurb" id="rep-blurb"></div>
       <div class="hint"><b>A</b> open · <b>DEL</b> discard · <b>B</b> back</div>
