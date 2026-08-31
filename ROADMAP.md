@@ -992,14 +992,29 @@ Kept in the codebase, taken off the table until Build 2 lands.
   payout.
 - **Drift as a scored, chainable performance.** Feasibility measured, not
   guessed — `npm run probe:drift`, written up in `airtime-drift-spike-findings.md`.
-  Scoring generalizes cleanly (a drift is a ground facet), it is deterministic
-  and probeable today, and it chains into jumps on the existing bank logic — all
-  cheap. The blocker is physics: no car holds a controllable slide past ~0.5 s on
-  the current loose-rear model, which gives a snap/flick, not a drift. A held
-  drift needs a slip-angle-aware tyre model — weeks, not a constant — so drift is
-  a v2/v3 candidate, not a near-term phase. `probe:drift` is a red gate that flips
-  green the day a car can hold a >1 s slide; when it does, drift becomes R13 on
-  machinery the spike already proved is ready.
+  The three cheap dimensions are now **built and dormant**: the DRIFT ground
+  facet, the drift→jump→landing chain (via the existing `pendingGround` bank),
+  and the pure-ground LINE resolve (`tricks.closeGroundLine` →
+  `sim._bankGroundLine`). All gated on a 0.6 s threshold, so nothing pays out
+  until the physics can hold a slide. That is the one blocker: no car holds a
+  controllable slide past ~0.5 s on the current loose-rear model, which gives a
+  snap/flick, not a drift. A held drift needs a slip-angle-aware tyre model —
+  weeks, not a constant. `probe:drift` stays a red gate (green on the machinery,
+  red on physics) that flips fully green the day a car holds a >1 s slide; when
+  it does, drift becomes R13 on machinery that is already in place.
+
+- **The Visual Ceiling.** Measured, not built — `npm run probe:ceiling`
+  (companion to the drift spike, per `airtime-visual-ceiling-prototype.md`). It
+  reports the machine's real renderer string (Item 0), WebGPU availability, and
+  the current renderer's frame time on one bounded scene across a
+  REDUCED→STANDARD→HIGH→ULTRA resolution/effect envelope. **It only means
+  anything on real hardware:** run `npm run build && node tools/probe-ceiling.mjs
+  --headful` on *both* dev machines (the Mac and the PC) and keep both outputs —
+  headless serves a software-rasteriser floor and the probe refuses to grade a
+  `--headful` run that a software rasteriser served. The WebGPU + TSL renderer
+  comparison the spike asks for is not measurable until that renderer path
+  exists; the probe reports the WebGPU availability that gates building it and
+  marks the comparison as the explicit next step.
 
 ### One ordering hazard
 
