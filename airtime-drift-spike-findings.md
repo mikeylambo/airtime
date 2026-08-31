@@ -60,19 +60,20 @@ wheels), best technique per car:
 
 | car | best sustained slide | note |
 |---|---|---|
-| DRIFTER | **0.90 s** (transition) | closest to the bar; still short of it |
+| DRIFTER | **0.48 s** (transition) | closest to the bar; still half of it |
 | VECTOR | 0.04 s | baseline never really slides |
 | ANVIL | 0.03 s | |
 | PROTO | 0.00 s | |
-| GRIP | 0.08 s | and *spins out* trying |
+| GRIP | 0.04 s | and *spins out* trying |
 
-**No car clears 1 s. Best anywhere is 0.90 s.** The handbrake stab (side
-friction ×0.16) snaps the rear out, but the slide then scrubs speed
-catastrophically — 30 → 17 m/s in ~0.4 s — and the drift ends because speed
-falls under the 12 m/s threshold or the slip angle collapses back under 12.6°.
-What the model produces is a *Scandinavian flick / snap-slide* of 0.3–0.9 s, not
-a held, balanced drift. This is precisely the "accidental drift, not a real one"
-outcome the brief flagged as the expensive case.
+**No car clears 1 s. Best anywhere is 0.48 s (DRIFTER), and it keeps under half
+its entry speed getting there.** The handbrake stab (side friction ×0.16) snaps
+the rear out, but the slide then scrubs speed hard — the car keeps ~48–57% of
+its entry speed — and the drift ends because speed falls under the 12 m/s
+threshold or the slip angle collapses back under the 12.6° (0.22 rad) it takes
+to count. What the model produces is a *Scandinavian flick / snap-slide* of
+0.3–0.5 s, not a held, balanced drift. This is precisely the "accidental drift,
+not a real one" outcome the brief flagged as the expensive case.
 
 The fix is not a constant. A held drift needs the rear tyre to *re-grip at a
 stable slip angle* — a slip-curve that finds equilibrium instead of a binary
