@@ -990,6 +990,16 @@ Kept in the codebase, taken off the table until Build 2 lands.
 - **Coins.** Currently flat score on authored lines. Re-evaluate after R1: if
   facets carry the scoring weight, coins become a routing hint rather than a
   payout.
+- **Drift as a scored, chainable performance.** Feasibility measured, not
+  guessed — `npm run probe:drift`, written up in `airtime-drift-spike-findings.md`.
+  Scoring generalizes cleanly (a drift is a ground facet), it is deterministic
+  and probeable today, and it chains into jumps on the existing bank logic — all
+  cheap. The blocker is physics: no car holds a controllable slide past 0.9 s on
+  the current loose-rear model, which gives a snap/flick, not a drift. A held
+  drift needs a slip-angle-aware tyre model — weeks, not a constant — so drift is
+  a v2/v3 candidate, not a near-term phase. `probe:drift` is a red gate that flips
+  green the day a car can hold a >1 s slide; when it does, drift becomes R13 on
+  machinery the spike already proved is ready.
 
 ### One ordering hazard
 

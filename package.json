@@ -41,7 +41,8 @@
     "probe:menus": "node tools/probe-menus.mjs",
     "lines:city": "node tools/lines.mjs --city",
     "gaps:city": "node tools/lines.mjs --city --emit-gaps",
-    "probe:save": "node tools/probe-save.mjs"
+    "probe:save": "node tools/probe-save.mjs",
+    "probe:drift": "node tools/probe-drift.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",
