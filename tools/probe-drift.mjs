@@ -132,6 +132,35 @@ if (VERBOSE) {
   console.log(d.tr.join('\n'));
 }
 
+// ── Q3b: PHYSICS with the DRIFT_ASSIST prototype ────────────────────────────
+// The spike's expensive answer was "needs a slip-angle-aware tyre model". This
+// is that model, prototyped: a flagged layer (DRIVE.DRIFT_ASSIST, off by
+// default) that holds the rear loose while a slide is up, caps the yaw so it
+// cannot spin, and regulates speed so it cannot bog. Enable it and re-measure —
+// does the direction actually deliver a held, controllable drift?
+console.log('\n── Q3b PHYSICS with the DRIFT_ASSIST prototype (flagged, off by default) ──');
+const wasEnabled = TUNING.DRIVE.DRIFT_ASSIST.ENABLED;
+TUNING.DRIVE.DRIFT_ASSIST.ENABLED = true;
+let assistBest = 0;
+console.log('   car      technique     maxSlip°  longest controllable slide  spd kept  spun?');
+for (const car of ['drifter', 'vector']) {
+  for (const [name, script] of [['slide -0.35', SLIDE(-0.35)], ['slide -0.55', SLIDE(-0.55)]]) {
+    const r = await drive(car, 9, script);
+    assistBest = Math.max(assistBest, r.spunOut ? 0 : r.controllableDrift);
+    console.log(`   ${car.padEnd(8)} ${name}  ${r.maxSlip.toFixed(0).padStart(6)}   ` +
+      `${(r.controllableDrift.toFixed(2) + 's').padStart(24)}  ${r.speedRetained != null ? (r.speedRetained * 100).toFixed(0) + '%' : '  -'}`.padEnd(12) +
+      `   ${r.spunOut ? 'YES' : 'no'}`);
+  }
+}
+TUNING.DRIVE.DRIFT_ASSIST.ENABLED = wasEnabled;
+const assistOk = assistBest >= 1.0;
+console.log(`\n   best controllable slide WITH the prototype: ${assistBest.toFixed(2)}s`);
+console.log(`   verdict: ${assistOk
+  ? 'the slip-angle-aware layer holds a controllable drift well past a second — the expensive\n' +
+    '            dimension has a viable path. Default-off until it is tuned across the roster and\n' +
+    '            given feel; the scoring/chain machinery above is already waiting for it.'
+  : 'the prototype did not sustain a drift — the tyre-model direction needs more work.'}`);
+
 // ── Q2: DETERMINISM — is a drift as probeable as a jump? ────────────────────
 console.log('\n── Q2  DETERMINISM: the same scripted drift, twice, bit-exact? ──');
 async function finalState() {
@@ -237,24 +266,29 @@ console.log('\n── DECISION GATE ──');
 console.log(`   Facets:      ${facetsOk ? 'DRIFT facet built and live (CHEAP, done)' : 'FACET WIRING BROKEN'}`);
 console.log(`   Determinism: ${deterministic ? 'bit-exact, probeable today (CHEAP)' : 'NOT DETERMINISTIC'}`);
 console.log(`   Chain:       ${chainOk && groundLineOk ? 'drift→jump banks via pendingGround; pure-ground LINE resolves (CHEAP, done)' : 'CHAIN BROKEN'}`);
-console.log(`   Physics:     ${physicsOk ? 'sustains a controllable slide (CHEAP)' : 'needs a new tyre-friction model (EXPENSIVE)'}`);
+console.log(`   Physics:     ${physicsOk
+  ? 'shipping model sustains a controllable slide (CHEAP)'
+  : `shipping model: no (snap/flick only) — but the DRIFT_ASSIST prototype holds ${assistBest.toFixed(1)}s ${assistOk ? '(path proven)' : '(needs work)'}`}`);
 console.log('');
-// The three cheap dimensions are now built; the machinery is verified above and
-// waits, dormant, on the one expensive dimension. The gate stays RED on physics.
+// The three cheap dimensions are built and verified; the expensive one now has a
+// prototype that clears the bar behind a default-off flag. The gate still tracks
+// the DEFAULT (shipping) config: green only when drift holds with the flag off.
 const machineryOk = facetsOk && deterministic && chainOk && groundLineOk;
 if (!machineryOk) {
   console.log('   BROKEN  the drift scoring/chain machinery failed its own checks — fix before shipping.');
 } else if (physicsOk) {
-  console.log('   PASS  scoring, determinism and chain are built AND the physics now holds a drift →');
-  console.log('         drift is ready to be the next numbered phase (R13): give it a pillar doc,');
+  console.log('   PASS  scoring, determinism and chain are built AND the shipping model holds a drift →');
+  console.log('         drift is ready to be the next numbered phase (R13): give it a pillar doc, a');
   console.log('         content plan, and promote this gate to the real threshold.');
+} else if (assistOk) {
+  console.log('   HOLD (path proven)  scoring, determinism and chain are BUILT and verified. The physics');
+  console.log('         blocker now has a prototype — DRIVE.DRIFT_ASSIST, off by default — that holds a');
+  console.log('         controllable drift well past a second. The remaining work is feel and roster tuning,');
+  console.log('         then flipping the flag on; the gate goes green once the drift holds by default.');
 } else {
-  console.log('   HOLD  scoring, determinism and chain are BUILT and verified — drift banks, chains, and');
-  console.log('         resolves the moment a real slide exists. They wait, dormant, on the one expensive');
-  console.log('         dimension: no car holds a controllable slide past ~0.5 s on today\'s tyre model.');
-  console.log('         This gate flips to PASS the moment a slip-angle model lets a car hold a >1 s slide;');
-  console.log('         nothing else about drift is blocking. See airtime-drift-spike-findings.md.');
+  console.log('   HOLD  scoring, determinism and chain are BUILT and verified — they wait on the physics.');
+  console.log('         The DRIFT_ASSIST prototype did not clear the bar this run; the tyre model needs more.');
 }
-// RED until the physics can sustain a drift — the machinery is ready, the tyre
-// model is not, and the exit code carries that honestly into CI.
+// RED until the DEFAULT model sustains a drift. The prototype is deliberately
+// off-by-default, so a proven path does not flip the gate — shipping does.
 process.exit(machineryOk && physicsOk ? 0 : 1);

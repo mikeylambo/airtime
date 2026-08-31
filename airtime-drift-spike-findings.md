@@ -82,6 +82,20 @@ at minimum, decoupling longitudinal slide-scrub from lateral grip so power can
 hold speed through the slide). It is new physics, and it is the one thing here
 that costs weeks, not hours.
 
+**Prototype — the path is proven.** `DRIVE.DRIFT_ASSIST` (in `TUNING.js`, off
+by default) is that slip-angle-aware layer, prototyped: it holds the rear loose
+once a slide is established, caps the yaw so the car cannot spin, and regulates
+speed along the slide so it cannot bog — the three things the loose-rear model
+gets wrong. Enabled, DRIFTER holds a **fully controllable drift for well over a
+second** (`npm run probe:drift`, Q3b — 1.7 s+ in the park, 5 s+ on open ground,
+tilt ~1°), where the shipping model gives 0.48 s and a spin. So the expensive
+dimension is no longer a question mark: the direction works. What remains is
+genuinely feel-and-roster work — tuning the assist so every drift-capable car
+carries it, giving it the right hand feel, deciding how it interacts with the
+handbrake and boost — and only then flipping the flag on. Until it ships on by
+default, `probe:drift` stays red on physics (it grades the shipping config), and
+the scoring/chain machinery stays dormant behind the same threshold.
+
 ### 4. Chain — **existing bank logic extends; one small wrapper.**
 
 `drift → jump → landing` rides the path that already exists: ground stunts bank

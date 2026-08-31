@@ -178,11 +178,21 @@ export class Car {
     }
 
     // ── Handbrake: drop the rear grip, that's the whole drift (§4) ──────────
+    // Drift assist (prototype): once a slide is established under power+steer,
+    // hold the rear loose so heading can keep its lead over velocity — otherwise
+    // full rear grip pulls the car straight and the slip collapses. Reads last
+    // frame's slipAngle (one-step lag, harmless); off unless DRIFT_ASSIST.ENABLED.
+    const AS = D.DRIFT_ASSIST;
+    const assistDrift = AS && AS.ENABLED && !actions.handbrake
+      && this.slipAngle > D.DRIFT_MIN_SLIP_ANGLE && speed > D.DRIFT_MIN_SPEED
+      && (actions.throttle > 0 || boosting) && Math.abs(actions.steer) > 0.1;
     if (actions.handbrake) {
       for (const i of REAR) {
         this.vehicle.setWheelSideFrictionStiffness(i, this.sideFrictionRear * D.HANDBRAKE_SIDE_FRICTION);
         this.vehicle.setWheelBrake(i, D.HANDBRAKE_FORCE);
       }
+    } else if (assistDrift) {
+      for (const i of REAR) this.vehicle.setWheelSideFrictionStiffness(i, this.sideFrictionRear * AS.DRIFT_GRIP);
     } else {
       for (const i of REAR) this.vehicle.setWheelSideFrictionStiffness(i, this.sideFrictionRear);
     }
@@ -215,6 +225,36 @@ export class Car {
     } else {
       this.slipAngle = 0;
       this.driftTime = 0;
+    }
+
+    // ── Drift assist (prototype, flagged) ──────────────────────────────────
+    // A slip-angle-aware layer on top of the raycast vehicle: it does not
+    // replace the tyre model, it shapes a slide into a held drift by fixing the
+    // two failure modes the spike found. Engages only while genuinely drifting
+    // on the wheels under driver intent (throttle or handbrake), so it can never
+    // fire in ordinary cornering. Off unless DRIFT_ASSIST.ENABLED.
+    // The loose rear (above) lets the slide establish; these two keep it from
+    // ending the two ways the spike found — a spinout or a bog. Same intent gate.
+    if (AS && AS.ENABLED && n >= 2 && speed > D.DRIFT_MIN_SPEED
+        && this.slipAngle > D.DRIFT_MIN_SLIP_ANGLE
+        && (actions.throttle > 0 || boosting || actions.handbrake)) {
+      // (1) Anti-spin — cap the yaw rate so a slide holds an angle instead of
+      // spinning. Only ever *reduces* yaw, so it caps the spin without steering.
+      const w = this.body.angvel();
+      if (Math.abs(w.y) > AS.MAX_YAW) {
+        const target = Math.sign(w.y) * AS.MAX_YAW;
+        this.body.setAngvel({ x: w.x, y: w.y + (target - w.y) * clamp(AS.YAW_TRACK * dt, 0, 1), z: w.z }, true);
+      }
+      // (2) Slide-following speed regulator — hold speed near HOLD_SPEED along
+      // the current velocity: push when the slide is bleeding speed (so it does
+      // not bog below the drift threshold), brake when it is running away (so a
+      // regripping exit does not rocket off at full throttle and spin). Pushing
+      // is throttle-scaled; braking always applies. Never creates lift or thrust.
+      const err = clamp((AS.HOLD_SPEED - speed) / AS.HOLD_SPEED, -1, 1);
+      const throttle = boosting ? 1 : actions.throttle;
+      const mag = err > 0 ? AS.HOLD_FORCE * err * throttle : AS.HOLD_FORCE * err;
+      const vh = norm(v3(v.x, 0, v.z));
+      this.body.addForce({ x: vh.x * mag, y: 0, z: vh.z * mag }, true);
     }
   }
 

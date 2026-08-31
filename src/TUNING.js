@@ -93,6 +93,31 @@ export const TUNING = {
     // Drift bookkeeping (feeds the boost bar, §4)
     DRIFT_MIN_SLIP_ANGLE: 0.22, // rad between heading and velocity to count
     DRIFT_MIN_SPEED: 12,
+
+    // ── Drift assist (prototype, airtime-drift-spike-findings.md) ───────────
+    // The spike found the loose-rear model gives a snap/flick, not a held drift:
+    // once the rear breaks loose the slide either spins out or scrubs speed
+    // below DRIFT_MIN_SPEED in ~0.5 s. This is a slip-angle-aware layer ON TOP
+    // of the raycast vehicle — it does not replace the tyre model — that shapes
+    // a slide into a sustained, controllable drift by fixing exactly those two
+    // failure modes: a yaw governor (hold an angle, don't spin) and a
+    // slide-following power feed (keep speed, don't bog). OFF by default so the
+    // shipping model and every existing gate/clip are unchanged; `npm run
+    // probe:drift` enables it to measure whether the direction is viable before
+    // it is ever turned on for real.
+    DRIFT_ASSIST: {
+      ENABLED: false,
+      // Three parts, each fixing one thing the loose-rear model gets wrong:
+      // DRIFT_GRIP holds the rear loose once a slide is up (so slip does not
+      // collapse to a tight-circle 3°); MAX_YAW caps the spin (so it holds an
+      // angle instead of whipping round); HOLD_FORCE feeds power along the slide
+      // (so it keeps speed instead of scrubbing below the drift threshold).
+      DRIFT_GRIP: 0.22,          // rear side-friction multiplier while drifting
+      MAX_YAW: 2.6,              // rad/s cap on yaw — the anti-spin
+      YAW_TRACK: 12.0,           // 1/s, how fast excess yaw is pulled back to the cap
+      HOLD_SPEED: 26,            // m/s the assist tries to keep through a drift
+      HOLD_FORCE: 16000,         // N at full deficit and full throttle
+    },
   },
 
   // ── The one bar (§5) — ground boost and air thrust share this meter ───────
