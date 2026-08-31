@@ -19,7 +19,11 @@ import { computeFacets, purityOf } from './facets.js';
 
 export class TrickTracker {
   constructor() {
-    this.ground = { wheelie: 0, endo: 0, twoWheel: 0 };
+    this.ground = { wheelie: 0, endo: 0, twoWheel: 0, drift: 0 };
+    // A drift line that never launches banks on its own (see closeGroundLine).
+    // peak is the most drift the current slide has held; idle is how long since
+    // it last drifted, so the line can close once the slide is clearly over.
+    this.groundLine = { peak: 0, idle: 0 };
     this.reset();
     this.coinsThisJump = 0;
   }
@@ -49,7 +53,10 @@ export class TrickTracker {
     const carried = { ...this.ground };
     this.reset();
     this.pendingGround = carried;
-    this.ground = { wheelie: 0, endo: 0, twoWheel: 0 };
+    this.ground = { wheelie: 0, endo: 0, twoWheel: 0, drift: 0 };
+    // The launch consumes the bank into this flight, so any open ground line is
+    // spent — it must not also resolve on its own.
+    this.groundLine = { peak: 0, idle: 0 };
     this.active = true;
     this.launchY = car.position.y;
     this.maxY = car.position.y;
@@ -93,7 +100,24 @@ export class TrickTracker {
    */
   updateGround(dt, car) {
     const F = TUNING.SCORE.FACET;
-    if (car.wheelsInContact === 0 || car.groundSpeed < F.GROUND_MIN_SPEED) return;
+    if (car.wheelsInContact === 0) return;
+    // The ground line's idle timer (time since the slide last ran) is tracked
+    // before the speed gate below, so a drift that ends by the car slowing to a
+    // near-stop still closes the line rather than freezing here — car.driftTime
+    // is already zero below drift speed, so a slow car reads as "not drifting".
+    if (car.driftTime > 0) this.groundLine.idle = 0;
+    else this.groundLine.idle += dt;
+    if (car.groundSpeed < F.GROUND_MIN_SPEED) return;
+    // Drift is independent of the wheel-pose stunts — a slide can run with all
+    // four wheels down — so it reads off the car's own drift condition (slip
+    // angle + speed, per DRIVE) rather than a wheel-contact pattern. Like the
+    // others it banks into the next flight and decays when the slide breaks, so
+    // you cannot pocket a twitch.
+    if (car.driftTime > 0) this.ground.drift += dt;
+    else this.ground.drift *= 0.72;
+    // Remember the most the slide held, so a line that decays before it closes
+    // still banks the drift it actually earned, not the decayed remainder.
+    this.groundLine.peak = Math.max(this.groundLine.peak, this.ground.drift);
     const pitch = car.pitchAngle;
     if (car.rearDown && !car.frontDown && pitch > F.WHEELIE_ANGLE) this.ground.wheelie += dt;
     else if (car.frontDown && !car.rearDown && pitch < -F.ENDO_ANGLE) this.ground.endo += dt;
@@ -104,6 +128,36 @@ export class TrickTracker {
       this.ground.endo *= 0.72;
       this.ground.twoWheel *= 0.72;
     }
+  }
+
+  /**
+   * Close a pure-ground LINE — a drift held on the wheels and never launched out
+   * of. It resolves once the slide is clearly over (idle past the grace) with a
+   * scorable drift held, banking the whole ground record (a slide that also
+   * popped a wheelie pays for both). A launch consumes the bank first (onLaunch
+   * clears groundLine), so this only ever fires when there was no jump.
+   *
+   * Gated on the *drift* peak specifically: wheelie/endo/two-wheel lines already
+   * pay only into a jump, and this must not change that. On today's physics no
+   * car sustains a drift to F.DRIFT_TIME, so this returns null every frame until
+   * a tyre model can — the same dormancy the DRIFT facet has by design.
+   *
+   * @returns a ground-line snapshot (shape-compatible with resolveTrick), or null.
+   */
+  closeGroundLine() {
+    const F = TUNING.SCORE.FACET;
+    if (this.groundLine.peak < F.DRIFT_TIME || this.groundLine.idle < TUNING.SCORE.GROUND_LINE_GRACE) return null;
+    // Score the peak the slide reached, plus whatever else was banked with it.
+    const ground = { ...this.ground, drift: this.groundLine.peak };
+    const flight = {
+      yaw: 0, pitch: 0, roll: 0, twistTime: 0, maxTilt: 0,
+      airtime: 0, height: 0, distance: 0, pose: {}, brakeTime: 0,
+      thrustBursts: 0, coins: 0, nearMisses: 0, ground, gap: false, transfer: false,
+    };
+    const b = computeFacets(flight);
+    this.ground = { wheelie: 0, endo: 0, twoWheel: 0, drift: 0 };
+    this.groundLine = { peak: 0, idle: 0 };
+    return { ...b, flight, airtime: 0, height: 0, coins: 0, groundLine: true };
   }
 
   collectCoin() { this.coinsThisJump++; }
@@ -121,7 +175,7 @@ export class TrickTracker {
       pose: this.pose, brakeTime: this.brakeTime,
       thrustBursts: this.thrustBursts,
       coins: this.coinsThisJump, nearMisses: this.nearMisses,
-      ground: this.pendingGround || { wheelie: 0, endo: 0, twoWheel: 0 },
+      ground: this.pendingGround || { wheelie: 0, endo: 0, twoWheel: 0, drift: 0 },
       gap: this.gap, transfer: this.transfer,
     };
   }

@@ -287,6 +287,11 @@ export class Sim {
       p.climbBase = null;
     } else {
       p.tricks.updateGround(dt, p.car);
+      // A drift held on the wheels and never launched out of is still a LINE —
+      // it banks the moment the slide closes. Dormant until the physics can hold
+      // a drift (gated on the drift facet); returns null every frame until then.
+      const line = p.tricks.closeGroundLine();
+      if (line) this._bankGroundLine(p, line);
       // A continuous climb on the wheels. The base resets the moment the car
       // is airborne, so twenty-eight metres of this means a spiral flyover
       // rather than a lucky landing on a roof.
@@ -385,6 +390,24 @@ export class Sim {
     p.lastResult = result;
     this.events.push({ type: 'landed', player: p.index, landing, result, clipped });
     if (!result.landed) p.recover = TUNING.RESPAWN.DELAY;
+  }
+
+  /**
+   * Bank a pure-ground LINE (a drift that never launched — tricks.closeGroundLine).
+   * It has no aerial landing, so it resolves against a fixed ground-line
+   * multiplier and skips the gap/tier/scuff machinery a jump goes through. It
+   * still lands (extends the chain) so a ground line reads as one continuous
+   * performance with the jumps around it.
+   */
+  _bankGroundLine(p, snap) {
+    const landing = { quality: 'clean', multiplier: TUNING.SCORE.GROUND_LINE_MULT, tier: 'road' };
+    const result = resolveTrick(snap, landing, 1, p.run.nextCombo);
+    result.player = p.index;
+    result.groundLine = true;
+    p.run.addLanding(result);
+    p.lastResult = result;
+    this.events.push({ type: 'groundLine', player: p.index, result });
+    return result;
   }
 
   _recovery(dt, p) {

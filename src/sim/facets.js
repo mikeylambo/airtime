@@ -77,6 +77,10 @@ export function computeFacets(f) {
     if (f.ground.wheelie >= F.GROUND_TIME) add('wheelie', 'WHEELIE', F.WHEELIE + f.ground.wheelie * F.GROUND_PER_SEC, +f.ground.wheelie.toFixed(2));
     if (f.ground.endo >= F.GROUND_TIME) add('endo', 'ENDO', F.ENDO + f.ground.endo * F.GROUND_PER_SEC, +f.ground.endo.toFixed(2));
     if (f.ground.twoWheel >= F.GROUND_TIME) add('twowheel', 'TWO WHEELS', F.TWO_WHEEL + f.ground.twoWheel * F.GROUND_PER_SEC, +f.ground.twoWheel.toFixed(2));
+    // A sustained slide, banked from the run-up like the wheel-pose stunts. The
+    // threshold is deliberately at the edge of what today's physics can hold, so
+    // this pays only for a real, held drift, never a snap-slide (see probe:drift).
+    if (f.ground.drift >= F.DRIFT_TIME) add('drift', 'DRIFT', F.DRIFT + f.ground.drift * F.DRIFT_PER_SEC, +f.ground.drift.toFixed(2));
   }
 
   // ── The world reacting to you ──────────────────────────────────────────

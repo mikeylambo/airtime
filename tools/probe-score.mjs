@@ -19,7 +19,7 @@ for (let i = 0; i < Math.round(12 / DT); i++) {
       const r = e.result;
       console.log(`\nLANDING  ${r.quality.toUpperCase()}  airtime ${r.airtime.toFixed(2)}s  tier ${r.tier} (x${r.tierMult})`);
       console.log(`  tricks named after the fact:`);
-      for (const k of r.tricks) console.log(`    ${k.name.padEnd(16)} ${String(k.value).padStart(5)}`);
+      for (const k of r.tricks) console.log(`    ${(k.label||k.name||"").padEnd(16)} ${String(k.value).padStart(5)}`);
       if (!r.tricks.length) console.log('    (none)');
       console.log(`  trick total ${String(r.trickTotal).padStart(5)}   airtime bonus ${String(r.airBonus).padStart(4)}   height bonus ${String(r.heightBonus).padStart(4)}`);
       console.log(`  BANK ${r.bank}  x landing ${r.landingMult}  x tier ${r.tierMult}  x combo ${r.combo}  =  ${r.payout}`);
@@ -53,7 +53,7 @@ for (const [label, hold] of [
       if (e.type === 'launch' && e.launch.armed && lt === null) lt = t2;
       if (e.type === 'landed' && e.result && lt !== null && e.result.airtime > 1.0) {
         const r = e.result;
-        const names = r.tricks.length ? r.tricks.map((k) => `${k.name} ${k.value}`).join(' + ') : '(no full rotation)';
+        const names = r.tricks.length ? r.tricks.map((k) => `${k.label||k.name} ${k.value}`).join(' + ') : '(no full rotation)';
         console.log(`  ${label}  ${r.quality.toUpperCase().padEnd(7)} air ${r.airtime.toFixed(2)}s  ${names}`);
         console.log(`      bank ${r.bank} x landing ${r.landingMult} x tier ${r.tierMult} = ${r.payout}`);
         done = true;

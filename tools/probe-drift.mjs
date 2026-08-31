@@ -27,7 +27,8 @@ import TUNING from '../src/TUNING.js';
 import { NEUTRAL_ACTIONS } from '../src/input/input.js';
 import { Sim } from '../src/sim/sim.js';
 import { resolveSetup } from '../src/sim/cars.js';
-import { computeFacets, facetMultiplier } from '../src/sim/facets.js';
+import { computeFacets } from '../src/sim/facets.js';
+import { TrickTracker } from '../src/sim/tricks.js';
 
 const DT = 1 / TUNING.SIM.HZ;
 const RAD = 180 / Math.PI;
@@ -150,70 +151,110 @@ console.log(`   verdict: ${deterministic
     '            is the same rigor as probe:facets. New probe infra = HOURS, no sim change.'
   : 'NOT bit-exact — investigate before advertising drift determinism.'}`);
 
-// ── Q1: FACETS — does the scoring grammar generalize to a ground event? ─────
-console.log('\n── Q1  FACETS: score a drift through the existing computeFacets machinery ──');
-// A drift is structurally a ground stunt: sustained contact + a threshold + an
-// exit condition that banks into the next flight — exactly wheelie/endo/twoWheel.
-// Prove it by feeding a flight whose `ground` record carries a drift, using the
-// same three-number shape (base / min-time / per-second) the others use.
+// ── Q1: FACETS — the DRIFT facet, now built in, scored through computeFacets ──
+console.log('\n── Q1  FACETS: the DRIFT facet stacks on the same curve as every other facet ──');
+// Drift is now a real ground facet (facets.js). It reads f.ground.drift with the
+// same base / min-time / per-second shape as wheelie/endo/twoWheel. Toggle it on
+// the same flight and watch the count and multiplier move through the unmodified
+// stacking curve — no parallel system, no special case.
 const F = TUNING.SCORE.FACET;
-const DRIFT_FACET = { BASE: 180, MIN_TIME: F.GROUND_TIME, PER_SEC: 70 };
-function scoreWithDrift(flight) {
-  const b = computeFacets(flight);
-  const g = flight.ground;
-  if (g && g.drift >= DRIFT_FACET.MIN_TIME) {
-    b.facets.push({ id: 'drift', label: 'DRIFT', value: Math.round(DRIFT_FACET.BASE + g.drift * DRIFT_FACET.PER_SEC), detail: +g.drift.toFixed(2) });
-    b.base = b.facets.reduce((s, x) => s + x.value, 0);
-    const m = facetMultiplier(b.facets.length);
-    b.mult = m.mult; b.multName = m.name;
-  }
-  return b;
-}
-const flight = {
+const flightBase = {
   yaw: 6.3, pitch: 0, roll: 0, twistTime: 0, maxTilt: 0,
   airtime: 2.6, height: 20, distance: 100, pose: {}, brakeTime: 0, thrustBursts: 0,
   coins: 0, nearMisses: 0, gap: false, transfer: false,
-  ground: { wheelie: 0, endo: 0, twoWheel: 0, drift: 1.4 },   // 1.4s of drift banked on the run-up
 };
-const before = computeFacets(flight);
-const after = scoreWithDrift(flight);
-console.log(`   flight without drift facet:  ${before.facets.length} facets  base ${String(before.base).padStart(4)}  ×${before.mult}  = ${Math.round(before.base * before.mult)}`);
-console.log(`   flight with    drift facet:  ${after.facets.length} facets  base ${String(after.base).padStart(4)}  ×${after.mult}  = ${Math.round(after.base * after.mult)}`);
+const before = computeFacets({ ...flightBase, ground: { wheelie: 0, endo: 0, twoWheel: 0, drift: 0 } });
+const after = computeFacets({ ...flightBase, ground: { wheelie: 0, endo: 0, twoWheel: 0, drift: 1.4 } });
+console.log(`   flight, no drift banked:   ${before.facets.length} facets  base ${String(before.base).padStart(4)}  ×${before.mult}  = ${Math.round(before.base * before.mult)}`);
+console.log(`   flight, 1.4 s drift banked: ${after.facets.length} facets  base ${String(after.base).padStart(4)}  ×${after.mult}  = ${Math.round(after.base * after.mult)}`);
 console.log(`   added: ${JSON.stringify(after.facets.find((f) => f.id === 'drift'))}`);
-const facetsOk = after.facets.length === before.facets.length + 1 && after.mult >= before.mult;
+const facetsOk = after.facets.length === before.facets.length + 1
+  && after.facets.some((f) => f.id === 'drift') && after.mult >= before.mult;
 console.log(`   verdict: ${facetsOk
-  ? 'drift stacks on the same curve as every other facet. One `ground.drift` field, one TUNING\n' +
-    '            entry, one detector line in updateGround. No parallel system. CHEAP.'
+  ? 'DRIFT is a facet like any other — one `ground.drift` field, one TUNING entry, one line in\n' +
+    '            updateGround and one in computeFacets. Built and live. CHEAP.'
   : 'the facet machinery did not absorb a ground drift cleanly — investigate.'}`);
 
-// ── Q4: CHAIN — drift → jump → landing → drift as one LINE? ──────────────────
-console.log('\n── Q4  CHAIN: does the bank/combo machinery carry a ground→air→ground line? ──');
-console.log('   Ground stunts already bank into the *next* flight (tricks.js pendingGround), and the');
-console.log('   combo chains through landings (round.js addLanding). So drift→jump→landing rides the');
-console.log('   existing path: the drift value banks into the jump exactly like wheelie/endo today.');
-console.log('   Gap: a *pure* ground line — drift with no jump after — never resolves, because');
-console.log('   snapshot() only fires on touchdown. That one case needs a small ground-only resolve');
-console.log('   wrapper (a LINE that closes on drift-exit, not just on landing). Everything else extends.');
-console.log('   verdict: existing bank logic EXTENDS for ground→air→ground; pure-ground LINE = a small wrapper.');
+// ── Q4: CHAIN — does a banked drift ride the ground→air→landing path? ────────
+console.log('\n── Q4  CHAIN: a drift banked on the run-up carries into the jump it feeds ──');
+// Exercise the real path end to end at the tracker level: updateGround writes
+// ground.drift; onLaunch moves it into pendingGround; snapshot()/computeFacets
+// emit the DRIFT facet on the *flight*, so it lands and pays with the jump —
+// exactly how wheelie/endo chain today, with no new machinery.
+const tt = new TrickTracker();
+tt.ground.drift = 0.9;                              // a slide accumulated on the run-up
+tt.onLaunch({ position: { x: 0, y: 1, z: 0 } });    // launch banks it into pendingGround
+Object.assign(tt, { airtime: 2.6, launchY: 1, maxY: 21, height: 20, distance: 100 });
+const snap = tt.snapshot();
+const carriedDrift = snap.facets.find((f) => f.id === 'drift');
+console.log(`   run-up drift 0.9 s → launch → flight snapshot facets: ${snap.facets.map((f) => f.label).join(' · ')}`);
+console.log(`   DRIFT carried into the landing: ${carriedDrift ? 'yes, worth ' + carriedDrift.value : 'NO'}`);
+const chainOk = !!carriedDrift;
+console.log(`   verdict: ${chainOk
+  ? 'the drift banks into the flight via pendingGround and lands with it. drift→jump→landing\n' +
+    '            chains on the existing bank/combo logic. A pure-ground LINE (drift, no jump) resolves\n' +
+    '            through the ground-line path added alongside this — see probe:drift Q4 / sim.js.'
+  : 'a banked drift did NOT carry into the flight — the chain is broken, investigate.'}`);
+
+// ── Q4b: pure-ground LINE — a drift with no jump banks on its own ────────────
+// The one net-new path. It is dormant on the real threshold (no car holds a
+// drift to F.DRIFT_TIME), so to exercise it end to end we drop the threshold to
+// what today's physics can reach, drive a real slide that never launches, and
+// require the ground-line result to fire and carry a DRIFT facet. Restored after.
+console.log('\n── Q4b CHAIN: a pure-ground drift LINE (no jump) resolves and banks ──');
+const savedDriftTime = F.DRIFT_TIME;
+const savedGrace = TUNING.SCORE.GROUND_LINE_GRACE;
+F.DRIFT_TIME = 0.3;                       // reachable: DRIFTER holds ~0.46 s
+TUNING.SCORE.GROUND_LINE_GRACE = 0.35;
+let groundLineResult = null;
+{
+  const sim = await Sim.create(setupFor('drifter'));
+  sim.run.begin();
+  sim.placeCar({ x: 0, y: 1.08, z: 300 }, 0);
+  const input = (t) => {
+    if (t < 3.5) return { throttle: 1 };
+    if (t < 4.6) return { throttle: 0.7, steer: -0.4, handbrake: t < 3.8 }; // slide
+    return {};                                                             // let it settle, no jump
+  };
+  for (let i = 0; i < Math.round(7 / DT) && !groundLineResult; i++) {
+    sim.step(DT, { ...NEUTRAL_ACTIONS, ...input(i * DT) });
+    for (const ev of sim.drainEvents()) if (ev.type === 'groundLine') groundLineResult = ev.result;
+  }
+}
+F.DRIFT_TIME = savedDriftTime;            // restore before anything else reads it
+TUNING.SCORE.GROUND_LINE_GRACE = savedGrace;
+const glDrift = groundLineResult && groundLineResult.facets.find((f) => f.id === 'drift');
+console.log(`   scripted slide, no jump → groundLine event: ${groundLineResult ? 'fired' : 'NONE'}`);
+if (groundLineResult) console.log(`   result: facets [${groundLineResult.facets.map((f) => f.label).join(', ')}]  bank ${groundLineResult.bank}  payout ${groundLineResult.payout}  landed ${groundLineResult.landed}`);
+const groundLineOk = !!glDrift && groundLineResult.landed;
+console.log(`   verdict: ${groundLineOk
+  ? 'a drift held on the wheels and never launched banks as its own LINE and extends the chain.\n' +
+    '            (Threshold restored — dormant on the real physics until a tyre model can hold a drift.)'
+  : 'the pure-ground LINE did not resolve — investigate closeGroundLine / _bankGroundLine.'}`);
 
 // ── Decision gate ────────────────────────────────────────────────────────────
 console.log('\n── DECISION GATE ──');
-console.log('   Facets:      generalizes cleanly (CHEAP)');
-console.log('   Determinism: probeable today, new probe = hours (CHEAP)');
-console.log('   Chain:       existing bank logic extends; pure-ground LINE is a small wrapper (CHEAP)');
+console.log(`   Facets:      ${facetsOk ? 'DRIFT facet built and live (CHEAP, done)' : 'FACET WIRING BROKEN'}`);
+console.log(`   Determinism: ${deterministic ? 'bit-exact, probeable today (CHEAP)' : 'NOT DETERMINISTIC'}`);
+console.log(`   Chain:       ${chainOk && groundLineOk ? 'drift→jump banks via pendingGround; pure-ground LINE resolves (CHEAP, done)' : 'CHAIN BROKEN'}`);
 console.log(`   Physics:     ${physicsOk ? 'sustains a controllable slide (CHEAP)' : 'needs a new tyre-friction model (EXPENSIVE)'}`);
 console.log('');
-const pass = physicsOk && deterministic && facetsOk;
-if (pass) {
-  console.log('   PASS  all four come back cheap → drift is the next numbered phase (R13): spec it');
-  console.log('         properly with its own pillar doc, gate, and content plan.');
+// The three cheap dimensions are now built; the machinery is verified above and
+// waits, dormant, on the one expensive dimension. The gate stays RED on physics.
+const machineryOk = facetsOk && deterministic && chainOk && groundLineOk;
+if (!machineryOk) {
+  console.log('   BROKEN  the drift scoring/chain machinery failed its own checks — fix before shipping.');
+} else if (physicsOk) {
+  console.log('   PASS  scoring, determinism and chain are built AND the physics now holds a drift →');
+  console.log('         drift is ready to be the next numbered phase (R13): give it a pillar doc,');
+  console.log('         content plan, and promote this gate to the real threshold.');
 } else {
-  console.log('   HOLD  the physics answer is expensive → drift is a v2/v3 candidate, not a near-term');
-  console.log('         build item. This is not a rejection: it is the same discipline that shelved the');
-  console.log('         park editor. A game with excellent air and no drift, shipped, beats a game with');
-  console.log('         a snap-slide bolted on to hit a deadline. This gate flips to PASS the moment a');
-  console.log('         tyre model lets a car hold a >1s controllable slide.');
+  console.log('   HOLD  scoring, determinism and chain are BUILT and verified — drift banks, chains, and');
+  console.log('         resolves the moment a real slide exists. They wait, dormant, on the one expensive');
+  console.log('         dimension: no car holds a controllable slide past ~0.5 s on today\'s tyre model.');
+  console.log('         This gate flips to PASS the moment a slip-angle model lets a car hold a >1 s slide;');
+  console.log('         nothing else about drift is blocking. See airtime-drift-spike-findings.md.');
 }
-// The gate is RED until the physics can sustain a drift — that is the finding,
-// kept honest as an exit code so CI carries the spike's answer, not a comment.
-process.exit(pass ? 0 : 1);
+// RED until the physics can sustain a drift — the machinery is ready, the tyre
+// model is not, and the exit code carries that honestly into CI.
+process.exit(machineryOk && physicsOk ? 0 : 1);

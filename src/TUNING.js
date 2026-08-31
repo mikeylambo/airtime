@@ -384,6 +384,15 @@ export const TUNING = {
       GROUND_MIN_SPEED: 9,        // a wheelie at walking pace is not a wheelie
       WHEELIE_ANGLE: 0.13, ENDO_ANGLE: 0.13,
 
+      // Drift is a ground facet the moment the physics can hold one. Read off
+      // the car's own drift condition (DRIVE.DRIFT_MIN_SLIP_ANGLE / speed), it
+      // banks into the next flight exactly like wheelie/endo. DRIFT_TIME sits at
+      // GROUND_TIME on purpose: on today's loose-rear model no car sustains a
+      // controllable slide past ~0.5 s (see airtime-drift-spike-findings.md), so
+      // this facet stays dormant until a real tyre model lands rather than paying
+      // out for an accidental snap-slide. `npm run probe:drift` is the gate.
+      DRIFT: 180, DRIFT_TIME: 0.6, DRIFT_PER_SEC: 70,
+
       NEAR_MISS: 90,
       PURITY: 260,                       // the facet itself; the multiplier is below
     },
@@ -423,6 +432,15 @@ export const TUNING = {
 
     COIN_VALUE: 25,             // flat, outside the bank (routes pay twice)
     COIN_RADIUS: 4.5,
+
+    // A drift held on the ground and never launched out of is a LINE that banks
+    // on its own, the moment the slide clearly ends (GRACE seconds after the
+    // last drifting frame) with no jump to carry it. Gated on the drift facet,
+    // so it is dormant until a tyre model can sustain one; ordinary wheelie/endo
+    // lines, which already pay only into a jump, are untouched. MULT is the
+    // ground-line equivalent of a landing multiplier.
+    GROUND_LINE_MULT: 1.0,
+    GROUND_LINE_GRACE: 0.7,     // seconds of no drift before the line closes
 
     // Landing multipliers live with the tiers they multiply:
     // LANDING_MULT in sim/airtime.js, TIER in arena/stunt-park.js.
