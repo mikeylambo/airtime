@@ -364,8 +364,9 @@ smear, screens sit inside a soft iris bloom, and the world's fog lifted off pure
 black into a deep violet so distance dissolves into haze. All bounded by the
 same ≥85% dark law: `probe:dark` still reads the worst frame at 92.1% dark. The
 deeper move — a spectral gradient along the trail ribbons, the car dissolving
-into light — is the next pass, and it is `probe:dark`-gated like everything that
-adds light here.
+into light — **shipped in Build 12** (cyan→iris→magenta along every trail, worst
+frame 92.0% dark), and it is `probe:dark`-gated like everything that adds light
+here.
 
 ### Audio — the brief, and what stays synthesised
 
@@ -882,6 +883,82 @@ a spiral it has no idea how to take — so a driven shot of those arenas is a
 photograph of the driver's limitations. A screenshot is a camera position, not
 a claim about anybody's driving. The *clips* are still driven, and they are
 honest about what the driver can do.
+
+### Build 12 — Spectral Blur, the tuner, and the first real playtest
+
+Two halves. The first was a look; the second was the first list of notes from
+somebody holding a controller, and the two are not the same kind of work.
+
+**SPECTRAL BLUR — the deeper move landed.** The roadmap's SPECTRAL BLUR note
+promised "a spectral gradient along the trail ribbons" as the next pass, and it
+is in. The wordmark, the ribbon trails and the persistent flight-lines all sweep
+**cyan → iris → magenta**, and the sweep is not decoration — it is a fact about
+linear-RGB interpolation. A magenta→cyan blend crosses violet on the way, so a
+three-stop ramp (hot → iris → cyan) paints the whole visible spectrum along a
+single trail, and the car dissolving into that smear is AFTERGLOW's "light
+earned from motion" saying more with the same photons. Colourblind opts out of
+the sweep, not out of the trail. And it is all still under the ≥85% dark law:
+`probe:dark` reads the worst frame at **92.0%** dark, inside the same budget the
+pink build held.
+
+**The visual tuner — because a look you cannot touch is a look you argue about
+in the dark.** Every scalar that makes the smear — ribbon life and width, lens
+fade, flight-line and spin-ghost life, velocity stretch — plus the spectral
+colours and the whole atmosphere block (exposure, fog, the four lights, the void
+colour) is a live slider over the running game, toggled with backtick, off by
+default, persisted to localStorage, with COPY dumping the current values as JSON
+to paste back into source. It changes nothing until opened. The point is that
+tuning feel is now done *in* the feel, not by editing a number and reloading.
+
+**And then somebody played it.** The first playtest produced a list, and the
+list is the more valuable half, because none of it is a thing a probe was ever
+going to say:
+
+- **The copy still said Rush in places.** A premium release cannot ship with the
+  name of the game it is a clean-room reimagining of printed in its own menus.
+  Every remaining reference is gone — mode rules, car notes, the storage comments
+  nobody sees but us.
+- **Enter launched a run from anywhere on the main menu.** `start` was bound to
+  Enter *and* the menu checked `start` before `confirm`, so Enter fired a session
+  regardless of what was selected. Enter is confirm-only now; start is a gamepad
+  button. This is the kind of bug that only exists because the build was tested on
+  a controller and shipped to a keyboard.
+- **The match ran while you were in the menus.** The sim stepped every frame
+  regardless of what screen was up, so a results screen could surface *while you
+  were editing controls*. Fixed with a freeze gate: the run advances only while
+  the run screen is the current screen. A pause menu (RESUME / RESTART / QUIT)
+  arrived with it, because a game you can pause is a game that can stop.
+- **B on the controller crept toward the main menu.** The same `back` that pops a
+  menu was popping the run, a press at a time, until you were out. Back now pushes
+  the pause screen from a run instead of unwinding it.
+- **Traffic in The Yard wrecked the start.** The void-space arcade construct had
+  cars on it; they are gone, and traffic gained an **OFF** setting beside reactive
+  and ambient. Removing them broke the scripted demo driver — it had been leaning
+  on oncoming-lane boost to reach the first ramp — and the fix is the interesting
+  part: **boost conservation in the demo driver, not a physics change.** The
+  driver now holds boost until a ramp is within 95 m, so the tank is full when it
+  matters and each launch's airtime refills it. Touching the physics instead would
+  have moved every §R hash and re-orphaned every clip; `probe:wear`'s
+  deformation-trajectory measurement is chaotically sensitive to any boost change,
+  and it stays at 60 m because the physics did not move.
+- **Bumpers page the menu tabs**, "kicker" is gone from the achievement copy, and
+  the **car-select screen previews each car doing the jump as you scroll** — the
+  garage question is "what can it do in the air", answered live, debounced to the
+  frame the cursor settles on.
+
+And one bug the playtest did not name but the re-render exposed: **the visual
+tuner was drawn over every screen in the shipped build.** `#vtune`'s own
+`display:flex` outranks the UA `[hidden]{display:none}` by ID specificity, so
+`el.hidden` did nothing and the dev panel was live for every player. One line —
+`#vtune[hidden]{display:none}` — and the toggle works and the default holds. The
+lesson is the cheap one again: a screenshot is a probe. Nothing headless was ever
+going to catch a panel that renders correctly and simply should not be there, but
+the first honest look at the re-rendered title screen did.
+
+**Build 12 = the Spectral Blur trail pass + the live tuner + the first playtest
+list.** The exhibits in `public/clips` are re-rendered against the traffic-free
+Yard and the new driver, and the screens in `capture/screens` are the first set
+shot without the stray tuner overlay.
 
 ### Build 2's acceptance test
 
