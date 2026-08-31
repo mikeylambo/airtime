@@ -16,7 +16,6 @@ export function buildProgress(mgr, game) {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="lic-eyebrow">Licences</div>
       <h2 class="title">LICENCES</h2>
-      <p class="kicker">learn by being asked</p>
       <div class="list" id="lic-list"></div>
       <div class="card" id="lic-card" style="max-width:440px"></div>
       <div class="hint"><b>A</b> attempt · <b>B</b> back</div>

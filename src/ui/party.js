@@ -18,7 +18,7 @@ export function buildParty(mgr, game) {
   // ── Party: split-screen or pass-the-pad ─────────────────────────────────
   mgr.register(new Screen('party', {
     html: `<div class="veil"></div><div class="pane">
-      <h2 class="title">PARTY</h2><p class="kicker">how many of you</p>
+      <h2 class="title">PARTY</h2>
       <div class="list" id="party-list"></div>
       <div class="blurb" id="party-note"></div>
       <div class="hint"><b>A</b> start · <b>B</b> back</div>

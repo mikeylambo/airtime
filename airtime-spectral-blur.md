@@ -55,11 +55,24 @@ lowercase kicker under a confident one-word noun — the voice is still there,
 it just stopped competing with the thing it labels. Copy leans atmospheric and
 understated over jokey; the world is moody now, and the words should be too.
 
-## Still open (the deeper move)
+## The spectral trail (done)
 
 The heart of the reference — **a car dissolving into a blue-violet-magenta
-light-smear** — lives in the trails, and the trails still write a single player
-colour. A spectral trail (a gradient sweep along the ribbon, cyan through iris
-to the player's hot colour) is the next pass. It is `trails.js` and it is
-`probe:dark`-gated, so it gets measured before it ships, like everything that
-adds light to this world.
+light-smear** — is the trails, and it shipped. A ribbon is no longer one flat
+player colour: it sweeps the spectrum as it recedes — the player's hot colour at
+the car, through **iris** across its bright middle, to **cyan** at the faint
+tail. Because that path crosses violet in RGB, one three-stop sweep paints the
+whole cyan→iris→magenta band down the ribbon.
+
+The one thing the first attempt got wrong is worth keeping: cooling only at the
+very tail (`ageU→1`) put the violet where the ribbon has already faded to
+nothing, so the cool colours were invisible. The midpoint stop moves the violet
+to `ageU≈0.5`, where the light still is — the bright half of the smear reads
+magenta→violet, and only the dying tail cools to cyan.
+
+Two rules held it in bounds. **Colourblind mode opts out** — it keeps the flat
+player colour, so its shape channel and its measured hue distances are
+untouched. And **the dark-frame gate stood**: `probe:dark` reads the worst frame
+at 92.0% dark, because iris across the middle is dimmer than the magenta it
+replaces, not brighter. No new light was spent; the light that was already there
+just moved through the spectrum.

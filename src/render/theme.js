@@ -16,6 +16,12 @@ export const THEME = {
   GREEN: 0x39ff88,       // player 3 / perfect landing
   VIOLET: 0x9a2eff,      // player 4 / secrets
   WHITE_HOT: 0xf4f4ff,   // landing hit, score punch
+  // SPECTRAL BLUR: the shared haze the trails cool into. A ribbon is its
+  // player's hot colour at the car and dissolves toward CYAN down its length —
+  // and because magenta→cyan crosses violet in RGB, that single sweep paints
+  // the whole cyan→iris→magenta spectrum without a third stop.
+  CYAN: 0x59d0ff,
+  IRIS: 0x7a5cff,
 };
 
 /** Each split-screen player owns one accent colour end-to-end. */

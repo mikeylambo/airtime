@@ -130,6 +130,10 @@ export class Trails {
 
     this._v = new THREE.Vector3();
     this._c = new THREE.Color();
+    // SPECTRAL BLUR: the two cools a ribbon passes through as it recedes —
+    // iris across its bright middle, cyan at the faint tail. Resolved once.
+    this._iris = new THREE.Color(THEME.IRIS);
+    this._tail = new THREE.Color(THEME.CYAN);
   }
 
   setPlayerCount(n) { this.players = Math.min(n, MAX_PLAYERS); }
@@ -424,7 +428,22 @@ export class Trails {
             // the ≥85% dark rule dies at every close flyby (probe:dark).
             const lens = Math.min(1, Math.hypot(vx, vy, vz) / T.LENS_FADE);
             const glow = fade * 0.8 * lens * lens;
-            const cr = c.r * glow, cg = c.g * glow, cb = c.b * glow;
+            // SPECTRAL BLUR: the ribbon sweeps the spectrum as it recedes — the
+            // player's hot colour at the car, through iris across its bright
+            // middle, to cyan at the faint tail. The first version cooled only
+            // at ageU→1, where the ribbon is already fading out, so the cool
+            // colours were never actually visible; the midpoint stop puts the
+            // violet where the light still is. Colourblind mode opts out and
+            // keeps the flat player colour, so its shape channel and its
+            // measured hue distances are untouched.
+            let hr = c.r, hg = c.g, hb = c.b;
+            if (!this.colorblind) {
+              let ar, ag, ab, br, bg, bb, u;
+              if (ageU < 0.5) { u = ageU * 2; ar = c.r; ag = c.g; ab = c.b; const m = this._iris; br = m.r; bg = m.g; bb = m.b; }
+              else { u = (ageU - 0.5) * 2; const m = this._iris; ar = m.r; ag = m.g; ab = m.b; const t = this._tail; br = t.r; bg = t.g; bb = t.b; }
+              hr = ar + (br - ar) * u; hg = ag + (bg - ag) * u; hb = ab + (bb - ab) * u;
+            }
+            const cr = hr * glow, cg = hg * glow, cb = hb * glow;
             // Two triangles: (p-, p+, q-), (q-, p+, q+)
             const quad = [
               px - ox, py - oy, pz - oz, px + ox, py + oy, pz + oz, x - ox, y - oy, z - oz,

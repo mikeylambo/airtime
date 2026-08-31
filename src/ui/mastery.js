@@ -34,7 +34,6 @@ export function buildMastery(mgr, game) {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="ch-eyebrow"></div>
       <h2 class="title">CHALLENGES</h2>
-      <p class="kicker">something to be good at</p>
       <div class="list" id="ch-list"></div>
       <div class="card" id="ch-card" style="max-width:460px"></div>
       <div class="hint"><b>A</b> open · <b>B</b> back</div>
@@ -166,7 +165,6 @@ export function buildMastery(mgr, game) {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="gh-eyebrow">Ghosts</div>
       <h2 class="title">GHOSTS</h2>
-      <p class="kicker">race yourself</p>
       <div class="list" id="gh-list"></div>
       <div class="card" id="gh-card" style="max-width:460px"></div>
       <div class="hint"><b>A</b> load · <b>B</b> back</div>
@@ -218,7 +216,6 @@ export function buildMastery(mgr, game) {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="ga-eyebrow">The Gauntlet</div>
       <h2 class="title">THE GAUNTLET</h2>
-      <p class="kicker">unlocked, not offered</p>
       <div class="list" id="ga-list"></div>
       <div class="card" id="ga-card" style="max-width:480px"></div>
       <div class="hint"><b>A</b> begin · <b>B</b> back</div>
@@ -333,7 +330,6 @@ export function buildMastery(mgr, game) {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="cd-eyebrow">Run codes</div>
       <h2 class="title">RUN CODES</h2>
-      <p class="kicker">send somebody your run</p>
       <div class="list" id="cd-list"></div>
       <div class="card" id="cd-card" style="max-width:520px"></div>
       <div class="hint"><b>A</b> do it · <b>B</b> back</div>

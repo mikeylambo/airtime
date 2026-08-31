@@ -90,10 +90,6 @@ h1.logo {
 h2.title { margin: 0; font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
   font-size: clamp(1.9rem, 4.4vw, 3rem); letter-spacing: .03em; line-height: 1; }
 .blurb { font-family: var(--f-ui); color: var(--dim); font-size: 1rem; max-width: 52ch; line-height: 1.55; }
-/* The kicker: the editorial line demoted out of the title. Lowercase italic,
-   quiet, sitting just under the big display noun — the voice without the shout. */
-.kicker { font-family: var(--f-ui); font-style: italic; font-weight: 400; font-size: 1.02rem;
-  color: var(--dim); letter-spacing: .01em; margin: -.55rem 0 0; max-width: 52ch; }
 
 /* ── Lists ─────────────────────────────────────────────────────────────── */
 /* Capped and scrollable: the bigger display type made a long list (the
