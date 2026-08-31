@@ -816,6 +816,33 @@ export const TUNING = {
     REDUCED_SPLASH_SCALE: 0.4,
   },
 
+  // ── Presence (Spectral Language Bible §2) ────────────────────────────────
+  // "Replace car + trail VFX with one continuous shader variable: presence,
+  //  0 (almost absent) to 1 (fully material)." A material layer on the existing
+  // trim edges — no new physics. As the car does more (speed, slip, rotation)
+  // presence falls and the car burns toward AFTERIMAGE: its cut-lines brighten
+  // in the behaviour colour and shift hot, the light rising as the body gives
+  // way. It is a weighted function of signals the sim already carries, and it
+  // reads hardest exactly when the car is drifting — the slip term is the point.
+  PRESENCE: {
+    ENABLED: true,
+    // Where each signal saturates. Below LO nothing; at FULL it contributes its
+    // whole weight. Slip is the drift channel (0.22 rad starts to count, ~0.9
+    // rad is full opposite-lock); rotation covers flips/spins/air.
+    SPEED_LO: 20, SPEED_HI: 74,     // m/s
+    SLIP_FULL: 0.9,                 // rad
+    ROT_FULL: 7.0,                  // rad/s of |angular velocity|
+    W_SPEED: 0.45, W_SLIP: 0.9, W_ROT: 0.7,   // weights; slip pays the most
+    // presence = 1 - clamp(weighted energy). FLOOR is how absent it may become;
+    // Reduce Effects clamps it higher (never past the SPECTRAL band, §2 / §A).
+    FLOOR: 0.12,
+    REDUCED_FLOOR: 0.55,
+    // What falling presence does to the trim edges.
+    BRIGHTEN: 1.7,      // extra edge opacity at full afterimage (additive burn)
+    HOT: 0.45,          // how far the edge colour lerps toward white-hot
+    SMOOTH: 0.10,       // seconds; ease so a flick does not strobe the car
+  },
+
   RENDER: {
     // Default look. AFTERGLOW is the direction (airtime-art-direction.md);
     // graybox stays the honest one for judging physics and framing.

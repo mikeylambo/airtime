@@ -1087,7 +1087,7 @@ class Game {
       // R7: what the car looks like it has been through, and how hot its
       // brakes are. Both read models the simulation owns.
       this.carViews[i].setWear(p.wear, p.brakes);
-      this.carViews[i].sync(p.car, p.panels);
+      this.carViews[i].sync(p.car, p.panels, dt);
     }
     // R9: the ghost is not in this world — it is a baked trajectory being
     // read. Nothing about it is stepped here, which is why racing one costs

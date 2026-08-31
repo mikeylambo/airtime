@@ -15,7 +15,10 @@ import * as THREE from 'three';
 import TUNING from '../TUNING.js';
 import { SLOTS } from '../sim/panels.js';
 import { buildWedgeBody, buildAeroPlate, PANEL_KIND } from './wedge.js';
-import { playerColor, trimFor, isReduced } from './theme.js';
+import { playerColor, trimFor, isReduced, THEME } from './theme.js';
+
+const _hot = new THREE.Color(THEME.WHITE_HOT);   // shared scratch — sync only
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /**
  * AFTERGLOW's velocity stretch: the trim's vertex shader elongates the
@@ -150,6 +153,10 @@ export function buildCarView(scene, art, index = 0) {
   // never cached — the colourblind option swaps the whole palette live.
   const pc = () => playerColor(index);
   let trim = trimFor('vector');
+  // Presence (§2): eased 1→floor as the car does more. Held here so the ease
+  // survives across frames; the trim edges are driven from it in sync().
+  let presence = 1;
+  const _pcol = new THREE.Color();
   const trimmed = [
     [body, 'body', () => trim.body], [canopy, 'glass', () => trim.glass],
     [cover, 'glass', () => trim.glass], [blades[0], 'body', () => trim.body],
@@ -286,7 +293,7 @@ export function buildCarView(scene, art, index = 0) {
     },
 
     /** Pull every transform straight from the physics bodies. */
-    sync(car, panelBodies) {
+    sync(car, panelBodies, dt = 1 / 60) {
       const p = car.position, q = car.rotation;
       root.position.set(p.x, p.y, p.z);
       root.quaternion.set(q.x, q.y, q.z, q.w);
@@ -329,6 +336,37 @@ export function buildCarView(scene, art, index = 0) {
         const pe = mesh.userData.__edge;
         if (pe) pe.material.opacity = 0.3 + 0.7 * part.deploy;
       }
+
+      // ── Presence (§2): the car burns toward afterimage as it does more ─────
+      // One scalar off signals the sim already carries — speed, slip, spin —
+      // eased so a flick does not strobe, then driven into the trim edges: they
+      // over-brighten and shift white-hot as presence falls. Slip is weighted
+      // hardest, so a drift is where the car most gives way to its own light.
+      const P = TUNING.PRESENCE;
+      if (P && P.ENABLED) {
+        const av = car.angvel;
+        const rot = Math.hypot(av.x, av.y, av.z);
+        const eSpeed = clamp((car.speed - P.SPEED_LO) / (P.SPEED_HI - P.SPEED_LO), 0, 1);
+        const eSlip = clamp((car.slipAngle || 0) / P.SLIP_FULL, 0, 1);
+        const eRot = clamp(rot / P.ROT_FULL, 0, 1);
+        const energy = clamp(P.W_SPEED * eSpeed + P.W_SLIP * eSlip + P.W_ROT * eRot, 0, 1);
+        const floor = isReduced() ? P.REDUCED_FLOOR : P.FLOOR;
+        const target = Math.max(floor, 1 - energy);
+        presence += (target - presence) * clamp(dt / P.SMOOTH, 0, 1);
+        const glow = 1 - presence;
+        _pcol.setHex(pc());
+        const gain = 1 + P.BRIGHTEN * glow;
+        const drive = (mesh, baseOp) => {
+          const e = mesh.userData.__edge;
+          if (!e) return;
+          e.material.color.copy(_pcol).lerp(_hot, P.HOT * glow).multiplyScalar(gain);
+          e.material.opacity = Math.min(1, baseOp + glow * 0.4);
+        };
+        drive(body, trim.body); drive(canopy, trim.glass); drive(cover, trim.glass);
+        drive(blades[0], trim.body); drive(blades[1], trim.body);
+        for (const rim of rims) drive(rim, 0.8);
+      }
+      this.presence = presence;
     },
   };
 }
