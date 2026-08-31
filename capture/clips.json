@@ -1,5 +1,62 @@
 [
   {
+    "id": "loop",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": true,
+    "seconds": 12,
+    "start": 2.4,
+    "caption": "R1 — one cycle: boost, launch, stack facets, land, cash out",
+    "mp4": "/home/user/airtime/capture/loop.mp4"
+  },
+  {
+    "id": "premium",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": true,
+    "script": "loop",
+    "seconds": 16,
+    "start": 1.2,
+    "caption": "R7 — speed lines, tyre smoke, landing dust and shake, crash debris",
+    "mp4": "/home/user/airtime/capture/premium.mp4"
+  },
+  {
+    "id": "camera-chase-pullback",
+    "behavior": "chase-pullback",
+    "style": "afterglow",
+    "hud": true,
+    "caption": "§6 chase-pullback — eases back and up, wider FOV, car centred",
+    "mp4": "/home/user/airtime/capture/camera-chase-pullback.mp4"
+  },
+  {
+    "id": "camera-orbit",
+    "behavior": "orbit",
+    "style": "afterglow",
+    "hud": true,
+    "caption": "§6 orbit — one revolution on big airtime, resumes chase on descent",
+    "mp4": "/home/user/airtime/capture/camera-orbit.mp4"
+  },
+  {
+    "id": "camera-target-lock",
+    "behavior": "landing-target-lock",
+    "style": "afterglow",
+    "hud": true,
+    "caption": "§6 landing-target lock — car and target framed together, dolly-zoom in",
+    "mp4": "/home/user/airtime/capture/camera-target-lock.mp4"
+  },
+  {
+    "id": "city",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": true,
+    "script": "loop",
+    "arena": "city",
+    "seconds": 14,
+    "start": 6,
+    "caption": "R8 Vertical City — the centre is a pit; the Coil and the Stack are how you leave it",
+    "mp4": "/home/user/airtime/capture/city.mp4"
+  },
+  {
     "id": "works",
     "behavior": null,
     "style": "afterglow",
@@ -19,5 +76,84 @@
     },
     "caption": "R10 Mega Works — off the plant, over the yard: the skip, the jib, the cranes",
     "mp4": "/home/user/airtime/capture/works.mp4"
+  },
+  {
+    "id": "flood",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": true,
+    "script": "loop",
+    "arena": "flood",
+    "seconds": 12,
+    "start": 0.6,
+    "vantage": {
+      "pos": {
+        "x": -262,
+        "y": 26,
+        "z": -166
+      },
+      "heading": -1.5707963267948966,
+      "speed": 34
+    },
+    "caption": "R10 Floodway — the top channel west to east, kicker to kicker at one hop's pitch",
+    "mp4": "/home/user/airtime/capture/flood.mp4"
+  },
+  {
+    "id": "sky",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": true,
+    "script": "loop",
+    "arena": "sky",
+    "seconds": 12,
+    "start": 0.6,
+    "vantage": {
+      "pos": {
+        "x": 0,
+        "y": 78,
+        "z": 10
+      },
+      "heading": 0,
+      "speed": 30
+    },
+    "caption": "R10 Skyline — no ground under any of it; a missed landing is a demotion",
+    "mp4": "/home/user/airtime/capture/sky.mp4"
+  },
+  {
+    "id": "split-screen",
+    "behavior": null,
+    "style": "afterglow",
+    "hud": false,
+    "script": "split",
+    "players": 3,
+    "seconds": 14,
+    "start": 4,
+    "caption": "§9 split-screen — three drivers, one world, one clock; per-viewport chase only",
+    "mp4": "/home/user/airtime/capture/split-screen.mp4"
+  },
+  {
+    "id": "art-afterglow",
+    "behavior": "chase-pullback",
+    "style": "afterglow",
+    "hud": false,
+    "caption": "Art gate — the hero jump in AFTERGLOW: trails, ghosts, stretch, splash",
+    "mp4": "/home/user/airtime/capture/art-afterglow.mp4"
+  },
+  {
+    "id": "art-graybox",
+    "behavior": "chase-pullback",
+    "style": "graybox",
+    "hud": false,
+    "caption": "Art gate — the same jump, lit gray box (diagnostic reference)",
+    "mp4": "/home/user/airtime/capture/art-graybox.mp4"
+  },
+  {
+    "id": "art-reduced",
+    "behavior": "chase-pullback",
+    "style": "afterglow",
+    "hud": false,
+    "reduce": true,
+    "caption": "Accessibility — the same jump with REDUCE EFFECTS on; it has to read as the same game",
+    "mp4": "/home/user/airtime/capture/art-reduced.mp4"
   }
 ]
