@@ -34,7 +34,7 @@ const PALETTES = {
     // deliberately small: probe:dark still measures the worst frame ≥85% dark.
     background: THEME.VOID, fog: 0x0c0b1a, fogNear: 150, fogFar: 840,
     hemiSky: 0x1a1640, hemiGround: THEME.VOID, hemiInt: 0.42,
-    sunColor: 0x9088d8, sunInt: 0.38, ambient: 0x08081a,
+    sunColor: 0x9088d8, sunInt: 0.38, ambient: 0x08081a, exposure: 1.25,
     roles: {
       deck: { color: 0x0d0d16, rough: 1, emissive: 0x040409 },
       // Ramps are dark slabs with emissive edge-strips; the edge colour is
@@ -203,7 +203,8 @@ export class ArtDirector {
     this.lights.sun.intensity = p.sunInt;
     this.lights.amb.color.setHex(p.ambient);
     this.lights.amb.intensity = style === 'afterglow' ? 1.4 : 0;
-    this.renderer.toneMappingExposure = style === 'afterglow' ? 1.25 : TUNING.RENDER.EXPOSURE;
+    this.renderer.toneMappingExposure =
+      p.exposure ?? (style === 'afterglow' ? 1.25 : TUNING.RENDER.EXPOSURE);
 
     for (const { mesh, role } of this.registry) this._material(mesh, role);
     if (this.grid) {
@@ -286,6 +287,25 @@ export class ArtDirector {
     const i = STYLES.indexOf(this.style);
     this.setStyle(STYLES[(i + 1) % STYLES.length]);
     return this.style;
+  }
+
+  /** The live palette object for the current style — the tuner edits this. */
+  get palette() { return PALETTES[this.style]; }
+
+  /**
+   * Re-apply the atmosphere from the (possibly edited) palette, cheaply. Unlike
+   * setStyle it does not re-materialise every mesh, so the visual tuner can
+   * drive it on every slider frame without a hitch — fog, lights and exposure
+   * only.
+   */
+  applyAtmosphere() {
+    const p = this.palette;
+    if (this.scene.fog) { this.scene.fog.color.setHex(p.fog); this.scene.fog.near = p.fogNear; this.scene.fog.far = p.fogFar; }
+    if (this.scene.background && this.scene.background.setHex) this.scene.background.setHex(p.background);
+    this.lights.hemi.color.setHex(p.hemiSky); this.lights.hemi.intensity = p.hemiInt;
+    this.lights.sun.color.setHex(p.sunColor); this.lights.sun.intensity = p.sunInt;
+    this.lights.amb.color.setHex(p.ambient);
+    this.renderer.toneMappingExposure = p.exposure ?? (this.style === 'afterglow' ? 1.25 : TUNING.RENDER.EXPOSURE);
   }
 }
 

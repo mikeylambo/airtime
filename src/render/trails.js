@@ -130,13 +130,37 @@ export class Trails {
 
     this._v = new THREE.Vector3();
     this._c = new THREE.Color();
-    // SPECTRAL BLUR: the two cools a ribbon passes through as it recedes —
-    // iris across its bright middle, cyan at the faint tail. Resolved once.
+    // SPECTRAL BLUR: the two cools light passes through as it recedes or ages —
+    // iris across the bright middle, cyan at the faint end. Resolved once.
     this._iris = new THREE.Color(THEME.IRIS);
     this._tail = new THREE.Color(THEME.CYAN);
+    this._sr = 0; this._sg = 0; this._sb = 0;   // sweep scratch, no per-frame alloc
+  }
+
+  /**
+   * SPECTRAL BLUR: sweep a colour from `c` (hot) through iris to cyan by u in
+   * [0,1]. Writes _sr/_sg/_sb rather than allocating, because the persistent
+   * lines call this thousands of times a frame. Colourblind mode opts out and
+   * keeps the flat colour, so the shape channel and the measured hue distances
+   * stay intact. Shared by the ribbons and the persistent lines so they never
+   * drift apart.
+   */
+  _sweep(c, u) {
+    if (this.colorblind) { this._sr = c.r; this._sg = c.g; this._sb = c.b; return; }
+    const iris = this._iris, tail = this._tail;
+    let ar, ag, ab, br, bg, bb, t;
+    if (u < 0.5) { t = u * 2; ar = c.r; ag = c.g; ab = c.b; br = iris.r; bg = iris.g; bb = iris.b; }
+    else { t = (u - 0.5) * 2; ar = iris.r; ag = iris.g; ab = iris.b; br = tail.r; bg = tail.g; bb = tail.b; }
+    this._sr = ar + (br - ar) * t; this._sg = ag + (bg - ag) * t; this._sb = ab + (bb - ab) * t;
   }
 
   setPlayerCount(n) { this.players = Math.min(n, MAX_PLAYERS); }
+
+  /** SPECTRAL BLUR: retune the iris and cyan the ribbons and lines sweep to. */
+  setSpectral(irisHex, cyanHex) {
+    if (irisHex != null) this._iris.setHex(irisHex);
+    if (cyanHex != null) this._tail.setHex(cyanHex);
+  }
 
   setOptions({ reduceEffects, colorblind }) {
     // Reduce Effects is a whole-game switch (render/theme.js), not a trails
@@ -369,9 +393,15 @@ export class Trails {
       const age = this.ltime - this.lbirth[i];
       const fade = Math.max(0, 1 - age / T.LINE_LIFE);
       const c = this._color(this.lplayer[i]);
+      // SPECTRAL BLUR: a flight line cools as it ages — hot in the player's
+      // colour when it is fresh, dissolving toward cyan haze as the round wears
+      // on, so the arena's accumulated history reads as spectral light rather
+      // than a scatter of flat player-coloured arcs.
+      this._sweep(c, Math.min(1, age / T.LINE_LIFE));
+      const r = this._sr * fade, g = this._sg * fade, b = this._sb * fade;
       const o = i * 6;
-      this.lcol[o] = c.r * fade; this.lcol[o + 1] = c.g * fade; this.lcol[o + 2] = c.b * fade;
-      this.lcol[o + 3] = c.r * fade; this.lcol[o + 4] = c.g * fade; this.lcol[o + 5] = c.b * fade;
+      this.lcol[o] = r; this.lcol[o + 1] = g; this.lcol[o + 2] = b;
+      this.lcol[o + 3] = r; this.lcol[o + 4] = g; this.lcol[o + 5] = b;
     }
     this.lgeo.setDrawRange(0, this.lcount * 2);
     this.lgeo.attributes.position.needsUpdate = true;
@@ -430,20 +460,11 @@ export class Trails {
             const glow = fade * 0.8 * lens * lens;
             // SPECTRAL BLUR: the ribbon sweeps the spectrum as it recedes — the
             // player's hot colour at the car, through iris across its bright
-            // middle, to cyan at the faint tail. The first version cooled only
-            // at ageU→1, where the ribbon is already fading out, so the cool
-            // colours were never actually visible; the midpoint stop puts the
-            // violet where the light still is. Colourblind mode opts out and
-            // keeps the flat player colour, so its shape channel and its
-            // measured hue distances are untouched.
-            let hr = c.r, hg = c.g, hb = c.b;
-            if (!this.colorblind) {
-              let ar, ag, ab, br, bg, bb, u;
-              if (ageU < 0.5) { u = ageU * 2; ar = c.r; ag = c.g; ab = c.b; const m = this._iris; br = m.r; bg = m.g; bb = m.b; }
-              else { u = (ageU - 0.5) * 2; const m = this._iris; ar = m.r; ag = m.g; ab = m.b; const t = this._tail; br = t.r; bg = t.g; bb = t.b; }
-              hr = ar + (br - ar) * u; hg = ag + (bg - ag) * u; hb = ab + (bb - ab) * u;
-            }
-            const cr = hr * glow, cg = hg * glow, cb = hb * glow;
+            // middle, to cyan at the faint tail. The midpoint stop puts the
+            // violet where the light still is (cooling only at ageU→1 hid it in
+            // the part that has already faded out).
+            this._sweep(c, ageU);
+            const cr = this._sr * glow, cg = this._sg * glow, cb = this._sb * glow;
             // Two triangles: (p-, p+, q-), (q-, p+, q+)
             const quad = [
               px - ox, py - oy, pz - oz, px + ox, py + oy, pz + oz, x - ox, y - oy, z - oz,

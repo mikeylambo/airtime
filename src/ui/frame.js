@@ -367,11 +367,12 @@ export function buildFrame(mgr, game) {
       { key: 'colorblindTrails', label: 'COLOURBLIND PALETTE', values: [false, true] },
       { key: 'haptics', label: 'HAPTICS', values: [true, false] },
       { key: 'controls', label: 'CONTROLS', values: null },
+      { key: 'tuner', label: 'VISUAL TUNER', values: null },
       { key: 'save', label: 'SAVE DATA', values: null },
     ].map((r) => ({
       ...r,
       label: r.label,
-      note: r.values === null ? 'REBIND \u203a'
+      note: r.values === null ? (r.key === 'save' ? 'MANAGE \u203a' : r.key === 'tuner' ? 'OPEN \u203a' : 'REBIND \u203a')
         : r.names ? r.names[r.values.indexOf(o[r.key])] || String(o[r.key]).toUpperCase()
           : String(o[r.key]).toUpperCase(),
     }));
@@ -389,9 +390,10 @@ export function buildFrame(mgr, game) {
       if (m.back) return mgr.back('main');
       if (m.confirm && optList.item.key === 'controls') return mgr.push('controls');
       if (m.confirm && optList.item.key === 'save') return mgr.push('savedata');
+      if (m.confirm && optList.item.key === 'tuner') { mgr.go('main'); game.tuner?.open(); return; }
       if (m.left || m.right) {
         const row = optList.item;
-        if (row.key === 'controls') return;
+        if (row.values === null) return;
         const cur = game.options[row.key];
         const i = row.values.findIndex((v) => v === cur);
         const next = row.values[((i < 0 ? 0 : i) + (m.right ? 1 : -1) + row.values.length) % row.values.length];

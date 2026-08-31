@@ -55,6 +55,20 @@ lowercase kicker under a confident one-word noun — the voice is still there,
 it just stopped competing with the thing it labels. Copy leans atmospheric and
 understated over jokey; the world is moody now, and the words should be too.
 
+## The persistent lines, and a tuner to feel it out
+
+The flight lines that linger across a round cool the same way now — hot in the
+player's colour when fresh, dissolving toward cyan as the round wears on — so an
+arena's accumulated history reads as spectral light rather than a scatter of
+flat arcs. Same shared `_sweep` the ribbons use, so the two can never drift.
+
+And because the whole point is *feel*, the build carries a live **visual tuner**
+(backtick, or Options → Visual Tuner): sliders and colour pickers for the trail
+scalars, the spectral iris/cyan, and the atmosphere (fog, lights, exposure),
+applied to the running scene on the next frame. It persists to localStorage and
+COPY dumps the current values as JSON — tune by hand, paste the numbers back,
+and they get baked into the source.
+
 ## The spectral trail (done)
 
 The heart of the reference — **a car dissolving into a blue-violet-magenta

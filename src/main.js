@@ -32,6 +32,7 @@ import { SplitHud } from './ui/split-hud.js';
 import { Hud } from './ui/hud.js';
 import { ScreenManager } from './ui/screens.js';
 import { buildFrame, MODES, ARENAS } from './ui/frame.js';
+import { buildTuner } from './ui/tuner.js';
 import { demoActions, demoEdges, DEMO_CLIP } from './demo-jump.js';
 import { loopActions, loopEdges, LOOP_CLIP } from './loop-demo.js';
 import { loadOptions, saveOptions } from './storage/storage.js';
@@ -170,6 +171,9 @@ class Game {
     this.arenaId = 'park';
     this.screens = new ScreenManager(this.screenRoot, {});
     buildFrame(this.screens, this);
+    // The visual tuner — a live feel tool over the running game. Loads any
+    // saved tweaks and applies them; toggled by backtick, or from Options.
+    this.tuner = buildTuner(this);
 
     this.onResize();
     window.addEventListener('resize', () => this.onResize());
