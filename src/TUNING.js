@@ -848,6 +848,26 @@ export const TUNING = {
     SMOOTH: 0.10,       // seconds; ease so a flick does not strobe the car
   },
 
+  // ── The Low (Free Ride & The Low, cheap version) ─────────────────────────
+  // Law 5, "reality has depth": some spaces sit closer to disappearance. Read
+  // as a render/mix state any arena enters past a speed threshold, not a place.
+  // Distant geometry fog-culls progressively with speed and the world's lit
+  // architecture dims, so what stays legible is the car's own light and the
+  // traces it and others have left — the arena dissolves toward the spectral
+  // while you are moving fast enough to be part of it. A shader/atmosphere layer
+  // on the arenas that already exist; no new geometry. Eased, and Reduce Effects
+  // caps how far it goes (it is atmosphere, not a flash, so it is not disabled).
+  LOW: {
+    ENABLED: true,
+    SPEED_LO: 46,        // m/s where the world starts to thin
+    SPEED_HI: 80,        // m/s where The Low is at full depth
+    NEAR_MUL: 0.72,      // fog near pulls in to this fraction at full Low
+    FAR_MUL: 0.34,       // fog far pulls in hard — distance dissolves
+    LIGHT_MUL: 0.45,     // hemi/sun dim to this, so architecture fades to trace
+    REDUCED_MAX: 0.5,    // Reduce Effects goes at most this deep
+    SMOOTH: 0.5,         // seconds; the world thins and returns gently
+  },
+
   RENDER: {
     // Default look. AFTERGLOW is the direction (airtime-art-direction.md);
     // graybox stays the honest one for judging physics and framing.

@@ -1138,6 +1138,21 @@ class Game {
     this.art.sunTarget.position.set(p.x, p.y, p.z);
     this.art.lights.sun.position.set(p.x - 180, p.y + 260, p.z + 140);
 
+    // ── The Low ────────────────────────────────────────────────────────────
+    // The world thins toward disappearance as speed rises: distance fog-culls in
+    // and the lit architecture dims, so what stays legible is the car's own
+    // light and the traces in the air. Eased, capped under Reduce Effects, and
+    // applied to the shared scene before the split early-out so every viewport
+    // dissolves together. amount 0 is exactly the normal atmosphere.
+    if (this.art.style === 'afterglow' && TUNING.LOW.ENABLED) {
+      const L = TUNING.LOW;
+      const spd = state.groundSpeed || 0;
+      let target = Math.min(1, Math.max(0, (spd - L.SPEED_LO) / (L.SPEED_HI - L.SPEED_LO)));
+      if (this.options && this.options.reduceEffects) target = Math.min(target, L.REDUCED_MAX);
+      this._low = (this._low || 0) + (target - (this._low || 0)) * Math.min(1, dt / L.SMOOTH);
+      this.art.applyLow(this._low);
+    } else if (this._low) { this._low = 0; this.art.applyLow(0); }
+
     // ── Split-screen (§9) ─────────────────────────────────────────────────
     if (this.playerCount > 1 && !this.reel) {
       this.hudRoot.classList.add('hidden');

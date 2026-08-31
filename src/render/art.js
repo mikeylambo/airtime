@@ -307,6 +307,29 @@ export class ArtDirector {
     this.lights.amb.color.setHex(p.ambient);
     this.renderer.toneMappingExposure = p.exposure ?? (this.style === 'afterglow' ? 1.25 : TUNING.RENDER.EXPOSURE);
   }
+
+  /**
+   * The Low (Free Ride & The Low, cheap version): drive the atmosphere toward
+   * disappearance by an amount 0..1. Distance fog-culls in and the lit
+   * architecture dims, so at full Low only the car's own light and the traces in
+   * the air stay legible. Read off the (possibly tuner-edited) palette base each
+   * frame, so `amount = 0` is exactly the normal atmosphere — the caller can
+   * drive it every frame without a separate reset. AFTERGLOW only; the graybox
+   * diagnostic look is left flat.
+   */
+  applyLow(amount) {
+    if (this.style !== 'afterglow') return;
+    const p = this.palette;
+    const L = TUNING.LOW;
+    const a = amount < 0 ? 0 : amount > 1 ? 1 : amount;
+    if (this.scene.fog) {
+      this.scene.fog.near = p.fogNear * (1 - a * (1 - L.NEAR_MUL));
+      this.scene.fog.far = p.fogFar * (1 - a * (1 - L.FAR_MUL));
+    }
+    const dim = 1 - a * (1 - L.LIGHT_MUL);
+    this.lights.hemi.intensity = p.hemiInt * dim;
+    this.lights.sun.intensity = p.sunInt * dim;
+  }
 }
 
 export default ArtDirector;
