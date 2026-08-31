@@ -81,14 +81,30 @@ export function buildGarage(mgr, game) {
       : `<div class="wall-label">GARAGE WALL — empty. Land something worth keeping.</div>`;
   };
 
-  const renderCard = () => {
+  // Shows the equipped car by default, or a car passed in — so scrolling the
+  // CAR list can describe whichever car is highlighted, not only the equipped
+  // one.
+  const renderCard = (car = null) => {
     const p = game.profile;
-    const c = findCar(p.car);
+    const c = car || findCar(p.car);
     $('#gar-card').innerHTML = `
       <h3>${c.name}</h3><p>${c.blurb}</p>
       <div class="stat">
         ${Object.keys(PART_VARIANTS).map((s) => `${s}: ${findVariant(s, p.parts[s]).name}`).join(' · ')}
       </div>`;
+  };
+
+  // Highlighting a car on the CAR tab previews it doing the jump — every car
+  // shown, not just the equipped one — without committing the choice. The
+  // preview rebuilds the world, so it is debounced to the frame the cursor
+  // settles on rather than fired on every step of a fast scroll.
+  let previewTimer = 0;
+  const onMove = (it) => {
+    if (tab !== 0 || !it || !it.car) return;
+    renderCard(it.car);
+    clearTimeout(previewTimer);
+    const id = it.car.id;
+    previewTimer = setTimeout(() => game.previewJump(id), 90);
   };
 
   const refresh = (preview = true) => {
@@ -117,7 +133,7 @@ export function buildGarage(mgr, game) {
         else if (it.slot) cycleVariant(it.slot, 1);
         game.saveProfiles();
         refresh();
-      });
+      }, onMove);
       renderTabs();
       renderCard();
       renderWall();

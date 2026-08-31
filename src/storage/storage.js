@@ -33,7 +33,7 @@ export const Storage = { read, write, drop, key };
 export const DEFAULT_OPTIONS = {
   artStyle: 'afterglow',       // 'afterglow' | 'graybox' (legacy names remap)
   cameraStyle: 'cinematic',    // 'cinematic' | 'classic'
-  traffic: 'reactive',         // 'reactive' | 'ambient'  (§4)
+  traffic: 'reactive',         // 'reactive' | 'ambient' | 'off'  (§4)
   musicVolume: 0.7,
   sfxVolume: 0.9,
   haptics: true,

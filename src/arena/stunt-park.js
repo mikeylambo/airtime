@@ -193,20 +193,12 @@ export function describeParkPieces() {
     }));
   }
 
-  // ── Traffic lanes (§4): a ring road outside the bank, plus the south
-  //    straight, so near-miss boost is available on the way in without
-  //    cluttering the yard.
-  const R = YARD.BANK + 46;
-  for (const [id, from, to, oncoming] of [
-    ['south_in', { x: -13, z: 260 }, { x: -13, z: -260 }, false],
-    ['south_out', { x: 13, z: -260 }, { x: 13, z: 260 }, true],
-    ['ring_n', { x: -R, z: -R }, { x: R, z: -R }, false],
-    ['ring_e', { x: R, z: -R }, { x: R, z: R }, false],
-    ['ring_s', { x: R, z: R }, { x: -R, z: R }, true],
-    ['ring_w', { x: -R, z: R }, { x: -R, z: -R }, true],
-  ]) {
-    pieces.push(at('lane', id, { x: from.x, z: from.z }, 0, { from, to, oncoming }));
-  }
+  // ── Traffic lanes (§4): none. ────────────────────────────────────────────
+  // The Yard is the pure stunt park, and traffic is an ingredient of Vertical
+  // City, not a universal system (the roadmap settled this). The old ring road
+  // and south straight put cars on the spawn line — they fouled the very start
+  // of a run — so the yard has no traffic at all now. Near-miss boost is a city
+  // thing; here the whole road is yours.
 
   // ── R7 breakables: none, deliberately ───────────────────────────────────
   // A ring of cones went in here and came straight back out. The Yard is "a

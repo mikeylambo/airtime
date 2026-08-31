@@ -76,7 +76,7 @@ export class Sim {
         setup: Array.isArray(setup) ? (setup[i] || setup[0]) : setup,
         index: i,
         round: this.round,
-        // Line the grid up across the road, Rush-style, so nobody starts behind.
+        // Line the grid up across the road so nobody starts behind.
         spawn: this.gridSpawn(i, count),
         movingTargetAt,
       }));

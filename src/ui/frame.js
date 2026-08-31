@@ -56,7 +56,7 @@ export function buildFrame(mgr, game) {
       <div class="veil full"></div>
       <div class="pane center">
         <h1 class="logo">AIRTIME</h1>
-        <div class="eyebrow">Rush 2049 stunt frame</div>
+        <div class="eyebrow">Drive recklessly · stick the landing</div>
         <div class="hint blink" style="margin-top:2rem"><b>PRESS START</b></div>
         <div class="hint">Three.js + Rapier · tease-thrust · body-as-trick · dynamic airtime camera</div>
       </div>`,
@@ -241,7 +241,32 @@ export function buildFrame(mgr, game) {
     html: '',
     onEnter: () => { game.hudRoot.classList.remove('hidden'); },
     onExit: () => { game.hudRoot.classList.add('hidden'); },
-    onMenu: (m) => { if (m.back) game.abandonRun(); },
+    // B no longer abandons the run outright — it pauses. The run freezes while
+    // the pause menu is up (the clock and the world hold), so a stray B can't
+    // dump you to the main menu and the timer can't run out behind your back.
+    onMenu: (m) => { if (m.back) mgr.push('pause'); },
+  });
+
+  // ── Pause (§: a run holds while this is up) ──────────────────────────────
+  let pauseList;
+  S('pause', {
+    html: `<div class="veil full"></div><div class="pane">
+      <h2 class="title">PAUSED</h2>
+      <div class="list" id="pause-list"></div>
+      <div class="hint"><b>A</b> select · <b>B</b> resume · <b>START</b> restart</div>
+    </div>`,
+    onEnter: () => {
+      pauseList = makeList(document.getElementById('pause-list'), [
+        { label: 'RESUME', act: 'resume' },
+        { label: 'RESTART', act: 'restart' },
+        { label: 'QUIT TO MENU', act: 'quit' },
+      ], (it) => {
+        if (it.act === 'resume') mgr.back('run');
+        else if (it.act === 'restart') game.restartNow();
+        else game.abandonRun();
+      });
+    },
+    onMenu: (m) => { if (m.back) return mgr.back('run'); pauseList.handle(m); },
   });
 
   // ── Result (§2.1: breakdown by landing, each row a landing) ──────────────
@@ -358,7 +383,7 @@ export function buildFrame(mgr, game) {
     return [
       { key: 'artStyle', label: 'ART STYLE', values: STYLES },
       { key: 'cameraStyle', label: 'CAMERA', values: ['cinematic', 'classic'] },
-      { key: 'traffic', label: 'TRAFFIC', values: ['reactive', 'ambient'] },
+      { key: 'traffic', label: 'TRAFFIC', values: ['reactive', 'ambient', 'off'] },
       { key: 'mute', label: 'AUDIO', values: [false, true], names: ['ON', 'MUTED'] },
       { key: 'manualAir', label: 'AIR CONTROL', values: [false, true], names: ['STICK', 'PER-PANEL'] },
       { key: 'invertPitch', label: 'INVERT PITCH', values: [false, true] },

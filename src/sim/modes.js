@@ -16,12 +16,12 @@ import { makeRng } from './mathx.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/** §9 Stunt: "most points in a timed round. The Rush rule." */
+/** §9 Stunt: most points in a timed round. */
 const stunt = {
   id: 'stunt',
   label: 'STUNT',
   arena: 'park',
-  rules: 'Most points in a timed round. The Rush rule.',
+  rules: 'Most points in a timed round.',
 };
 
 /**

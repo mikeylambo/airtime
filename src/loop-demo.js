@@ -36,7 +36,20 @@ export function loopActions(t, neutral, ctx) {
     return a;
   }
 
-  a.boost = boost > 0.22;
+  // Conserve boost for the ramp. The yard has no traffic now, so nothing
+  // refills the bar mid-approach — and holding boost from the spawn (the old
+  // behaviour, propped up by near-miss and oncoming earn) emptied it before
+  // the first launch, leaving the driver hopping unboosted off every ramp. So
+  // boost only when a ramp is close ahead: the tank is full when it matters,
+  // and each launch's airtime tops it back up for the next.
+  let nearRamp = false;
+  if (car && park && park.ramps) {
+    for (const r of park.ramps) {
+      const dx = r.pos.x - car.position.x, dz = r.pos.z - car.position.z;
+      if (dx * dx + dz * dz < 95 * 95) { nearRamp = true; break; }
+    }
+  }
+  a.boost = boost > 0.12 && nearRamp;
   if (!car) return a;
 
   // Hold the heading the car was put on.

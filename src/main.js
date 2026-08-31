@@ -245,9 +245,15 @@ class Game {
   }
 
   // ── Garage live preview (§2.1) ───────────────────────────────────────────
-  async previewJump() {
+  async previewJump(carId = null) {
     this.preview = { pending: true };
-    const sim = await Sim.create(this.setup());
+    // A car id previews that car without equipping it, so scrolling the garage
+    // list shows each car do the jump as it is highlighted; no argument keeps
+    // the equipped car (the normal refresh).
+    const profile = carId && carId !== this.profile.car
+      ? { ...this.profile, car: carId } : this.profile;
+    const setup = resolveSetup(profile);
+    const sim = await Sim.create(setup);
     // The screen may have been left while the world was being rebuilt.
     if (!this.preview) return;
     this.sim = sim;
@@ -257,14 +263,14 @@ class Game {
     // Skip most of the run-up so the loop is the jump, not the approach.
     this.preview = { t: 0 };
     this.advance(TUNING.CAMERA.PREVIEW.SKIP);
-    this.applyLivery();
+    this.applyLivery(setup);
   }
 
   endPreview() { this.preview = null; }
 
   /** Livery is paint, so it lives entirely in the renderer (§7). */
-  applyLivery() {
-    const l = this.setup().livery;
+  applyLivery(setup = this.setup()) {
+    const l = setup.livery;
     this.art.tint('body', l.body);
     this.art.tint('panel', l.panel);
   }
@@ -962,6 +968,15 @@ class Game {
       return;
     }
 
+    // Pause: a run only advances while the run screen is up. Open the pause
+    // menu — or reach any other screen while a run is live — and the world
+    // holds where it is: the clock stops and the physics freeze, so the timer
+    // can no longer run out behind a menu and surface a result mid-edit.
+    if (this.mode === 'play' && this.inRun
+        && !(this.screens.current && this.screens.current.name === 'run')) {
+      return;
+    }
+
     let actions;
     if (this.mode === 'loop') {
       const ctx = this.loopCtx;
@@ -1185,7 +1200,11 @@ class Game {
       if (this.crash > 0) { this.crash -= dt; dt *= TUNING.CAMERA.CRASH_SLOWMO; }
 
       if (this.mode === 'play') {
-        const driving = this.inRun && this.sim.run.running;
+        const where = this.screens.current && this.screens.current.name;
+        // You are only *driving* while the run screen is up. Open the pause
+        // menu (or any screen) over a live run and driving stops — the sticks
+        // go dead, the clock freezes, and a pause menu becomes navigable.
+        const driving = this.inRun && this.sim.run.running && where === 'run';
         this.input.sample(dt, this.sim.airborne);
         if (driving) {
           if (this.input.pressed('thrust')) this.edges.thrust = true;
@@ -1199,9 +1218,8 @@ class Game {
         }
         const menu = this.input.sampleMenu(dt);
         this.idle = menu.any ? 0 : this.idle + dt;
-        // R4: Start always means "again", wherever you are.
-        const where = this.screens.current && this.screens.current.name;
-        if (menu.start && (driving || this.reel || where === 'result' || where === 'run')) {
+        // Start always means "again" — from a run, the pause menu, or a result.
+        if (menu.start && (driving || this.reel || where === 'result' || where === 'pause')) {
           this.restartNow();
         } else {
           this.screens.tick(dt, driving ? { any: menu.back, back: menu.back } : menu);

@@ -83,6 +83,15 @@ export class Traffic {
     let honk = false;
     if (!this.cars.length) return { nearMiss, oncoming, honk };
 
+    // Traffic OFF (the third option, beside reactive and ambient): park every
+    // car far under the world so nothing can clip the player, and skip the
+    // update. The mode is read live, so toggling it in Options clears or
+    // repopulates the road on the next frame.
+    if (this.mode === 'off') {
+      for (const c of this.cars) c.body.setNextKinematicTranslation({ x: 0, y: -100, z: 0 });
+      return { nearMiss, oncoming, honk };
+    }
+
     for (const c of this.cars) {
       const d = Traffic.dir(c.lane);
       const nx = -d.z, nz = d.x;                 // lane normal

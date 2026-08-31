@@ -251,8 +251,16 @@ export class Input {
     // fix it is the one they can no longer reach.
     let confirm = k('Enter') || k('Space') || k('KeyZ');
     let back = k('Escape') || k('Backspace') || k('KeyX');
-    let start = k('Enter');
+    // Enter is CONFIRM only — it activates the selected row. It used to also set
+    // `start`, and every screen that read start as "play last" fired a session
+    // the instant you pressed Enter, whatever was highlighted. Start is the
+    // gamepad Start button (and Space-less keyboards get it nowhere else).
+    let start = false;
     let alt = k('KeyY');
+    // Bumpers page tabbed screens (boards, garage, mode). They ride the same
+    // left/right the d-pad uses, so any screen that switches tabs on ◀▶ gets
+    // them for free, and a plain vertical list simply ignores them.
+    let tabL = false, tabR = false;
 
     if (k('ArrowUp') || k('KeyW')) y += 1;
     if (k('ArrowDown') || k('KeyS')) y -= 1;
@@ -268,11 +276,16 @@ export class Input {
       if (btn(13)) y -= 1;            // d-pad down
       if (btn(14)) x -= 1;
       if (btn(15)) x += 1;
+      if (btn(4)) tabL = true;        // LB
+      if (btn(5)) tabR = true;        // RB
       confirm = confirm || btn(0);
       back = back || btn(1);
       alt = alt || btn(3);
       start = start || btn(9);
     }
+    // Fold the bumpers into left/right so tabbed screens page on them.
+    if (tabL) x -= 1;
+    if (tabR) x += 1;
 
     const dirs = {
       up: y > 0.5, down: y < -0.5, left: x < -0.5, right: x > 0.5,

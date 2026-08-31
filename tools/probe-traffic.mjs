@@ -5,9 +5,13 @@ import { NEUTRAL_ACTIONS } from '../src/input/input.js';
 
 const DT = 1 / TUNING.SIM.HZ;
 
+// Traffic lives in Vertical City now — the Yard is the pure stunt park and
+// has no cars (they fouled the spawn straight). So the boost economy is
+// measured where it exists: a city street, driven with the flow versus into
+// the oncoming lane.
 async function run(mode, laneX) {
   TUNING.TRAFFIC.MODE = mode;
-  const sim = await Sim.create();
+  const sim = await Sim.create(null, 'city');
   sim.run.begin();
   sim.boost.value = 0;                       // start empty: measure the earn
   // Park the car in (or beside) a traffic lane and hold it there — this
@@ -37,27 +41,26 @@ async function run(mode, laneX) {
 
 console.log('mode      line               | near  oncoming  earned  honks | minDist  topSpd  close  endZ');
 const rows = {};
+// A Vertical City street: st_1_a (x=-41) runs with the flow, st_1_b (x=-31)
+// is the oncoming lane beside it.
 for (const [mode, label, x] of [
-  ['reactive', 'clean centre line ', 0],
-  ['reactive', 'with-traffic lane ', -13],
-  ['reactive', 'alongside it      ', -10],
-  ['reactive', 'oncoming lane     ', 13],
-  ['ambient',  'with-traffic lane ', -13],
-  ['ambient',  'oncoming lane     ', 13],
+  ['reactive', 'with-flow lane    ', -41],
+  ['reactive', 'oncoming lane     ', -31],
+  ['ambient',  'with-flow lane    ', -41],
+  ['ambient',  'oncoming lane     ', -31],
 ]) {
   const r = await run(mode, x);
   rows[`${mode}:${x}`] = r;
   console.log(`${mode.padEnd(9)} ${label} | ${String(r.near).padStart(4)}  ${r.oncomingTime.toFixed(1).padStart(7)}s  ${r.earned.toFixed(2).padStart(6)}  ${String(r.honks).padStart(5)} | ${r.minDist.toFixed(1).padStart(7)}  ${r.topSpeed.toFixed(0).padStart(6)}  ${String(r.passes).padStart(5)}  ${r.finalZ.toFixed(0).padStart(4)}`);
 }
-const centre = rows['reactive:0'], lane = rows['reactive:-13'], onc = rows['reactive:13'];
-// §4's claim is that *near-miss and the oncoming lane* pay, not that any lane
-// beats a clear road: the yard's approach straight is exactly where you hold
-// top speed, so driving it cleanly earns the speed bonus and driving among
-// traffic costs you speed. The trade is risk for fill rate.
-const ok = onc.earned > centre.earned * 1.5
+const withFlow = rows['reactive:-41'], onc = rows['reactive:-31'];
+// §4's claim is that *the oncoming lane and near-misses* pay: driving with the
+// flow you hold speed and earn the speed bonus, but crossing into the oncoming
+// lane fills the bar far faster — the trade is risk for fill rate.
+const ok = onc.earned > withFlow.earned * 1.5
   && onc.oncomingTime > 2.0
-  && (lane.near + onc.near + rows['ambient:13'].near) > 0;
-console.log(`\noncoming fills the bar ${(onc.earned / Math.max(0.01, centre.earned)).toFixed(1)}x faster than the clear line`);
+  && (onc.near + rows['ambient:-31'].near) > 0;
+console.log(`\noncoming fills the bar ${(onc.earned / Math.max(0.01, withFlow.earned)).toFixed(1)}x faster than the with-flow lane`);
 console.log(ok
   ? 'PASS  risk pays: oncoming and near-miss fill the bar (§4)'
   : 'FAIL  traffic does not pay');

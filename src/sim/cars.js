@@ -132,7 +132,7 @@ export const PART_VARIANTS = {
   doors: [
     { id: 'stock', name: 'STOCK', gain: 1.0, open: 1.0, note: 'Balanced roll and brake.', unlock: 0 },
     { id: 'scissor', name: 'SCISSOR', gain: 1.28, open: 1.12, note: 'Rolls faster, brakes less cleanly.', unlock: 2 },
-    { id: 'glider', name: 'GLIDER', gain: 0.72, open: 1.35, note: 'Rush 2049 wings. Long, flat, forgiving.', unlock: 6 },
+    { id: 'glider', name: 'GLIDER', gain: 0.72, open: 1.35, note: 'Long, flat, forgiving wings.', unlock: 6 },
   ],
   hood: [
     { id: 'stock', name: 'STOCK', gain: 1.0, open: 1.0, note: 'Pitches back hard.', unlock: 0 },
