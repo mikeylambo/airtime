@@ -42,7 +42,8 @@
     "lines:city": "node tools/lines.mjs --city",
     "gaps:city": "node tools/lines.mjs --city --emit-gaps",
     "probe:save": "node tools/probe-save.mjs",
-    "probe:drift": "node tools/probe-drift.mjs"
+    "probe:drift": "node tools/probe-drift.mjs",
+    "probe:ceiling": "node tools/probe-ceiling.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",
