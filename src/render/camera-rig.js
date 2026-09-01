@@ -17,6 +17,7 @@ import TUNING from '../TUNING.js';
 
 export const BEHAVIOR = {
   SHOWCASE: 'showcase',
+  GARAGE: 'garage',
   PREVIEW: 'preview',
   FREE: 'free',
   DIRECTOR: 'director',
@@ -220,7 +221,8 @@ export class CameraDirector {
 
   _compose(shot, behavior, state, dt) {
     switch (behavior) {
-      case BEHAVIOR.SHOWCASE: return this._showcase(shot, state, dt);
+      case BEHAVIOR.SHOWCASE: return this._showcase(shot, state, dt, TUNING.CAMERA.SHOWCASE);
+      case BEHAVIOR.GARAGE: return this._showcase(shot, state, dt, TUNING.CAMERA.GARAGE);
       case BEHAVIOR.PREVIEW: return this._preview(shot, state);
       case BEHAVIOR.FREE: return this._free(shot);
       case BEHAVIOR.DIRECTOR: return this._director(shot, state);
@@ -236,9 +238,7 @@ export class CameraDirector {
    * A slow orbit, biased to the right of frame so the menu list sits in the
    * empty half rather than on top of the car.
    */
-  _showcase(shot, state, dt) {
-    const C = TUNING.CAMERA;
-    const K = C.SHOWCASE;
+  _showcase(shot, state, dt, K = TUNING.CAMERA.SHOWCASE) {
     this.showcaseA = (this.showcaseA || 0) + dt * K.SPEED;
     const p = state.position;
     shot.position.set(

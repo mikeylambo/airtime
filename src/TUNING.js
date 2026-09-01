@@ -638,6 +638,9 @@ export const TUNING = {
 
     // Showcase / menu camera (§2.1: the car is centre-stage behind the menu)
     SHOWCASE: { RADIUS: 12.5, HEIGHT: 3.4, SPEED: 0.17, FOV: 40, BIAS_X: 6.0 },
+    // The garage frames the car closer and more head-on than the menu — you are
+    // choosing it, not glancing at it — so it fills the frame and orbits slowly.
+    GARAGE: { RADIUS: 8.0, HEIGHT: 2.4, SPEED: 0.12, FOV: 46, BIAS_X: 3.2 },
 
     // Speed sense (§4)
     FOV_SPEED_KICK: 17,         // extra degrees at top speed

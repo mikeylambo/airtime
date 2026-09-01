@@ -55,10 +55,8 @@ export function buildFrame(mgr, game) {
     html: `
       <div class="veil full"></div>
       <div class="pane center">
-        <h1 class="logo">AIRTIME</h1>
-        <div class="eyebrow">Drive recklessly · stick the landing</div>
+        <h1 class="logo">SPECTRAL DRIFT</h1>
         <div class="hint blink" style="margin-top:2rem"><b>PRESS START</b></div>
-        <div class="hint">Three.js + Rapier · tease-thrust · body-as-trick · dynamic airtime camera</div>
       </div>`,
     onEnter: () => { game.idle = 0; },
     onMenu: (m) => { if (m.confirm || m.start) mgr.go('profile'); },
@@ -92,7 +90,7 @@ export function buildFrame(mgr, game) {
   S('main', {
     html: `<div class="veil"></div><div class="pane">
       <div class="eyebrow" id="main-who">DRIVER 1</div>
-      <h1 class="logo" style="font-size:clamp(2rem,6vw,3.6rem)">AIRTIME</h1>
+      <h1 class="logo" style="font-size:clamp(2rem,6vw,3.6rem)">SPECTRAL DRIFT</h1>
       <div class="list" id="main-list"></div>
       <div class="card" id="daily" style="max-width:380px;margin-top:1rem"></div>
       <div class="hint"><b>A</b> select · <b>B</b> back · <b>START</b> play last</div>

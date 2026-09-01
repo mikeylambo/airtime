@@ -258,11 +258,13 @@ class Game {
     if (!this.preview) return;
     this.sim = sim;
     this.sim.run.begin();
-    this.sim.placeCar(TUNING.CAMERA.PREVIEW.START, 0);
+    // Garage showcase: the car sits centre-stage on the deck and the showcase
+    // camera orbits it, so you see the vehicle you are choosing, large and
+    // whole, rather than a distant jump. (It stays material — parked, not under
+    // load — which is the garage-shot end of the presence scale.)
+    this.sim.placeCar(TUNING.ARENA.SPAWN, 0);
     this.director.reset(this.sim.snapshot());
-    // Skip most of the run-up so the loop is the jump, not the approach.
-    this.preview = { t: 0 };
-    this.advance(TUNING.CAMERA.PREVIEW.SKIP);
+    this.preview = { static: true };
     this.applyLivery(setup);
   }
 
@@ -988,15 +990,9 @@ class Game {
       actions = loopActions(this.demoT, NEUTRAL_ACTIONS, ctx);
     } else if (this.mode === 'demo') actions = demoActions(this.demoT, NEUTRAL_ACTIONS, this.demoLaunchT);
     else if (this.preview && !this.preview.pending) {
-      // The preview drives itself: throttle to the ramp, then hands off to
-      // whatever the parts do in the air.
-      this.preview.t += dt;
-      actions = { ...NEUTRAL_ACTIONS, throttle: 1, boost: this.preview.t < 1.1 };
-      if (this.preview.t > TUNING.CAMERA.PREVIEW.SECONDS) {
-        this.preview.t = 0;
-        this.sim.placeCar(TUNING.CAMERA.PREVIEW.START, 0);
-        this.advance(TUNING.CAMERA.PREVIEW.SKIP);
-      }
+      // The garage showcase does not drive — the car sits centre-stage while the
+      // showcase camera orbits it.
+      actions = NEUTRAL_ACTIONS;
     } else if (this.mode === 'split') {
       // Every driver runs the same script on a different phase, so the four
       // viewports show four different runs rather than four identical ones.
@@ -1127,7 +1123,9 @@ class Game {
     let override = this._captureOverride || null;
     if (this.playback) override = this.playback.behavior;
     else if (this.mode === 'play' && !this.inRun) {
-      override = this.preview ? BEHAVIOR.PREVIEW : BEHAVIOR.SHOWCASE;
+      // Both show the car off with an orbiting camera; the garage frames it
+      // closer (BEHAVIOR.GARAGE) since you are choosing it, not glancing at it.
+      override = this.preview ? BEHAVIOR.GARAGE : BEHAVIOR.SHOWCASE;
     }
     this.director.setOverride(override);
     // A replayed clip follows the driver who earned it, not always player one.
