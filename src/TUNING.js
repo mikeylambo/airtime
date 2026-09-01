@@ -105,12 +105,13 @@ export const TUNING = {
     // of the raycast vehicle — it does not replace the tyre model — that shapes
     // a slide into a sustained, controllable drift by fixing exactly those two
     // failure modes: a yaw governor (hold an angle, don't spin) and a
-    // slide-following power feed (keep speed, don't bog). OFF by default so the
-    // shipping model and every existing gate/clip are unchanged; `npm run
-    // probe:drift` enables it to measure whether the direction is viable before
-    // it is ever turned on for real.
+    // slide-following power feed (keep speed, don't bog). Now ON by default —
+    // the prototype cleared its gate (a car holds a controllable slide well past
+    // a second) so it drives the shipping car; the numbers below are a first
+    // pass and the remaining work is feel, not viability. Flip ENABLED to false
+    // to compare against the bare loose-rear model.
     DRIFT_ASSIST: {
-      ENABLED: false,
+      ENABLED: true,
       // Three parts, each fixing one thing the loose-rear model gets wrong:
       // DRIFT_GRIP holds the rear loose once a slide is up (so slip does not
       // collapse to a tight-circle 3°); MAX_YAW caps the spin (so it holds an

@@ -86,15 +86,18 @@ that costs weeks, not hours.
 by default) is that slip-angle-aware layer, prototyped: it holds the rear loose
 once a slide is established, caps the yaw so the car cannot spin, and regulates
 speed along the slide so it cannot bog — the three things the loose-rear model
-gets wrong. Enabled, DRIFTER holds a **fully controllable drift for well over a
-second** (`npm run probe:drift`, Q3b — 1.7 s+ in the park, 5 s+ on open ground,
-tilt ~1°), where the shipping model gives 0.48 s and a spin. So the expensive
-dimension is no longer a question mark: the direction works. What remains is
-genuinely feel-and-roster work — tuning the assist so every drift-capable car
-carries it, giving it the right hand feel, deciding how it interacts with the
-handbrake and boost — and only then flipping the flag on. Until it ships on by
-default, `probe:drift` stays red on physics (it grades the shipping config), and
-the scoring/chain machinery stays dormant behind the same threshold.
+gets wrong. DRIFTER holds a **fully controllable drift for well over a second**
+(`npm run probe:drift` — 3.7 s+ on open ground, 1.7 s+ in the park, tilt ~1°),
+where the bare loose-rear model gives 0.48 s and a spin. So the expensive
+dimension is answered: the direction works, and the assist now ships **on by
+default** (`DRIVE.DRIFT_ASSIST.ENABLED`). `probe:drift` grades that shipping
+config and passes — physics, scoring and chain all green — and because a real
+drift now clears the 0.6 s facet threshold, drift **scores in play**: it banks
+into the jump it feeds and, held on the ground, resolves as its own LINE. What
+remains is genuinely feel-and-roster work — the assist numbers are a first pass,
+and how far each drift-capable car carries it, the hand feel, and its
+interaction with handbrake and boost are human verdicts, not gate numbers. Flip
+`ENABLED` to false to drive the bare model for comparison.
 
 ### 4. Chain — **existing bank logic extends; one small wrapper.**
 
