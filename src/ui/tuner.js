@@ -36,7 +36,38 @@ export function buildTuner(game) {
 
   // The knobs. Each get/set is a closure onto the real value, so there is no
   // path DSL to keep in sync — the control *is* the binding.
+  // Live driving/feel knobs. car.update reads TUNING.DRIVE (and DRIFT_ASSIST)
+  // fresh every fixed step, so these move the car on the next frame — no
+  // re-spawn. (Grip/engine force are baked into the setup at spawn, so they are
+  // not here; they need a car re-pick to change.)
+  const D = TUNING.DRIVE;
+  const AS = TUNING.DRIVE.DRIFT_ASSIST;
+  const P = TUNING.PRESENCE;
+  const LOW = TUNING.LOW;
+
   const GROUPS = [
+    { name: 'HANDLING', rows: [
+      { id: 'steerMax', label: 'Steer lock (low spd)', min: 0.3, max: 0.9, step: 0.02, get: () => D.STEER_MAX, set: (v) => { D.STEER_MAX = v; } },
+      { id: 'steerMin', label: 'Steer lock (top spd)', min: 0.05, max: 0.5, step: 0.01, get: () => D.STEER_MIN, set: (v) => { D.STEER_MIN = v; } },
+      { id: 'steerRate', label: 'Steer turn-in rate', min: 3, max: 14, step: 0.2, get: () => D.STEER_RATE, set: (v) => { D.STEER_RATE = v; } },
+      { id: 'steerReturn', label: 'Steer self-centre', min: 3, max: 16, step: 0.2, get: () => D.STEER_RETURN_RATE, set: (v) => { D.STEER_RETURN_RATE = v; } },
+      { id: 'hbGrip', label: 'Handbrake rear grip', min: 0.05, max: 0.6, step: 0.01, get: () => D.HANDBRAKE_SIDE_FRICTION, set: (v) => { D.HANDBRAKE_SIDE_FRICTION = v; } },
+    ] },
+    { name: 'DRIFT ASSIST', rows: [
+      { id: 'assistOn', label: 'Assist on (0/1)', min: 0, max: 1, step: 1, get: () => (AS.ENABLED ? 1 : 0), set: (v) => { AS.ENABLED = v >= 0.5; } },
+      { id: 'driftGrip', label: 'Drift rear grip', min: 0.05, max: 0.6, step: 0.01, get: () => AS.DRIFT_GRIP, set: (v) => { AS.DRIFT_GRIP = v; } },
+      { id: 'driftMaxYaw', label: 'Anti-spin yaw cap', min: 1, max: 5, step: 0.1, get: () => AS.MAX_YAW, set: (v) => { AS.MAX_YAW = v; } },
+      { id: 'driftHoldSpd', label: 'Hold speed (m/s)', min: 12, max: 40, step: 1, get: () => AS.HOLD_SPEED, set: (v) => { AS.HOLD_SPEED = v; } },
+      { id: 'driftHoldForce', label: 'Hold force (N)', min: 4000, max: 30000, step: 500, get: () => AS.HOLD_FORCE, set: (v) => { AS.HOLD_FORCE = v; } },
+    ] },
+    { name: 'PRESENCE / THE LOW', rows: [
+      { id: 'presBrighten', label: 'Afterimage burn', min: 0, max: 3, step: 0.1, get: () => P.BRIGHTEN, set: (v) => { P.BRIGHTEN = v; } },
+      { id: 'presHot', label: 'Hot-white shift', min: 0, max: 1, step: 0.02, get: () => P.HOT, set: (v) => { P.HOT = v; } },
+      { id: 'presSlip', label: 'Drift→light (rad)', min: 0.4, max: 1.4, step: 0.02, get: () => P.SLIP_FULL, set: (v) => { P.SLIP_FULL = v; } },
+      { id: 'lowStart', label: 'The Low starts (m/s)', min: 20, max: 70, step: 1, get: () => LOW.SPEED_LO, set: (v) => { LOW.SPEED_LO = v; } },
+      { id: 'lowFar', label: 'The Low fog pull', min: 0.1, max: 1, step: 0.02, get: () => LOW.FAR_MUL, set: (v) => { LOW.FAR_MUL = v; } },
+      { id: 'lowDim', label: 'The Low world dim', min: 0.2, max: 1, step: 0.02, get: () => LOW.LIGHT_MUL, set: (v) => { LOW.LIGHT_MUL = v; } },
+    ] },
     { name: 'TRAILS', rows: [
       { id: 'ribbonLife', label: 'Ribbon life', min: 0.3, max: 4, step: 0.1, get: () => T.RIBBON_LIFE, set: (v) => { T.RIBBON_LIFE = v; } },
       { id: 'ribbonWidth', label: 'Ribbon width', min: 0.05, max: 0.6, step: 0.01, get: () => T.RIBBON_WIDTH, set: (v) => { T.RIBBON_WIDTH = v; } },
