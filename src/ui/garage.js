@@ -9,16 +9,15 @@
 
 import TUNING from '../TUNING.js';
 import { Screen, makeList } from './screens.js';
-import { CARS, PART_VARIANTS, LIVERIES, SLIDERS, findCar, findVariant } from '../sim/cars.js';
+import { CARS, PART_VARIANTS, LIVERIES, SLIDERS, findCar, findVariant, resolveSetup } from '../sim/cars.js';
 import { medalCount } from '../storage/profiles.js';
 import { wallClips } from '../storage/clips.js';
 import { REGIONS } from '../sim/wear.js';
 
 const TABS = ['CAR', 'TUNE', 'PARTS', 'LIVERY', 'BODY'];
-const bar = (v) => {
-  const n = Math.round(v * 12);
-  return `<span class="slider">${'█'.repeat(n)}${'░'.repeat(12 - n)}</span>`;
-};
+// §3: "no bars." A slider reads as a restrained percentage between its two
+// named ends, not a wall of blocks — the number is the whole message.
+const pct = (v) => `${Math.round(v * 100)}%`;
 
 export function buildGarage(mgr, game) {
   let tab = 0;
@@ -40,7 +39,7 @@ export function buildGarage(mgr, game) {
     if (tab === 1) {
       return SLIDERS.map((s) => ({
         label: s.label, slider: s,
-        note: `${s.low} ${bar(p.tune[s.key])} ${s.high}`,
+        note: `${s.low} · ${pct(p.tune[s.key])} · ${s.high}`,
       }));
     }
     if (tab === 4) {
@@ -50,7 +49,7 @@ export function buildGarage(mgr, game) {
       const w = game.wear;
       const rows = REGIONS.map((r) => ({
         label: r.toUpperCase(), region: r,
-        note: `${bar(w ? w.scuffAt(r) : 0)} ${Math.round((w ? w.scuffAt(r) : 0) * 100)}%`,
+        note: `${pct(w ? w.scuffAt(r) : 0)} scuffed`,
       }));
       return [...rows, { label: 'RESPRAY', repair: true, note: 'clear every mark' }];
     }
@@ -84,14 +83,34 @@ export function buildGarage(mgr, game) {
   // Shows the equipped car by default, or a car passed in — so scrolling the
   // CAR list can describe whichever car is highlighted, not only the equipped
   // one.
+  // §3: the garage is a materiality showcase, not a stat sheet. A number and a
+  // word by default, restrained and no bars; DETAILS opens the full sheet for
+  // anyone who wants it. Toggled with Y (the `details` flag).
+  let details = false;
   const renderCard = (car = null) => {
     const p = game.profile;
     const c = car || findCar(p.car);
-    $('#gar-card').innerHTML = `
-      <h3>${c.name}</h3><p>${c.blurb}</p>
-      <div class="stat">
-        ${Object.keys(PART_VARIANTS).map((s) => `${s}: ${findVariant(s, p.parts[s]).name}`).join(' · ')}
-      </div>`;
+    const setup = resolveSetup({ ...p, car: c.id });
+    const w = setup.wheel;
+    const comZ = TUNING.CAR.COM.z;
+    // Static weight split: the front axle carries the fraction of the car that
+    // sits behind the CoM (nearer the rear), and vice versa.
+    const frontFrac = (w.rearZ - comZ) / (w.rearZ - w.frontZ);
+    const front = Math.round(frontFrac * 100);
+    if (details) {
+      $('#gar-card').innerHTML = `
+        <h3>${c.name}</h3><p>${c.blurb}</p>
+        <div class="stat">${Math.round(setup.mass).toLocaleString()} KG · ${front} / ${100 - front} · ${c.archetype.toUpperCase()}</div>
+        <div class="stat">${Object.keys(PART_VARIANTS).map((s) => `${s}: ${findVariant(s, p.parts[s]).name}`).join(' · ')}</div>
+        <div class="stat">${SLIDERS.map((s) => `${s.label} ${pct(p.tune[s.key])}`).join(' · ')}</div>
+        <div class="stat" style="opacity:.5">Y — hide details</div>`;
+    } else {
+      // One number, one word — the whole message (§3).
+      $('#gar-card').innerHTML = `
+        <h3>${c.name}</h3>
+        <div class="stat" style="font-size:1.3em">${Math.round(setup.mass).toLocaleString()} KG</div>
+        <div class="stat" style="opacity:.5">${c.owns || c.archetype} · Y for details</div>`;
+    }
   };
 
   // Highlighting a car on the CAR tab previews it doing the jump — every car
@@ -122,7 +141,7 @@ export function buildGarage(mgr, game) {
       <div class="list" id="gar-list"></div>
       <div class="card" id="gar-card" style="max-width:430px"></div>
       <div id="gar-wall" class="wall"></div>
-      <div class="hint"><b>←→</b> change · <b>Q/E</b> tab · <b>A</b> equip · <b>B</b> back</div>
+      <div class="hint"><b>←→</b> change · <b>Q/E</b> tab · <b>Y</b> details · <b>A</b> equip · <b>B</b> back</div>
     </div>`,
     onEnter: () => {
       list = makeList(document.getElementById('gar-list'), items(), (it) => {
@@ -143,6 +162,13 @@ export function buildGarage(mgr, game) {
     onMenu: (m) => {
       if (m.back) return mgr.back('main');
       const p = game.profile;
+
+      // Y opens the full tuning sheet; default is a number and a word (§3).
+      if (m.alt) {
+        details = !details;
+        renderCard(tab === 0 && list.item && list.item.car ? list.item.car : null);
+        return;
+      }
 
       // Tabs on the shoulder-ish keys; left/right edits whatever is selected.
       if (game.input.keys.has('KeyQ') || game.input.keys.has('KeyE')) {
